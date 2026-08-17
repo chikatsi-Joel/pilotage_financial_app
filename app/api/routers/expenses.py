@@ -1,0 +1,63 @@
+from datetime import date
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_user
+from app.db.session import get_db
+from app.models import Category, Expense, User
+from app.schemas.common import ExpenseCreate, ExpenseRead
+
+router = APIRouter(prefix="/users/{user_id}/expenses", tags=["expenses"])
+
+
+@router.post("", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)
+async def create_expense(payload: ExpenseCreate, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    category = await db.get(Category, payload.category_id)
+    if not category or category.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Category not found")
+    expense = Expense(user_id=user.id, **payload.model_dump())
+    db.add(expense)
+    await db.commit()
+    await db.refresh(expense)
+    return expense
+
+
+@router.get("", response_model=list[ExpenseRead])
+async def list_expenses(user: User = Depends(get_user), from_date: date | None = None, to_date: date | None = None, category_id: UUID | None = None, db: AsyncSession = Depends(get_db)):
+    query = select(Expense).where(Expense.user_id == user.id)
+    if from_date:
+        query = query.where(Expense.expense_date >= from_date)
+    if to_date:
+        query = query.where(Expense.expense_date <= to_date)
+    if category_id:
+        query = query.where(Expense.category_id == category_id)
+    query = query.order_by(Expense.expense_date.desc(), Expense.created_at.desc())
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+@router.put("/{expense_id}", response_model=ExpenseRead)
+async def update_expense(expense_id: UUID, payload: ExpenseCreate, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Expense).where(Expense.id == expense_id, Expense.user_id == user.id))
+    expense = result.scalar_one_or_none()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    category = await db.get(Category, payload.category_id)
+    if not category or category.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Category not found")
+    for key, value in payload.model_dump().items():
+        setattr(expense, key, value)
+    await db.commit(); await db.refresh(expense)
+    return expense
+
+
+@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_expense(expense_id: UUID, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Expense).where(Expense.id == expense_id, Expense.user_id == user.id))
+    expense = result.scalar_one_or_none()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    await db.delete(expense); await db.commit()
