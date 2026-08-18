@@ -13,9 +13,7 @@ from app.services import analytics_service, savings_service
 from app.services.ai import OllamaProvider
 from app.services.analytics_service import InvalidPeriod
 
-router = APIRouter(
-    prefix="/users/{user_id}/ai", tags=["ai"]
-)
+router = APIRouter(prefix="/users/{user_id}/ai", tags=["ai"])
 
 _ai_provider: OllamaProvider | None = None
 
@@ -67,22 +65,14 @@ async def analyze_period(
         ) from exc
 
     try:
-        analytics = await analytics_service.compute_category_analytics(
-            user.id, period, db
-        )
-        dash = await analytics_service.get_dashboard(
-            user.id, period, db
-        )
-        savings_goals = await savings_service.build_goal_analyses(
-            user.id, period, db
-        )
+        analytics = await analytics_service.compute_category_analytics(user.id, period, db)
+        dash = await analytics_service.get_dashboard(user.id, period, db)
+        savings_goals = await savings_service.build_goal_analyses(user.id, period, db)
         total_contributions = await savings_service.get_total_contributions_for_period(
             user.id, period, db
         )
     except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     context = {
         "period": period,
@@ -108,22 +98,14 @@ async def analyze_period(
                 "opportunity_score": a.opportunity_score,
                 "level": a.profile.level,
                 "trend": a.profile.trend,
-                "seasonality_strength": (
-                    a.profile.seasonality_strength
-                ),
-                "seasonality_reliable": (
-                    a.profile.seasonality_reliable
-                ),
+                "seasonality_strength": (a.profile.seasonality_strength),
+                "seasonality_reliable": (a.profile.seasonality_reliable),
                 "volatility": a.profile.volatility,
                 "anomaly_score": a.profile.anomaly_score,
-                "change_points": list(
-                    a.profile.change_points
-                ),
+                "change_points": list(a.profile.change_points),
                 "drift_score": a.profile.drift_score,
                 "confidence": a.profile.confidence,
-                "forecast_method": (
-                    a.profile.forecast.method
-                ),
+                "forecast_method": (a.profile.forecast.method),
                 "forecast_value": a.profile.forecast.value,
                 "forecast_mae": a.profile.forecast.mae,
             }
@@ -134,14 +116,9 @@ async def analyze_period(
             "savings_rate": str(dash.savings_rate),
             "total_monthly_contributions": str(total_contributions),
             "potential_additional_savings": str(dash.potential_savings),
-            "unallocated_monthly_savings": str(
-                max(dash.savings - total_contributions, 0)
-            ),
+            "unallocated_monthly_savings": str(max(dash.savings - total_contributions, 0)),
         },
-        "savings_goals": [
-            goal.model_dump(mode="json")
-            for goal in savings_goals
-        ],
+        "savings_goals": [goal.model_dump(mode="json") for goal in savings_goals],
     }
 
     provider = get_ai_provider()
@@ -174,9 +151,7 @@ async def analyze_period(
         summary=result.get("summary", ""),
         alerts=result.get("alerts", []),
         recommendations=result.get("recommendations", []),
-        projected_impact=result.get(
-            "projected_impact", {}
-        ),
+        projected_impact=result.get("projected_impact", {}),
         fallback=result.get("fallback", False),
         parse_error=result.get("parse_error"),
         number_warnings=result.get("number_warnings"),
@@ -205,12 +180,8 @@ async def list_analyses(
             model=r.model,
             summary=r.summary,
             alerts=json.loads(r.alerts_json),
-            recommendations=json.loads(
-                r.recommendations_json
-            ),
-            projected_impact=json.loads(
-                r.projected_impact_json
-            ),
+            recommendations=json.loads(r.recommendations_json),
+            projected_impact=json.loads(r.projected_impact_json),
             fallback=r.fallback,
         )
         for r in rows

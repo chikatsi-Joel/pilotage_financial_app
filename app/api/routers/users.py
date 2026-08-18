@@ -12,9 +12,7 @@ router = APIRouter(prefix="/users", tags=["users"])
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_user(
-    payload: UserCreate, db: DbSession
-):
+async def create_user(payload: UserCreate, db: DbSession):
     return await user_service.create_user(payload, db)
 
 

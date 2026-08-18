@@ -22,18 +22,23 @@ _NOT_FOUND = {404: {"description": "Catégorie introuvable"}}
     response_model=CategoryRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_category(payload: CategoryCreate, user: UserDep, db: DbSession,):
+async def create_category(
+    payload: CategoryCreate,
+    user: UserDep,
+    db: DbSession,
+):
 
     try:
-        return await category_service.create(
-            user.id, payload, db
-        )
+        return await category_service.create(user.id, payload, db)
     except InvalidEnum as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[CategoryRead])
-async def list_categories( user: UserDep, db: DbSession, ):
+async def list_categories(
+    user: UserDep,
+    db: DbSession,
+):
     return await category_service.list_by_user(user.id, db)
 
 
@@ -49,12 +54,8 @@ async def update_category(
     db: DbSession,
 ):
     try:
-        return await category_service.update( user.id, category_id, payload, db)
+        return await category_service.update(user.id, category_id, payload, db)
     except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except InvalidEnum as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

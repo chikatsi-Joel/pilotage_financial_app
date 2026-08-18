@@ -13,8 +13,15 @@ def test_all_tables_build_on_sqlite_metadata():
     Base.metadata.create_all(engine)
     tables = set(inspect(engine).get_table_names())
     assert {
-        "users", "incomes", "categories", "expenses", "savings_goals",
-        "monthly_snapshots", "category_analytics", "budgets", "recommendations",
+        "users",
+        "incomes",
+        "categories",
+        "expenses",
+        "savings_goals",
+        "monthly_snapshots",
+        "category_analytics",
+        "budgets",
+        "recommendations",
         "ai_analyses",
     } <= tables
 
@@ -29,7 +36,14 @@ def test_alembic_migration_0001_initial():
 
     tables = set(inspect(engine).get_table_names())
     assert {
-        "users", "incomes", "categories", "expenses", "savings_goals",
-        "monthly_snapshots", "category_analytics", "budgets", "recommendations",
+        "users",
+        "incomes",
+        "categories",
+        "expenses",
+        "savings_goals",
+        "monthly_snapshots",
+        "category_analytics",
+        "budgets",
+        "recommendations",
         "ai_analyses",
     } <= tables

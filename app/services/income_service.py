@@ -10,7 +10,11 @@ from app.models import Income
 from app.schemas.common import IncomeCreate
 
 
-async def create( user_id: UUID, payload: IncomeCreate, db: AsyncSession, ) -> Income:
+async def create(
+    user_id: UUID,
+    payload: IncomeCreate,
+    db: AsyncSession,
+) -> Income:
 
     income = Income(user_id=user_id, **payload.model_dump())
     db.add(income)
@@ -19,8 +23,12 @@ async def create( user_id: UUID, payload: IncomeCreate, db: AsyncSession, ) -> I
     return income
 
 
-async def list_by_user(user_id: UUID, db: AsyncSession, from_date: date | None = None,
-    to_date: date | None = None,) -> list[Income]:
+async def list_by_user(
+    user_id: UUID,
+    db: AsyncSession,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> list[Income]:
 
     query = select(Income).where(Income.user_id == user_id)
     if from_date:

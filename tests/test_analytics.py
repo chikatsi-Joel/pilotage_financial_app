@@ -1,6 +1,10 @@
 from datetime import date
 from decimal import Decimal
 
+from app.services.ai import (
+    _extract_known_numbers,
+    _validate_llm_output,
+)
 from app.services.analytics import (
     FinancialAnalyticsEngine,
     confidence,
@@ -8,9 +12,7 @@ from app.services.analytics import (
     drift_score,
     mad,
     money,
-    residual_anomaly_score,
     robust_baseline,
-    robust_center,
     robust_relative_dispersion,
     robust_z,
     seasonality_strength,
@@ -22,18 +24,12 @@ from app.services.analytics.models import (
     Expense,
     OptimizationPotential,
 )
-from app.services.ai import (
-    _extract_known_numbers,
-    _validate_llm_output,
-)
 
 
 def test_robust_baseline_filters_outlier():
     values = [50.0, 55.0, 60.0, 500.0]
     baseline = robust_baseline(values)
-    assert baseline < 100.0, (
-        f"500 should be filtered out as outlier, got {baseline}"
-    )
+    assert baseline < 100.0, f"500 should be filtered out as outlier, got {baseline}"
 
 
 def test_mad_filters_outlier():
@@ -45,9 +41,7 @@ def test_mad_filters_outlier():
 def test_robust_relative_dispersion():
     stable = [100.0, 102.0, 98.0, 101.0, 99.0]
     volatile = [100.0, 200.0, 50.0, 300.0, 80.0]
-    assert robust_relative_dispersion(stable) < (
-        robust_relative_dispersion(volatile)
-    )
+    assert robust_relative_dispersion(stable) < (robust_relative_dispersion(volatile))
 
 
 def test_robust_relative_dispersion_empty():
@@ -121,10 +115,8 @@ def test_seasonality_strength_short():
 
 def test_seasonality_strength_long_enough():
     import math
-    values = [
-        100 + 20 * math.sin(2 * math.pi * i / 12)
-        for i in range(36)
-    ]
+
+    values = [100 + 20 * math.sin(2 * math.pi * i / 12) for i in range(36)]
     strength, reliable = seasonality_strength(values)
     assert reliable is True
     assert strength > 0.0
@@ -147,7 +139,9 @@ def test_full_engine_analysis():
         Expense(amount=Decimal("250"), date=date(2026, 8, 1), category_id="cat1"),
     ]
     cat = Category(
-        id="cat1", name="Test", description="",
+        id="cat1",
+        name="Test",
+        description="",
         type=CategoryType.NON_ESSENTIAL,
         optimization_potential=OptimizationPotential.HIGH,
     )
@@ -161,15 +155,15 @@ def test_full_engine_analysis():
     assert result.profile.confidence > 0
     assert result.profile.drift_score >= 0
     assert isinstance(result.profile.seasonality_reliable, bool)
-    assert result.profile.forecast.method in (
-        "naive", "ewma", "trend", "seasonal_naive"
-    )
+    assert result.profile.forecast.method in ("naive", "ewma", "trend", "seasonal_naive")
 
 
 def test_engine_skips_empty_categories():
     engine = FinancialAnalyticsEngine()
     cat = Category(
-        id="empty", name="Empty", description="",
+        id="empty",
+        name="Empty",
+        description="",
         type=CategoryType.ESSENTIAL,
         optimization_potential=OptimizationPotential.LOW,
     )
@@ -193,12 +187,20 @@ def test_engine_analyze_sorts_by_opportunity_score():
         Expense(amount=Decimal("200"), date=date(2026, 1, 1), category_id="c2"),
     ]
     cats = [
-        Category(id="c1", name="Essential", description="",
-                 type=CategoryType.ESSENTIAL,
-                 optimization_potential=OptimizationPotential.LOW),
-        Category(id="c2", name="NonEssential", description="",
-                 type=CategoryType.NON_ESSENTIAL,
-                 optimization_potential=OptimizationPotential.HIGH),
+        Category(
+            id="c1",
+            name="Essential",
+            description="",
+            type=CategoryType.ESSENTIAL,
+            optimization_potential=OptimizationPotential.LOW,
+        ),
+        Category(
+            id="c2",
+            name="NonEssential",
+            description="",
+            type=CategoryType.NON_ESSENTIAL,
+            optimization_potential=OptimizationPotential.HIGH,
+        ),
     ]
     engine = FinancialAnalyticsEngine()
     results = engine.analyze(cats, expenses, 2026, 6)

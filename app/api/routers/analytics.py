@@ -24,13 +24,9 @@ async def category_analytics(
     db: DbSession,
 ):
     try:
-        analytics = await analytics_service.compute_category_analytics(
-            user.id, period, db
-        )
+        analytics = await analytics_service.compute_category_analytics(user.id, period, db)
     except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return analytics
 
 
@@ -41,13 +37,9 @@ async def dashboard(
     db: DbSession,
 ):
     try:
-        return await analytics_service.get_dashboard(
-            user.id, period, db
-        )
+        return await analytics_service.get_dashboard(user.id, period, db)
     except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/refresh")
@@ -57,10 +49,6 @@ async def refresh_analytics(
     db: DbSession,
 ):
     try:
-        return await analytics_service.refresh_analytics(
-            user.id, period, db
-        )
+        return await analytics_service.refresh_analytics(user.id, period, db)
     except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

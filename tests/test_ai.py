@@ -77,23 +77,25 @@ SAMPLE_CONTEXT = {
         "potential_additional_savings": "17400",
         "unallocated_monthly_savings": "180000",
     },
-    "savings_goals": [{
-        "goal_id": "00000000-0000-0000-0000-000000000003",
-        "name": "Fonds voiture",
-        "description": "Épargne destinée à l'achat d'une voiture",
-        "target_amount": "8400000",
-        "target_date": "2028-06-01",
-        "current_amount": "1200000",
-        "remaining_amount": "7200000",
-        "progress_percentage": 14.29,
-        "contribution_count": 18,
-        "average_monthly_contribution": "84000",
-        "recent_monthly_contribution": "105000",
-        "contribution_trend": "increasing",
-        "contribution_regularity": 0.78,
-        "required_monthly_contribution": "327273",
-        "deadline_status": "upcoming",
-    }],
+    "savings_goals": [
+        {
+            "goal_id": "00000000-0000-0000-0000-000000000003",
+            "name": "Fonds voiture",
+            "description": "Épargne destinée à l'achat d'une voiture",
+            "target_amount": "8400000",
+            "target_date": "2028-06-01",
+            "current_amount": "1200000",
+            "remaining_amount": "7200000",
+            "progress_percentage": 14.29,
+            "contribution_count": 18,
+            "average_monthly_contribution": "84000",
+            "recent_monthly_contribution": "105000",
+            "contribution_trend": "increasing",
+            "contribution_regularity": 0.78,
+            "required_monthly_contribution": "327273",
+            "deadline_status": "upcoming",
+        }
+    ],
 }
 
 
@@ -119,12 +121,14 @@ def test_build_prompt_contains_key_data():
 
 
 def test_parse_response_valid_json():
-    raw = json.dumps({
-        "summary": "Situation stable",
-        "alerts": [],
-        "recommendations": [],
-        "projected_impact": {},
-    })
+    raw = json.dumps(
+        {
+            "summary": "Situation stable",
+            "alerts": [],
+            "recommendations": [],
+            "projected_impact": {},
+        }
+    )
     result = _parse_response(raw)
     assert result["summary"] == "Situation stable"
     assert "parse_error" not in result
@@ -156,11 +160,13 @@ def test_fallback_analysis_detects_drifts():
 
 def test_fallback_analysis_no_drifts():
     ctx = {
-        "categories": [{
-            "drift_score": 0,
-            "potential_saving": 0,
-            "essential": True,
-        }]
+        "categories": [
+            {
+                "drift_score": 0,
+                "potential_saving": 0,
+                "essential": True,
+            }
+        ]
     }
     result = _fallback_analysis(ctx, "err")
     assert result["alerts"] == []
@@ -169,47 +175,34 @@ def test_fallback_analysis_no_drifts():
 
 @pytest.mark.asyncio
 async def test_ollama_provider_fallback_on_connection_error():
-    provider = OllamaProvider(
-        base_url="http://localhost:99999", model="test"
-    )
+    provider = OllamaProvider(base_url="http://localhost:99999", model="test")
     with patch.object(provider, "_get_client") as mock_get:
         mock_client = AsyncMock()
         import ollama as _ollama
 
-        mock_client.chat.side_effect = (
-            _ollama.ResponseError("connection refused")
-        )
+        mock_client.chat.side_effect = _ollama.ResponseError("connection refused")
         mock_get.return_value = mock_client
         result = await provider.analyze(SAMPLE_CONTEXT)
         assert result["fallback"] is True
         summary = result["summary"]
-        assert (
-            "Ollama indisponible" in summary
-            or "connection refused" in summary
-        )
+        assert "Ollama indisponible" in summary or "connection refused" in summary
 
 
 @pytest.mark.asyncio
 async def test_ollama_provider_success():
-    provider = OllamaProvider(
-        base_url="http://localhost:11434", model="test"
-    )
+    provider = OllamaProvider(base_url="http://localhost:11434", model="test")
     with patch.object(provider, "_get_client") as mock_get:
         mock_client = AsyncMock()
         mock_client.chat.return_value = {
             "message": {
-                "content": json.dumps({
-                    "summary": "Analyse OK",
-                    "alerts": [
-                        {"category": "Restaurants"}
-                    ],
-                    "recommendations": [
-                        {"action": "Réduire"}
-                    ],
-                    "projected_impact": {
-                        "savings": "17400"
-                    },
-                }),
+                "content": json.dumps(
+                    {
+                        "summary": "Analyse OK",
+                        "alerts": [{"category": "Restaurants"}],
+                        "recommendations": [{"action": "Réduire"}],
+                        "projected_impact": {"savings": "17400"},
+                    }
+                ),
             },
         }
         mock_get.return_value = mock_client

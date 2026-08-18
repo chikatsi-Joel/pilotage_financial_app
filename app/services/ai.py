@@ -8,15 +8,13 @@ from typing import Any, Protocol
 import ollama as _ollama
 
 from app.core.config import settings
-
-from app.services.context.context_promt import SYSTEM_PROMPT
+from app.services.context.context_prompt import SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
 
 
 class AIAnalysisProvider(Protocol):
     async def analyze(self, structured_context: dict[str, Any]) -> dict[str, Any]: ...
-
 
 
 def _build_prompt(context: dict[str, Any]) -> str:
@@ -62,14 +60,16 @@ def _build_prompt(context: dict[str, Any]) -> str:
             f"opportunity_score={cat.get('opportunity_score', 0)}"
         )
 
-    lines.extend([
-        "",
-        "Contexte global d'épargne :",
-        json.dumps(savings, ensure_ascii=False),
-        "",
-        "Objectifs d'épargne (indicateurs agrégés, sans contributions unitaires) :",
-        json.dumps(savings_goals, ensure_ascii=False),
-    ])
+    lines.extend(
+        [
+            "",
+            "Contexte global d'épargne :",
+            json.dumps(savings, ensure_ascii=False),
+            "",
+            "Objectifs d'épargne (indicateurs agrégés, sans contributions unitaires) :",
+            json.dumps(savings_goals, ensure_ascii=False),
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -143,8 +143,11 @@ def _extract_known_numbers(context: dict[str, Any]) -> set[float]:
     numbers: set[float] = set()
     dashboard = context.get("dashboard", {})
     for key in (
-        "income", "expenses", "savings",
-        "savings_rate", "potential_savings",
+        "income",
+        "expenses",
+        "savings",
+        "savings_rate",
+        "potential_savings",
     ):
         val = dashboard.get(key)
         if val is not None:
@@ -154,11 +157,18 @@ def _extract_known_numbers(context: dict[str, Any]) -> set[float]:
                 pass
     for cat in context.get("categories", []):
         for key in (
-            "current_amount", "baseline_amount",
-            "expected_amount", "potential_saving",
-            "opportunity_score", "level", "trend",
-            "seasonality_strength", "volatility",
-            "anomaly_score", "drift_score", "confidence",
+            "current_amount",
+            "baseline_amount",
+            "expected_amount",
+            "potential_saving",
+            "opportunity_score",
+            "level",
+            "trend",
+            "seasonality_strength",
+            "volatility",
+            "anomaly_score",
+            "drift_score",
+            "confidence",
             "forecast_value",
         ):
             val = cat.get(key)
@@ -211,9 +221,7 @@ def _validate_llm_output(
         text_fields.append(rec.get("justification", ""))
 
     full_text = " ".join(text_fields)
-    found_numbers = re.findall(
-        r"\b\d[\d\s]*[\.,]?\d*\b", full_text
-    )
+    found_numbers = re.findall(r"\b\d[\d\s]*[\.,]?\d*\b", full_text)
 
     warnings: list[str] = []
     for num_str in found_numbers:
@@ -224,18 +232,13 @@ def _validate_llm_output(
             continue
         if val == 0:
             continue
-        matched = any(
-            abs(val - kf) / max(abs(kf), 1) < 0.05
-            for kf in known
-        )
+        matched = any(abs(val - kf) / max(abs(kf), 1) < 0.05 for kf in known)
         if not matched:
             warnings.append(num_str)
 
     if warnings:
         result["number_warnings"] = warnings
-        log.warning(
-            "LLM may have hallucinated numbers: %s", warnings
-        )
+        log.warning("LLM may have hallucinated numbers: %s", warnings)
     return result
 
 
@@ -246,27 +249,29 @@ def _fallback_analysis(context: dict[str, Any], error: str) -> dict[str, Any]:
     for cat in categories:
         drift = cat.get("drift_score", 0)
         if drift >= 0.5:
-            alerts.append({
-                "category": cat.get("name"),
-                "drift_score": drift,
-                "anomaly_score": cat.get("anomaly_score", 0),
-                "variation_percentage": cat.get("variation_percentage", 0),
-            })
+            alerts.append(
+                {
+                    "category": cat.get("name"),
+                    "drift_score": drift,
+                    "anomaly_score": cat.get("anomaly_score", 0),
+                    "variation_percentage": cat.get("variation_percentage", 0),
+                }
+            )
         saving = float(cat.get("potential_saving", 0))
         if saving > 0 and not cat.get("essential", False):
-            recommendations.append({
-                "category": cat.get("name"),
-                "action": f"Réduire de {saving:.0f} par mois",
-                "justification": (
-                    f"opportunity_score={cat.get('opportunity_score', 0):.2f}, "
-                    f"confidence={cat.get('confidence', 0):.2f}, "
-                    f"forecast={cat.get('forecast_method', 'N/A')} "
-                    f"-> {cat.get('forecast_value', 0):.0f}"
-                ),
-            })
-    total = sum(
-        float(cat.get("potential_saving", 0)) for cat in categories
-    )
+            recommendations.append(
+                {
+                    "category": cat.get("name"),
+                    "action": f"Réduire de {saving:.0f} par mois",
+                    "justification": (
+                        f"opportunity_score={cat.get('opportunity_score', 0):.2f}, "
+                        f"confidence={cat.get('confidence', 0):.2f}, "
+                        f"forecast={cat.get('forecast_method', 'N/A')} "
+                        f"-> {cat.get('forecast_value', 0):.0f}"
+                    ),
+                }
+            )
+    total = sum(float(cat.get("potential_saving", 0)) for cat in categories)
     return {
         "summary": f"Analyse déterministe de secours (Ollama indisponible : {error})",
         "alerts": alerts,

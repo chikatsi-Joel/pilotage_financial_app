@@ -7,9 +7,7 @@ def mad(values: list[float]) -> float:
     if not values:
         return 0.0
     c = median(values)
-    return float(
-        median(abs(float(x) - c) for x in values)
-    )
+    return float(median(abs(float(x) - c) for x in values))
 
 
 def robust_center(values: list[float]) -> float:
@@ -34,20 +32,14 @@ def ewma(values: list[float], alpha: float = 0.30) -> float:
     return result
 
 
-def robust_baseline(
-    values: list[float], alpha: float = 0.30
-) -> float:
+def robust_baseline(values: list[float], alpha: float = 0.30) -> float:
     if not values:
         return 0.0
     center = robust_center(values)
     scale = mad(values)
     if scale == 0:
         return ewma(values, alpha)
-    filtered = [
-        value
-        for value in values
-        if abs(value - center) <= 3.5 * scale
-    ]
+    filtered = [value for value in values if abs(value - center) <= 3.5 * scale]
     return ewma(filtered or list(values), alpha)
 
 

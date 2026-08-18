@@ -30,9 +30,7 @@ async def create_goal(
     user: UserDep,
     db: DbSession,
 ):
-    return await savings_service.create_goal(
-        user.id, payload, db
-    )
+    return await savings_service.create_goal(user.id, payload, db)
 
 
 @router.get("", response_model=list[SavingsGoalRead])
@@ -55,9 +53,7 @@ async def contribute(
     db: DbSession,
 ):
     try:
-        return await savings_service.contribute(
-            user.id, goal_id, payload.amount, db
-        )
+        return await savings_service.contribute(user.id, goal_id, payload.amount, db)
     except NotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except BusinessRule as exc:

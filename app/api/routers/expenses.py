@@ -8,9 +8,7 @@ from app.schemas.common import ExpenseCreate, ExpenseRead
 from app.services import expense_service
 from app.services.expense_service import NotFound
 
-router = APIRouter(
-    prefix="/users/{user_id}/expenses", tags=["expenses"]
-)
+router = APIRouter(prefix="/users/{user_id}/expenses", tags=["expenses"])
 
 _NOT_FOUND = {404: {"description": "Ressource introuvable"}}
 
@@ -27,13 +25,9 @@ async def create_expense(
     db: DbSession,
 ):
     try:
-        return await expense_service.create(
-            user.id, payload, db
-        )
+        return await expense_service.create(user.id, payload, db)
     except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[ExpenseRead])
@@ -44,9 +38,7 @@ async def list_expenses(
     to_date: date | None = None,
     category_id: UUID | None = None,
 ):
-    return await expense_service.list_by_user(
-        user.id, db, from_date, to_date, category_id
-    )
+    return await expense_service.list_by_user(user.id, db, from_date, to_date, category_id)
 
 
 @router.put(
@@ -61,13 +53,9 @@ async def update_expense(
     db: DbSession,
 ):
     try:
-        return await expense_service.update(
-            user.id, expense_id, payload, db
-        )
+        return await expense_service.update(user.id, expense_id, payload, db)
     except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.delete(
@@ -81,10 +69,6 @@ async def delete_expense(
     db: DbSession,
 ):
     try:
-        await expense_service.delete(
-            user.id, expense_id, db
-        )
+        await expense_service.delete(user.id, expense_id, db)
     except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
