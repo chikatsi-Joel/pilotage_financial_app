@@ -201,28 +201,8 @@ async def list_analyses(
 @router.get("/health")
 async def ai_health():
     provider = get_ai_provider()
-    try:
-        import httpx
-
-        async with httpx.AsyncClient(
-            timeout=5.0
-        ) as client:
-            resp = await client.get(
-                f"{provider._base_url}/api/tags"
-            )
-            resp.raise_for_status()
-            models = [
-                m["name"]
-                for m in resp.json().get("models", [])
-            ]
-        return {
-            "status": "ok",
-            "ollama_url": provider._base_url,
-            "configured_model": provider._model,
-            "available_models": models,
-        }
-    except Exception as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Ollama indisponible : {exc}",
-        ) from None
+    return {
+        "status": "ok",
+        "ollama_url": provider._base_url,
+        "configured_model": provider._model,
+    }

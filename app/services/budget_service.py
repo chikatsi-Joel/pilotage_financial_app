@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import (
     Budget, Category, Recommendation,
@@ -52,11 +53,16 @@ async def recommend_budget(
             SavingsGoal.user_id == user_id,
             SavingsGoal.active.is_(True),
         )
+        .options(selectinload(SavingsGoal.contributions))
         .order_by(SavingsGoal.deadline)
     )
     goal = goal_result.scalars().first()
     target_savings = None
     if goal:
+        current = sum(
+            (c.amount for c in goal.contributions),
+            Decimal("0"),
+        )
         months_left = max(
             1,
             (goal.deadline.year - start.year) * 12
@@ -66,7 +72,7 @@ async def recommend_budget(
         )
         target_savings = max(
             Decimal("0"),
-            (goal.target_amount - goal.current_amount)
+            (goal.target_amount - current)
             / Decimal(months_left),
         )
 

@@ -6,6 +6,7 @@ from app.schemas.common import UserCreate, UserRead
 
 router = APIRouter(prefix="/users", tags=["users"])
 
+#my userid = 5f9b214a-c895-412f-aac9-36065e9e2302
 
 @router.post(
     "",

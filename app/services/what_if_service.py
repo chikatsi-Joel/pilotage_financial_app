@@ -6,9 +6,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Category, Expense, Income
+from app.models import Category, Expense
 from app.schemas.common import WhatIfRead
-from app.services.analytics_service import month_bounds
+from app.services.analytics_service import get_period_totals, month_bounds
 from app.services.what_if import simulate_what_if
 
 
@@ -40,25 +40,13 @@ async def simulate(
         amount_result.scalars().all(), Decimal("0")
     )
 
-    income_result = await db.execute(
-        select(Income.amount).where(
-            Income.user_id == user_id,
-            Income.income_date.between(start, end),
-        )
-    )
-    income = sum(
-        income_result.scalars().all(), Decimal("0")
+    income, expenses = await get_period_totals(
+        user_id, period, db
     )
 
-    expense_result = await db.execute(
-        select(Expense.amount).where(
-            Expense.user_id == user_id,
-            Expense.expense_date.between(start, end),
-        )
+    result = simulate_what_if(
+        current_amount, reduction_percent, income, expenses
     )
-    expenses = sum(expense_result.scalars().all(), Decimal("0"))
-
-    result = simulate_what_if(current_amount, reduction_percent, income, expenses,)
 
     return WhatIfRead(
         period=period,

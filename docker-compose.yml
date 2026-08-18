@@ -15,33 +15,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
   api:
     build: .
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://finance:finance@db:5432/finance
     depends_on:
       db:
         condition: service_healthy
-      ollama:
-        condition: service_started
-    environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
     ports:
       - "8000:8000"
 
 volumes:
   postgres_data:
-  ollama_data:

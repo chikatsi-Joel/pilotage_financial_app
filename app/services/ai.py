@@ -89,7 +89,14 @@ class OllamaProvider:
         self._timeout = timeout or settings.ollama_timeout
 
     def _get_client(self) -> _ollama.AsyncClient:
-        return _ollama.AsyncClient(host=self._base_url, timeout=self._timeout)
+        headers = {}
+        if settings.ollama_api_key:
+            headers["Authorization"] = f"Bearer {settings.ollama_api_key}"
+        return _ollama.AsyncClient(
+            host=self._base_url,
+            timeout=self._timeout,
+            headers=headers,
+        )
 
     async def analyze(self, structured_context: dict[str, Any]) -> dict[str, Any]:
         prompt = _build_prompt(structured_context)

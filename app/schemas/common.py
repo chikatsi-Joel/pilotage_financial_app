@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -69,7 +69,12 @@ class SavingsGoalCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     target_amount: Decimal = Field(gt=0)
     deadline: date
-    current_amount: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+class SavingsContributionRead(ORMModel):
+    id: UUID
+    amount: Decimal
+    created_at: datetime
 
 
 class SavingsGoalRead(ORMModel):
@@ -77,8 +82,22 @@ class SavingsGoalRead(ORMModel):
     name: str
     target_amount: Decimal
     deadline: date
-    current_amount: Decimal
     active: bool
+    current_amount: Decimal
+    contributions: list[SavingsContributionRead]
+
+
+class SavingsGoalContribute(BaseModel):
+    amount: Decimal = Field(gt=0)
+
+
+class SavingsGoalContributeRead(BaseModel):
+    goal_id: UUID
+    goal_name: str
+    amount: Decimal
+    new_total: Decimal
+    target_amount: Decimal
+    completed: bool
 
 
 class ForecastRead(BaseModel):

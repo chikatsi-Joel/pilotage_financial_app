@@ -39,7 +39,13 @@ def upgrade() -> None:
     op.create_table("savings_goals",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True), sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.String(160), nullable=False), sa.Column("target_amount", sa.Numeric(18,2), nullable=False), sa.Column("deadline", sa.Date(), nullable=False),
-        sa.Column("current_amount", sa.Numeric(18,2), nullable=False), sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()), sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False))
+        sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()), sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False))
+    op.create_table("savings_contributions",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("savings_goal_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("savings_goals.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("amount", sa.Numeric(18,2), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False))
+    op.create_index("ix_contribution_goal_date", "savings_contributions", ["savings_goal_id", "created_at"])
     op.create_table("monthly_snapshots",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True), sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("period", sa.String(7), nullable=False), sa.Column("income", sa.Numeric(18,2), nullable=False), sa.Column("expenses", sa.Numeric(18,2), nullable=False),

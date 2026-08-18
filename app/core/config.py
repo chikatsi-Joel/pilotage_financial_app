@@ -19,9 +19,10 @@ class Settings(BaseSettings):
     weight_persistent: float = 0.35
     weight_anomaly: float = 0.20
 
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma3:latest"
+    ollama_base_url: str = "https://api.ollama.com"
+    ollama_model: str = "gemma4:31b"
     ollama_timeout: float = 60.0
+    ollama_api_key: str = "e2aa3375e8e34b75926e5715e3bf0329.GjnBZJucM-tmSCfP4QiTFzES"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

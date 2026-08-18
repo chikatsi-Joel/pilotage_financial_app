@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import (
-    CategoryAnalyticsRead, DashboardRead,
+    CategoryAnalyticsRead,
+    DashboardRead,
 )
 from app.services import analytics_service
 from app.services.analytics_service import InvalidPeriod
@@ -14,7 +15,7 @@ router = APIRouter(
 
 
 @router.get(
-    "categories",
+    "/categories",
     response_model=list[CategoryAnalyticsRead],
 )
 async def category_analytics(
@@ -33,7 +34,7 @@ async def category_analytics(
     return analytics
 
 
-@router.get("dashboard", response_model=DashboardRead)
+@router.get("/dashboard", response_model=DashboardRead)
 async def dashboard(
     period: str,
     user: UserDep,
@@ -49,7 +50,7 @@ async def dashboard(
         ) from exc
 
 
-@router.post("refresh")
+@router.post("/refresh")
 async def refresh_analytics(
     period: str,
     user: UserDep,
