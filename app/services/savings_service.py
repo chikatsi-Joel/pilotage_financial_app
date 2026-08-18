@@ -110,18 +110,16 @@ async def build_goal_analyses(
     analyses: list[SavingsGoalAnalysis] = []
 
     for goal in goals:
-        contributions = [
-            contribution
-            for contribution in goal.contributions
-            if contribution.created_at.date() <= period_end
+        contributions = [contribution for contribution in goal.contributions
+                         if contribution.created_at.date() <= period_end
         ]
+
         current_amount = money(sum(
             (contribution.amount for contribution in contributions),
             Decimal("0"),
         ))
-        remaining_amount = money(max(
-            Decimal("0"), goal.target_amount - current_amount,
-        ))
+
+        remaining_amount = money(max( Decimal("0"), goal.target_amount - current_amount, ))
         totals_by_period = {item: Decimal("0") for item in periods}
 
         for contribution in contributions:

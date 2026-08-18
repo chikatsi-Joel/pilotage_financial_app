@@ -22,16 +22,10 @@ class InvalidEnum(Exception):
     pass
 
 
-async def create(
-    user_id: UUID,
-    payload: CategoryCreate,
-    db: AsyncSession,
-) -> Category:
+async def create( user_id: UUID, payload: CategoryCreate, db: AsyncSession,) -> Category:
     try:
         essentiality = Essentiality(payload.essentiality.upper())
-        optimization = OptimizationPotential(
-            payload.optimization_potential.upper()
-        )
+        optimization = OptimizationPotential(payload.optimization_potential.upper())
     except ValueError as exc:
         raise InvalidEnum(
             "Invalid essentiality or optimization_potential"
@@ -50,9 +44,7 @@ async def create(
     return category
 
 
-async def list_by_user(
-    user_id: UUID, db: AsyncSession
-) -> list[Category]:
+async def list_by_user( user_id: UUID, db: AsyncSession ) -> list[Category]:
     result = await db.execute(
         select(Category)
         .where(Category.user_id == user_id)
@@ -61,18 +53,15 @@ async def list_by_user(
     return list(result.scalars().all())
 
 
-async def update(
-    user_id: UUID,
-    category_id: UUID,
-    payload: CategoryUpdate,
-    db: AsyncSession,
-) -> Category:
+async def update( user_id: UUID, category_id: UUID, payload: CategoryUpdate, db: AsyncSession, ) -> Category:
     category = await db.get(Category, category_id)
+
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
     if payload.name is not None:
         category.name = payload.name.strip()
+
     if payload.essentiality is not None:
         try:
             category.essentiality = Essentiality(
@@ -80,15 +69,15 @@ async def update(
             )
         except ValueError as exc:
             raise InvalidEnum("Invalid essentiality") from exc
+
     if payload.optimization_potential is not None:
         try:
             category.optimization_potential = OptimizationPotential(
                 payload.optimization_potential.upper()
             )
         except ValueError as exc:
-            raise InvalidEnum(
-                "Invalid optimization_potential"
-            ) from exc
+            raise InvalidEnum("Invalid optimization_potential") from exc
+
     if payload.active is not None:
         category.active = payload.active
 
