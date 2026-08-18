@@ -24,24 +24,50 @@ SAMPLE_CONTEXT = {
     },
     "categories": [
         {
-            "category_name": "Alimentation",
-            "current": "150000",
-            "baseline": "145000",
-            "deviation": "0.03448",
-            "drift_signal": "NORMAL",
-            "optimization_potential": "LOW",
+            "category_id": "00000000-0000-0000-0000-000000000001",
+            "name": "Alimentation",
+            "description": "",
             "essential": True,
-            "estimated_saving": "0",
+            "current_amount": 150000.0,
+            "baseline_amount": 145000.0,
+            "expected_amount": 148000.0,
+            "variation_percentage": 3.45,
+            "potential_saving": 0.0,
+            "opportunity_score": 0.0,
+            "level": 145000.0,
+            "trend": 0.02,
+            "seasonality_strength": 0.1,
+            "volatility": 0.05,
+            "anomaly_score": 0.5,
+            "change_points": [],
+            "drift_score": 0.1,
+            "confidence": 0.75,
+            "forecast_method": "ewma",
+            "forecast_value": 146000.0,
+            "forecast_mae": 2000.0,
         },
         {
-            "category_name": "Restaurants",
-            "current": "87000",
-            "baseline": "55000",
-            "deviation": "0.58182",
-            "drift_signal": "STRONG_DRIFT",
-            "optimization_potential": "HIGH",
+            "category_id": "00000000-0000-0000-0000-000000000002",
+            "name": "Restaurants",
+            "description": "",
             "essential": False,
-            "estimated_saving": "17400",
+            "current_amount": 87000.0,
+            "baseline_amount": 55000.0,
+            "expected_amount": 58000.0,
+            "variation_percentage": 58.18,
+            "potential_saving": 17400.0,
+            "opportunity_score": 0.85,
+            "level": 55000.0,
+            "trend": 0.08,
+            "seasonality_strength": 0.3,
+            "volatility": 0.2,
+            "anomaly_score": 1.8,
+            "change_points": [6],
+            "drift_score": 0.8,
+            "confidence": 0.5,
+            "forecast_method": "trend",
+            "forecast_value": 62000.0,
+            "forecast_mae": 5000.0,
         },
     ],
 }
@@ -52,7 +78,17 @@ def test_build_prompt_contains_key_data():
     assert "2026-08" in prompt
     assert "800000" in prompt
     assert "Restaurants" in prompt
-    assert "STRONG_DRIFT" in prompt
+    assert "Alimentation" in prompt
+    assert "expected=" in prompt
+    assert "opportunity_score=" in prompt
+    assert "confidence=" in prompt
+    assert "potential_saving=" in prompt
+    assert "variation=" in prompt
+    assert "anomaly=" in prompt
+    assert "forecast=" in prompt
+    assert "drift=" in prompt
+    assert "level=" in prompt
+    assert "volatility=" in prompt
 
 
 def test_parse_response_valid_json():
@@ -92,7 +128,13 @@ def test_fallback_analysis_detects_drifts():
 
 
 def test_fallback_analysis_no_drifts():
-    ctx = {"categories": [{"drift_signal": "NORMAL", "estimated_saving": 0, "essential": True}]}
+    ctx = {
+        "categories": [{
+            "drift_score": 0,
+            "potential_saving": 0,
+            "essential": True,
+        }]
+    }
     result = _fallback_analysis(ctx, "err")
     assert result["alerts"] == []
     assert result["recommendations"] == []
@@ -100,31 +142,46 @@ def test_fallback_analysis_no_drifts():
 
 @pytest.mark.asyncio
 async def test_ollama_provider_fallback_on_connection_error():
-    provider = OllamaProvider(base_url="http://localhost:99999", model="test")
+    provider = OllamaProvider(
+        base_url="http://localhost:99999", model="test"
+    )
     with patch.object(provider, "_get_client") as mock_get:
         mock_client = AsyncMock()
         import ollama as _ollama
 
-        mock_client.chat.side_effect = _ollama.ResponseError("connection refused")
+        mock_client.chat.side_effect = (
+            _ollama.ResponseError("connection refused")
+        )
         mock_get.return_value = mock_client
         result = await provider.analyze(SAMPLE_CONTEXT)
         assert result["fallback"] is True
         summary = result["summary"]
-        assert "Ollama indisponible" in summary or "connection refused" in summary
+        assert (
+            "Ollama indisponible" in summary
+            or "connection refused" in summary
+        )
 
 
 @pytest.mark.asyncio
 async def test_ollama_provider_success():
-    provider = OllamaProvider(base_url="http://localhost:11434", model="test")
+    provider = OllamaProvider(
+        base_url="http://localhost:11434", model="test"
+    )
     with patch.object(provider, "_get_client") as mock_get:
         mock_client = AsyncMock()
         mock_client.chat.return_value = {
             "message": {
                 "content": json.dumps({
                     "summary": "Analyse OK",
-                    "alerts": [{"category": "Restaurants"}],
-                    "recommendations": [{"action": "Réduire"}],
-                    "projected_impact": {"savings": "17400"},
+                    "alerts": [
+                        {"category": "Restaurants"}
+                    ],
+                    "recommendations": [
+                        {"action": "Réduire"}
+                    ],
+                    "projected_impact": {
+                        "savings": "17400"
+                    },
                 }),
             },
         }

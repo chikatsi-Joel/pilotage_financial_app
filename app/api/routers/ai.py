@@ -73,14 +73,27 @@ async def analyze_period(
         },
         "categories": [
             {
-                "category_name": a.category_name,
-                "current": str(a.current),
-                "baseline": str(a.baseline) if a.baseline is not None else None,
-                "deviation": str(a.deviation),
-                "drift_signal": a.drift_signal,
-                "optimization_potential": a.optimization_potential,
+                "category_id": str(a.category_id),
+                "name": a.name,
+                "description": a.description,
                 "essential": a.essential,
-                "estimated_saving": str(a.estimated_saving),
+                "current_amount": a.current_amount,
+                "baseline_amount": a.baseline_amount,
+                "expected_amount": a.expected_amount,
+                "variation_percentage": a.variation_percentage,
+                "potential_saving": a.potential_saving,
+                "opportunity_score": a.opportunity_score,
+                "level": a.profile.level,
+                "trend": a.profile.trend,
+                "seasonality_strength": a.profile.seasonality_strength,
+                "volatility": a.profile.volatility,
+                "anomaly_score": a.profile.anomaly_score,
+                "change_points": list(a.profile.change_points),
+                "drift_score": a.profile.drift_score,
+                "confidence": a.profile.confidence,
+                "forecast_method": a.profile.forecast.method,
+                "forecast_value": a.profile.forecast.value,
+                "forecast_mae": a.profile.forecast.mae,
             }
             for a in analytics
         ],
@@ -118,8 +131,7 @@ async def analyze_period(
 
 
 @router.get("/analyses", response_model=list[AIAnalysisStoredRead])
-async def list_analyses(
-    user: User = Depends(get_user),
+async def list_analyses(user: User = Depends(get_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

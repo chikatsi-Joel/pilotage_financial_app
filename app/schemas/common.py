@@ -81,22 +81,37 @@ class SavingsGoalRead(ORMModel):
     active: bool
 
 
+class ForecastRead(BaseModel):
+    method: str
+    value: float
+    mae: float | None
+
+
+class TimeSeriesProfileRead(BaseModel):
+    level: float
+    trend: float
+    seasonality_strength: float
+    volatility: float
+    anomaly_score: float
+    change_points: tuple[int, ...]
+    drift_score: float
+    confidence: float
+    forecast: ForecastRead
+
+
 class CategoryAnalyticsRead(BaseModel):
     category_id: UUID
-    category_name: str
+    name: str
+    description: str
     period: str
-    current: Decimal
-    baseline: Decimal | None
-    trend: Decimal
-    trend_direction: str
-    volatility: Decimal
-    frequency: int
-    deviation: Decimal
-    drift_signal: str
-    confidence: str
     essential: bool
-    optimization_potential: str
-    estimated_saving: Decimal
+    current_amount: float
+    baseline_amount: float
+    expected_amount: float
+    variation_percentage: float
+    potential_saving: float
+    opportunity_score: float
+    profile: TimeSeriesProfileRead
 
 
 class RecommendationRead(BaseModel):
@@ -113,7 +128,7 @@ class BudgetCategoryLine(BaseModel):
     category_id: UUID
     category_name: str
     current: Decimal
-    baseline: Decimal | None
+    baseline: float
     recommended: Decimal
     essential: bool
     reduction: Decimal

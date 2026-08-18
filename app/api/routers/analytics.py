@@ -11,13 +11,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_user
-from app.core.config import settings
 from app.db.session import get_db
-from app.models import Category, CategoryAnalytics, Expense, Income, MonthlySnapshot, SavingsGoal, User
+from app.models import Category, CategoryAnalytics, Expense, Income, MonthlySnapshot, User
 from app.schemas.common import CategoryAnalyticsRead, DashboardRead
-from app.services.analytics import analyze_category, money
+from app.services.analytics import FinancialAnalyticsEngine, money
+from app.services.analytics.models import (
+    Category as DomainCategory,
+    CategoryType,
+    Expense as DomainExpense,
+    OptimizationPotential,
+)
 
 router = APIRouter(prefix="/users/{user_id}/analytics", tags=["analytics"])
+_engine = FinancialAnalyticsEngine()
 
 
 def month_bounds(period: str) -> tuple[date, date]:
@@ -29,97 +35,270 @@ def month_bounds(period: str) -> tuple[date, date]:
 
 def previous_periods(period: str, n: int) -> list[str]:
     d = date.fromisoformat(period + "-01")
-    return [(d - relativedelta(months=i)).strftime("%Y-%m") for i in range(n, 0, -1)]
+    return [
+        (d - relativedelta(months=i)).strftime("%Y-%m")
+        for i in range(n, 0, -1)
+    ]
 
 
-async def compute_category_analytics(user_id: UUID, period: str, db: AsyncSession) -> list[CategoryAnalyticsRead]:
+def _to_domain_category(c: Category) -> DomainCategory:
+    return DomainCategory(
+        id=str(c.id),
+        name=c.name,
+        description="",
+        type=(
+            CategoryType.ESSENTIAL
+            if c.essentiality.value == "ESSENTIAL"
+            else CategoryType.NON_ESSENTIAL
+        ),
+        optimization_potential=OptimizationPotential(
+            c.optimization_potential.value.lower()
+        ),
+    )
+
+
+def _to_domain_expenses(
+    expenses: list[Expense],
+) -> list[DomainExpense]:
+    return [
+        DomainExpense(
+            amount=e.amount, date=e.expense_date,
+            category_id=str(e.category_id),
+        )
+        for e in expenses
+    ]
+
+
+def _profile_to_dict(profile) -> dict:
+    return {
+        "level": profile.level,
+        "trend": profile.trend,
+        "seasonality_strength": profile.seasonality_strength,
+        "volatility": profile.volatility,
+        "anomaly_score": profile.anomaly_score,
+        "change_points": profile.change_points,
+        "drift_score": profile.drift_score,
+        "confidence": profile.confidence,
+        "forecast": {
+            "method": profile.forecast.method,
+            "value": profile.forecast.value,
+            "mae": profile.forecast.mae,
+        },
+    }
+
+
+async def compute_category_analytics(
+    user_id: UUID, period: str, db: AsyncSession
+) -> list[CategoryAnalyticsRead]:
+    year, month = map(int, period.split("-"))
     current_start, current_end = month_bounds(period)
-    category_result = await db.execute(select(Category).where(Category.user_id == user_id, Category.active.is_(True)).order_by(Category.name))
-    categories = category_result.scalars().all()
-    history_periods = previous_periods(period, settings.analytics_lookback_months)
-    hist_bounds = [month_bounds(p) for p in history_periods]
 
-    expense_result = await db.execute(select(Expense).where(Expense.user_id == user_id, Expense.expense_date <= current_end))
-    expenses = expense_result.scalars().all()
-    by_cat_month: dict[tuple[UUID, str], Decimal] = {}
-    freq_current: dict[UUID, int] = {}
-    for e in expenses:
-        p = e.expense_date.strftime("%Y-%m")
-        by_cat_month[(e.category_id, p)] = by_cat_month.get((e.category_id, p), Decimal("0")) + e.amount
-        if current_start <= e.expense_date <= current_end:
-            freq_current[e.category_id] = freq_current.get(e.category_id, 0) + 1
+    category_result = await db.execute(
+        select(Category)
+        .where(
+            Category.user_id == user_id,
+            Category.active.is_(True),
+        )
+        .order_by(Category.name)
+    )
+    categories = [
+        _to_domain_category(c)
+        for c in category_result.scalars().all()
+    ]
 
-    results: list[CategoryAnalyticsRead] = []
-    for c in categories:
-        history_values = [by_cat_month[(c.id, p)] for p in history_periods if (c.id, p) in by_cat_month]
-        current = by_cat_month.get((c.id, period), Decimal("0"))
-        a = analyze_category(history_values, current, c.essentiality.value == "ESSENTIAL", c.optimization_potential.value)
-        results.append(CategoryAnalyticsRead(
-            category_id=c.id, category_name=c.name, period=period, current=money(current), baseline=a.baseline,
-            trend=a.trend, trend_direction=a.trend_direction.value, volatility=a.volatility,
-            frequency=freq_current.get(c.id, 0), deviation=a.deviation, drift_signal=a.drift_signal.value,
-            confidence=a.confidence.value, essential=c.essentiality.value == "ESSENTIAL",
-            optimization_potential=c.optimization_potential.value, estimated_saving=a.estimated_saving,
-        ))
-    return results
+    expense_result = await db.execute(
+        select(Expense).where(
+            Expense.user_id == user_id,
+            Expense.expense_date <= current_end,
+        )
+    )
+    all_expenses = expense_result.scalars().all()
+    domain_expenses = _to_domain_expenses(all_expenses)
+
+    results = _engine.analyze(categories, domain_expenses, year, month)
+
+    return [
+        CategoryAnalyticsRead(
+            category_id=UUID(r.category_id),
+            name=r.name,
+            description=r.description,
+            period=period,
+            essential=r.essential,
+            current_amount=r.current_amount,
+            baseline_amount=r.baseline_amount,
+            expected_amount=r.expected_amount,
+            variation_percentage=r.variation_percentage,
+            potential_saving=r.potential_saving,
+            opportunity_score=r.opportunity_score,
+            profile=_profile_to_dict(r.profile),
+        )
+        for r in results
+    ]
 
 
-@router.get("categories", response_model=list[CategoryAnalyticsRead])
-async def category_analytics(period: str, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+@router.get(
+    "categories", response_model=list[CategoryAnalyticsRead]
+)
+async def category_analytics(
+    period: str,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
     try:
         date.fromisoformat(period + "-01")
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="period must be YYYY-MM") from exc
-    return await compute_category_analytics(user.id, period, db)
+        raise HTTPException(
+            status_code=422, detail="period must be YYYY-MM"
+        ) from exc
+    return await compute_category_analytics(
+        user.id, period, db
+    )
 
 
 @router.get("dashboard", response_model=DashboardRead)
-async def dashboard(period: str, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+async def dashboard(
+    period: str,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
     start, end = month_bounds(period)
-    incomes = await db.execute(select(Income.amount).where(Income.user_id == user.id, Income.income_date.between(start, end)))
-    expenses = await db.execute(select(Expense.amount).where(Expense.user_id == user.id, Expense.expense_date.between(start, end)))
-    income_total = sum((x for x in incomes.scalars().all()), Decimal("0"))
-    expense_total = sum((x for x in expenses.scalars().all()), Decimal("0"))
+    incomes = await db.execute(
+        select(Income.amount).where(
+            Income.user_id == user.id,
+            Income.income_date.between(start, end),
+        )
+    )
+    expenses = await db.execute(
+        select(Expense.amount).where(
+            Expense.user_id == user.id,
+            Expense.expense_date.between(start, end),
+        )
+    )
+    income_total = sum(
+        (x for x in incomes.scalars().all()), Decimal("0")
+    )
+    expense_total = sum(
+        (x for x in expenses.scalars().all()), Decimal("0")
+    )
     savings = income_total - expense_total
-    savings_rate = (savings / income_total).quantize(Decimal("0.00001")) if income_total else Decimal("0")
-    analytics = await compute_category_analytics(user.id, period, db)
-    drifts = [x for x in analytics if x.drift_signal != "NORMAL"]
-    drifts.sort(key=lambda x: abs(x.deviation), reverse=True)
+    savings_rate = (
+        (savings / income_total).quantize(Decimal("0.00001"))
+        if income_total
+        else Decimal("0")
+    )
+    analytics = await compute_category_analytics(
+        user.id, period, db
+    )
+    drifts = [
+        x for x in analytics
+        if x.profile.drift_score >= 0.5
+    ]
+    drifts.sort(
+        key=lambda x: x.profile.drift_score, reverse=True
+    )
     return DashboardRead(
-        period=period, income=money(income_total), expenses=money(expense_total), savings=money(savings),
-        savings_rate=savings_rate, categories_in_drift=len(drifts),
-        potential_savings=money(sum((x.estimated_saving for x in analytics), Decimal("0"))),
+        period=period,
+        income=money(income_total),
+        expenses=money(expense_total),
+        savings=money(savings),
+        savings_rate=savings_rate,
+        categories_in_drift=len(drifts),
+        potential_savings=money(
+            sum(
+                (x.potential_saving for x in analytics), 0.0
+            )
+        ),
         top_drift_categories=drifts[:5],
     )
 
 
 @router.post("refresh")
-async def refresh_analytics(period: str, user: User = Depends(get_user), db: AsyncSession = Depends(get_db)):
+async def refresh_analytics(
+    period: str,
+    user: User = Depends(get_user),
+    db: AsyncSession = Depends(get_db),
+):
     start, end = month_bounds(period)
-    analytics = await compute_category_analytics(user.id, period, db)
-    income_result = await db.execute(select(Income.amount).where(Income.user_id == user.id, Income.income_date.between(start, end)))
-    expense_result = await db.execute(select(Expense.amount).where(Expense.user_id == user.id, Expense.expense_date.between(start, end)))
-    income = sum(income_result.scalars().all(), Decimal("0"))
-    expense = sum(expense_result.scalars().all(), Decimal("0"))
+    analytics = await compute_category_analytics(
+        user.id, period, db
+    )
+    income_result = await db.execute(
+        select(Income.amount).where(
+            Income.user_id == user.id,
+            Income.income_date.between(start, end),
+        )
+    )
+    expense_result = await db.execute(
+        select(Expense.amount).where(
+            Expense.user_id == user.id,
+            Expense.expense_date.between(start, end),
+        )
+    )
+    income = sum(
+        income_result.scalars().all(), Decimal("0")
+    )
+    expense = sum(
+        expense_result.scalars().all(), Decimal("0")
+    )
     savings = income - expense
     rate = (savings / income) if income else Decimal("0")
-    snapshot_result = await db.execute(select(MonthlySnapshot).where(MonthlySnapshot.user_id == user.id, MonthlySnapshot.period == period))
+
+    snapshot_result = await db.execute(
+        select(MonthlySnapshot).where(
+            MonthlySnapshot.user_id == user.id,
+            MonthlySnapshot.period == period,
+        )
+    )
     snapshot = snapshot_result.scalar_one_or_none()
     if snapshot is None:
-        snapshot = MonthlySnapshot(user_id=user.id, period=period, income=money(income), expenses=money(expense), savings=money(savings), savings_rate=rate)
+        snapshot = MonthlySnapshot(
+            user_id=user.id, period=period,
+            income=money(income), expenses=money(expense),
+            savings=money(savings), savings_rate=rate,
+        )
         db.add(snapshot)
     else:
-        snapshot.income = money(income); snapshot.expenses = money(expense); snapshot.savings = money(savings); snapshot.savings_rate = rate
+        snapshot.income = money(income)
+        snapshot.expenses = money(expense)
+        snapshot.savings = money(savings)
+        snapshot.savings_rate = rate
+
     for a in analytics:
-        existing_result = await db.execute(select(CategoryAnalytics).where(
-            CategoryAnalytics.user_id == user.id, CategoryAnalytics.category_id == a.category_id, CategoryAnalytics.period == period
-        ))
+        existing_result = await db.execute(
+            select(CategoryAnalytics).where(
+                CategoryAnalytics.user_id == user.id,
+                CategoryAnalytics.category_id == a.category_id,
+                CategoryAnalytics.period == period,
+            )
+        )
         existing = existing_result.scalar_one_or_none()
+        p = a.profile
         values = dict(
-            user_id=user.id, category_id=a.category_id, period=period, baseline=a.baseline, trend=a.trend,
-            volatility=a.volatility, deviation=a.deviation, frequency=a.frequency, confidence=a.confidence,
-            trend_direction=a.trend_direction, drift_signal=a.drift_signal, current_amount=a.current,
-            estimated_saving=a.estimated_saving,
+            user_id=user.id,
+            category_id=a.category_id,
+            period=period,
+            baseline=money(a.baseline_amount),
+            trend=Decimal(str(p.trend)),
+            volatility=Decimal(str(p.volatility)),
+            deviation=Decimal(
+                str(a.current_amount - a.expected_amount)
+            ),
+            frequency=0,
+            confidence="HIGH" if p.confidence >= 0.75 else (
+                "MEDIUM" if p.confidence >= 0.25 else "LOW"
+            ),
+            trend_direction=(
+                "INCREASING" if p.trend > 0.05
+                else ("DECREASING" if p.trend < -0.05
+                      else "STABLE")
+            ),
+            drift_signal=(
+                "STRONG_DRIFT" if p.drift_score >= 0.8
+                else ("ATTENTION" if p.drift_score >= 0.5
+                      else "NORMAL")
+            ),
+            current_amount=money(a.current_amount),
+            estimated_saving=money(a.potential_saving),
         )
         if existing is None:
             db.add(CategoryAnalytics(**values))
@@ -127,5 +306,15 @@ async def refresh_analytics(period: str, user: User = Depends(get_user), db: Asy
             for key, value in values.items():
                 if key not in {"user_id", "category_id", "period"}:
                     setattr(existing, key, value)
+
     await db.commit()
-    return {"period": period, "snapshot": {"income": money(income), "expenses": money(expense), "savings": money(savings), "savings_rate": rate}, "categories": len(analytics)}
+    return {
+        "period": period,
+        "snapshot": {
+            "income": money(income),
+            "expenses": money(expense),
+            "savings": money(savings),
+            "savings_rate": rate,
+        },
+        "categories": len(analytics),
+    }

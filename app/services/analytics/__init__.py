@@ -1,27 +1,50 @@
-from app.services.analytics.anomaly import robust_z_score
-from app.services.analytics.baseline import calculate_robust_baseline
-from app.services.analytics.drift import calculate_cusum
-from app.services.analytics.engine import (
+from app.services.analytics.engine import FinancialAnalyticsEngine, money
+from app.services.analytics.forecast import forecast
+from app.services.analytics.models import (
+    Category,
     CategoryAnalysis,
-    analyze_category,
-    money,
-    reduction_rate,
+    CategoryType,
+    Expense,
+    Forecast,
+    OptimizationPotential,
+    TimeSeriesProfile,
 )
-from app.services.analytics.expected import calculate_expected_spending
-from app.services.analytics.metrics import SpendingMetrics
-from app.services.analytics.opportunity import calculate_opportunity_score
-from app.services.analytics.trends import calculate_trend
+from app.services.analytics.statistics import (
+    confidence,
+    ewma,
+    mad,
+    robust_baseline,
+    robust_center,
+    robust_z,
+    theil_sen_trend,
+)
+from app.services.analytics.time_series import (
+    detect_change_points,
+    drift_score,
+    residual_anomaly_score,
+    seasonality_strength,
+)
 
 __all__ = [
+    "Category",
     "CategoryAnalysis",
-    "SpendingMetrics",
-    "analyze_category",
-    "calculate_cusum",
-    "calculate_expected_spending",
-    "calculate_opportunity_score",
-    "calculate_robust_baseline",
-    "calculate_trend",
+    "CategoryType",
+    "Expense",
+    "FinancialAnalyticsEngine",
+    "Forecast",
+    "OptimizationPotential",
+    "TimeSeriesProfile",
+    "confidence",
+    "detect_change_points",
+    "drift_score",
+    "ewma",
+    "forecast",
+    "mad",
     "money",
-    "reduction_rate",
-    "robust_z_score",
+    "residual_anomaly_score",
+    "robust_baseline",
+    "robust_center",
+    "robust_z",
+    "seasonality_strength",
+    "theil_sen_trend",
 ]

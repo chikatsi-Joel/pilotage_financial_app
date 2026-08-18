@@ -1,109 +1,167 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from collections import defaultdict
+from decimal import Decimal, ROUND_HALF_UP
 
-from app.core.config import settings
-from app.models import ConfidenceLevel, DriftSignal, TrendDirection
-from app.services.analytics.baseline import calculate_robust_baseline
-from app.services.analytics.drift import calculate_cusum
-from app.services.analytics.trends import calculate_trend
+from app.services.analytics.forecast import forecast
+from app.services.analytics.models import (
+    Category,
+    CategoryAnalysis,
+    Expense,
+    Forecast,
+    TimeSeriesProfile,
+)
+from app.services.analytics.statistics import (
+    confidence,
+    mad,
+    robust_baseline,
+    robust_center,
+    theil_sen_trend,
+)
+from app.services.analytics.time_series import (
+    detect_change_points,
+    drift_score,
+    residual_anomaly_score,
+    seasonality_strength,
+)
 
 CENT = Decimal("0.01")
 
 
 def money(value: Decimal | float | int) -> Decimal:
-    return Decimal(str(value)).quantize(CENT, rounding=ROUND_HALF_UP)
-
-
-def confidence_for_months(months: int) -> ConfidenceLevel:
-    if months < 3:
-        return ConfidenceLevel.LOW
-    if months < 6:
-        return ConfidenceLevel.MEDIUM
-    return ConfidenceLevel.HIGH
-
-
-def trend_direction(trend: float) -> TrendDirection:
-    if trend > 0.05:
-        return TrendDirection.INCREASING
-    if trend < -0.05:
-        return TrendDirection.DECREASING
-    return TrendDirection.STABLE
-
-
-def drift_signal(deviation: Decimal) -> DriftSignal:
-    if abs(deviation) >= Decimal(str(settings.strong_deviation_threshold)):
-        return DriftSignal.STRONG_DRIFT
-    if abs(deviation) >= Decimal(str(settings.attention_deviation_threshold)):
-        return DriftSignal.ATTENTION
-    return DriftSignal.NORMAL
-
-
-def reduction_rate(
-    optimization_potential: str, deviation: Decimal, essential: bool
-) -> Decimal:
-    if essential:
-        return Decimal("0")
-    base = {
-        "LOW": Decimal("0.05"),
-        "MEDIUM": Decimal("0.10"),
-        "HIGH": Decimal("0.20"),
-    }[optimization_potential]
-    if deviation >= Decimal(str(settings.strong_deviation_threshold)):
-        base += Decimal("0.05")
-    return min(base, Decimal("0.25"))
-
-
-@dataclass(frozen=True)
-class CategoryAnalysis:
-    baseline: Decimal | None
-    trend: Decimal
-    volatility: Decimal
-    deviation: Decimal
-    confidence: ConfidenceLevel
-    trend_direction: TrendDirection
-    drift_signal: DriftSignal
-    estimated_saving: Decimal
-
-
-def analyze_category(
-    historical_values: list[Decimal],
-    current: Decimal,
-    essential: bool,
-    optimization_potential: str,
-) -> CategoryAnalysis:
-    history = [float(v) for v in historical_values if v >= 0]
-    has_enough = len(history) >= settings.min_history_months_for_baseline
-
-    baseline_raw = calculate_robust_baseline(history) if has_enough else None
-    baseline = money(baseline_raw) if baseline_raw is not None else None
-
-    confidence = confidence_for_months(len(history))
-
-    if baseline is None or baseline == Decimal("0"):
-        deviation = Decimal("0")
-    else:
-        deviation = (current - baseline) / baseline
-
-    trend_float = calculate_trend(history) if len(history) >= 2 else 0.0
-    trend = Decimal(str(trend_float)).quantize(Decimal("0.000001"))
-
-    cusum = calculate_cusum(history)
-    volatility = Decimal(str(cusum)).quantize(Decimal("0.000001"))
-
-    signal = drift_signal(deviation) if has_enough else DriftSignal.NORMAL
-
-    saving_rate = reduction_rate(optimization_potential, deviation, essential)
-    estimated_saving = money(current * saving_rate)
-
-    return CategoryAnalysis(
-        baseline=baseline,
-        trend=trend,
-        volatility=volatility,
-        deviation=deviation.quantize(Decimal("0.000001")),
-        confidence=confidence,
-        trend_direction=trend_direction(trend_float),
-        drift_signal=signal,
-        estimated_saving=estimated_saving,
+    return Decimal(str(value)).quantize(
+        CENT, rounding=ROUND_HALF_UP
     )
+
+
+class FinancialAnalyticsEngine:
+
+    def monthly_series(
+        self, category_id: str, expenses: list[Expense]
+    ) -> list[float]:
+        grouped: dict[tuple[int, int], float] = defaultdict(float)
+        for e in expenses:
+            if e.category_id == category_id:
+                grouped[(e.date.year, e.date.month)] += float(
+                    e.amount
+                )
+        return [v for _, v in sorted(grouped.items())]
+
+    def analyze_category(
+        self,
+        category: Category,
+        expenses: list[Expense],
+        year: int,
+        month: int,
+    ) -> CategoryAnalysis | None:
+        values = self.monthly_series(category.id, expenses)
+        if not values:
+            return None
+
+        current = sum(
+            float(e.amount)
+            for e in expenses
+            if e.category_id == category.id
+            and e.date.year == year
+            and e.date.month == month
+        )
+
+        baseline = robust_baseline(values)
+        trend = theil_sen_trend(values)
+        expected = max(0, baseline * (1 + trend))
+
+        variation = (
+            (current - baseline) / baseline * 100
+            if baseline
+            else 0
+        )
+
+        anomaly = residual_anomaly_score(values)
+        drift = drift_score(values)
+        seasonal = seasonality_strength(values)
+        volatility = mad(values) / max(
+            abs(robust_center(values)), 1e-9
+        )
+        changes = detect_change_points(values)
+
+        factor = {
+            "low": 0.25,
+            "medium": 0.60,
+            "high": 1.0,
+        }[category.optimization_potential.value]
+
+        saving = max(0, current - expected) * factor
+
+        persistent = min(
+            max(variation, 0) / 100
+            + max(trend, 0)
+            + drift,
+            1,
+        )
+
+        score_val = min(
+            max(
+                (
+                    0.45 * (saving / max(current, 1))
+                    + 0.35 * persistent
+                    + 0.20 * min(anomaly / 3, 1)
+                )
+                * (
+                    0.25
+                    if category.type.value == "essential"
+                    else 1
+                ),
+                0,
+            ),
+            1,
+        )
+
+        method, value, mae = forecast(values)
+        profile = TimeSeriesProfile(
+            level=baseline,
+            trend=trend,
+            seasonality_strength=seasonal,
+            volatility=volatility,
+            anomaly_score=anomaly,
+            change_points=changes,
+            drift_score=drift,
+            confidence=confidence(len(values)),
+            forecast=Forecast(method, value, mae),
+        )
+
+        return CategoryAnalysis(
+            category_id=category.id,
+            name=category.name,
+            description=category.description,
+            essential=category.type.value == "essential",
+            current_amount=current,
+            baseline_amount=baseline,
+            expected_amount=expected,
+            variation_percentage=variation,
+            potential_saving=saving,
+            opportunity_score=score_val,
+            profile=profile,
+        )
+
+    def analyze(
+        self,
+        categories: list[Category],
+        expenses: list[Expense],
+        year: int,
+        month: int,
+    ) -> list[CategoryAnalysis]:
+        result = [
+            a
+            for c in categories
+            if (
+                a := self.analyze_category(
+                    c, expenses, year, month
+                )
+            )
+            is not None
+        ]
+        return sorted(
+            result,
+            key=lambda x: x.opportunity_score,
+            reverse=True,
+        )

@@ -21,15 +21,18 @@ async def what_if(period: str, payload: WhatIfRequest, user: User = Depends(get_
     category = await db.get(Category, payload.category_id)
     if not category or category.user_id != user.id:
         raise HTTPException(status_code=404, detail="Category not found")
+
     amount_result = await db.execute(select(Expense.amount).where(
         Expense.user_id == user.id, Expense.category_id == payload.category_id,
         Expense.expense_date.between(start, end),
     ))
+
     current_amount = sum(amount_result.scalars().all(), Decimal("0"))
     income_result = await db.execute(select(Income.amount).where(Income.user_id == user.id, Income.income_date.between(start, end)))
     income = sum(income_result.scalars().all(), Decimal("0"))
     expense_result = await db.execute(select(Expense.amount).where(Expense.user_id == user.id, Expense.expense_date.between(start, end)))
     expenses = sum(expense_result.scalars().all(), Decimal("0"))
     result = simulate_what_if(current_amount, payload.reduction_percent, income, expenses)
+
     return WhatIfRead(period=period, category_name=category.name, current_amount=current_amount,
                       reduction_percent=payload.reduction_percent, **result)

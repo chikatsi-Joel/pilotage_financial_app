@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from decimal import Decimal
 from typing import Any, Protocol
 
 import ollama as _ollama
@@ -47,14 +46,26 @@ def _build_prompt(context: dict[str, Any]) -> str:
     ]
     for cat in categories:
         lines.append(
-            f"- {cat.get('category_name', '?')} : "
-            f"actuel={cat.get('current', 0)}, "
-            f"baseline={cat.get('baseline', 'N/A')}, "
-            f"deviation={cat.get('deviation', 0)}, "
-            f"drift={cat.get('drift_signal', 'NORMAL')}, "
-            f"optimisation={cat.get('optimization_potential', 'LOW')}, "
-            f"essentiel={cat.get('essential', False)}, "
-            f"économie estimée={cat.get('estimated_saving', 0)}"
+            f"- {cat.get('name', '?')} "
+            f"(id={cat.get('category_id', '?')}) : "
+            f"current={cat.get('current_amount', 0)}, "
+            f"baseline={cat.get('baseline_amount', 'N/A')}, "
+            f"expected={cat.get('expected_amount', 'N/A')}, "
+            f"variation={cat.get('variation_percentage', 0)}%, "
+            f"level={cat.get('level', 0)}, "
+            f"trend={cat.get('trend', 0)}, "
+            f"seasonality={cat.get('seasonality_strength', 0)}, "
+            f"volatility={cat.get('volatility', 0)}, "
+            f"anomaly={cat.get('anomaly_score', 0)}, "
+            f"change_points={cat.get('change_points', [])}, "
+            f"drift={cat.get('drift_score', 0)}, "
+            f"confidence={cat.get('confidence', 0)}, "
+            f"forecast={cat.get('forecast_method', 'N/A')} "
+            f"-> {cat.get('forecast_value', 0)} "
+            f"(mae={cat.get('forecast_mae', 'N/A')}), "
+            f"essential={cat.get('essential', False)}, "
+            f"potential_saving={cat.get('potential_saving', 0)}, "
+            f"opportunity_score={cat.get('opportunity_score', 0)}"
         )
 
     return "\n".join(lines)
@@ -68,7 +79,7 @@ class OllamaProvider:
         base_url: str | None = None,
         model: str | None = None,
         timeout: float | None = None,
-    ) -> None:
+    ):
         self._base_url = base_url or settings.ollama_base_url
         self._model = model or settings.ollama_model
         self._timeout = timeout or settings.ollama_timeout
@@ -121,36 +132,33 @@ def _fallback_analysis(context: dict[str, Any], error: str) -> dict[str, Any]:
     alerts: list[dict[str, Any]] = []
     recommendations: list[dict[str, Any]] = []
     for cat in categories:
-        if cat.get("drift_signal") in ("ATTENTION", "STRONG_DRIFT"):
+        drift = cat.get("drift_score", 0)
+        if drift >= 0.5:
             alerts.append({
-                "category": cat.get("category_name"),
-                "signal": cat.get("drift_signal"),
-                "deviation": str(cat.get("deviation", 0)),
+                "category": cat.get("name"),
+                "drift_score": drift,
+                "anomaly_score": cat.get("anomaly_score", 0),
+                "variation_percentage": cat.get("variation_percentage", 0),
             })
-        saving = Decimal(str(cat.get("estimated_saving", 0)))
+        saving = float(cat.get("potential_saving", 0))
         if saving > 0 and not cat.get("essential", False):
             recommendations.append({
-                "category": cat.get("category_name"),
-                "action": f"Réduire de {saving} par mois",
+                "category": cat.get("name"),
+                "action": f"Réduire de {saving:.0f} par mois",
                 "justification": (
-                    f"Potentiel d'optimisation {cat.get('optimization_potential')}, "
-                    f"dérive {cat.get('drift_signal')}"
+                    f"opportunity_score={cat.get('opportunity_score', 0):.2f}, "
+                    f"confidence={cat.get('confidence', 0):.2f}, "
+                    f"forecast={cat.get('forecast_method', 'N/A')} "
+                    f"-> {cat.get('forecast_value', 0):.0f}"
                 ),
             })
     total = sum(
-        Decimal(str(cat.get("estimated_saving", 0))) for cat in categories
+        float(cat.get("potential_saving", 0)) for cat in categories
     )
     return {
         "summary": f"Analyse déterministe de secours (Ollama indisponible : {error})",
         "alerts": alerts,
         "recommendations": recommendations,
-        "projected_impact": {"total_potential_savings": str(total)},
+        "projected_impact": {"total_potential_savings": f"{total:.0f}"},
         "fallback": True,
     }
-
-
-class DisabledAIProvider:
-    """Placeholder pour le MVP sans LLM."""
-
-    async def analyze(self, structured_context: dict[str, Any]) -> dict[str, Any]:
-        raise RuntimeError("AI analysis is not enabled. Use OllamaProvider for V2.")
