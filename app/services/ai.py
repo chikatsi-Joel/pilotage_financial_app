@@ -9,6 +9,8 @@ import ollama as _ollama
 
 from app.core.config import settings
 
+from .context_promt import SYSTEM_PROMPT
+
 log = logging.getLogger(__name__)
 
 
@@ -16,25 +18,13 @@ class AIAnalysisProvider(Protocol):
     async def analyze(self, structured_context: dict[str, Any]) -> dict[str, Any]: ...
 
 
-SYSTEM_PROMPT = (
-    "Tu es un assistant financier expert en pilotage de finances personnelles. "
-    "Tu reçois des données structurées (revenus, dépenses, catégories, dérives, volatilité) "
-    "et tu dois fournir :\n"
-    "1. Un résumé narratif de la situation financière du mois.\n"
-    "2. Les principaux signaux d'alerte (dérives fortes, catégories à risque).\n"
-    "3. Des recommandations concrètes et chiffrées pour réduire les dépenses.\n"
-    "4. Une estimation de l'impact si les recommandations sont suivies.\n\n"
-    "IMPORTANT : n'invente jamais de chiffres. Utilise uniquement les valeurs "
-    "fournies dans les données structurées.\n\n"
-    "Réponds toujours en JSON valide avec les clés : "
-    "summary, alerts, recommendations, projected_impact."
-)
-
 
 def _build_prompt(context: dict[str, Any]) -> str:
     period = context.get("period", "N/A")
     dashboard = context.get("dashboard", {})
     categories = context.get("categories", [])
+    savings = context.get("savings", {})
+    savings_goals = context.get("savings_goals", [])
 
     lines = [
         f"Période analysée : {period}",
@@ -71,6 +61,15 @@ def _build_prompt(context: dict[str, Any]) -> str:
             f"potential_saving={cat.get('potential_saving', 0)}, "
             f"opportunity_score={cat.get('opportunity_score', 0)}"
         )
+
+    lines.extend([
+        "",
+        "Contexte global d'épargne :",
+        json.dumps(savings, ensure_ascii=False),
+        "",
+        "Objectifs d'épargne (indicateurs agrégés, sans contributions unitaires) :",
+        json.dumps(savings_goals, ensure_ascii=False),
+    ])
 
     return "\n".join(lines)
 
@@ -168,7 +167,26 @@ def _extract_known_numbers(context: dict[str, Any]) -> set[float]:
                     numbers.add(float(val))
                 except (ValueError, TypeError):
                     pass
+    for value in _walk_numbers(context.get("savings", {})):
+        numbers.add(value)
+    for goal in context.get("savings_goals", []):
+        for value in _walk_numbers(goal):
+            numbers.add(value)
     return numbers
+
+
+def _walk_numbers(value: Any) -> set[float]:
+    """Extract numeric leaves from the compact savings context."""
+    if isinstance(value, dict):
+        return set().union(*(_walk_numbers(item) for item in value.values())) if value else set()
+    if isinstance(value, list):
+        return set().union(*(_walk_numbers(item) for item in value)) if value else set()
+    if isinstance(value, bool) or value is None:
+        return set()
+    try:
+        return {float(value)}
+    except (ValueError, TypeError):
+        return set()
 
 
 def _validate_llm_output(

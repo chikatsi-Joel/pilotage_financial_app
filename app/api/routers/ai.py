@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
-from app.services import analytics_service
+from app.services import analytics_service, savings_service
 from app.services.ai import OllamaProvider
 from app.services.analytics_service import InvalidPeriod
 
@@ -20,7 +20,7 @@ router = APIRouter(
 _ai_provider: OllamaProvider | None = None
 
 
-def get_ai_provider() -> OllamaProvider:
+def get_ai_provider() -> OllamaProvider | None:
     global _ai_provider
     if _ai_provider is None:
         _ai_provider = OllamaProvider()
@@ -73,6 +73,12 @@ async def analyze_period(
         dash = await analytics_service.get_dashboard(
             user.id, period, db
         )
+        savings_goals = await savings_service.build_goal_analyses(
+            user.id, period, db
+        )
+        total_contributions = await savings_service.get_total_contributions_for_period(
+            user.id, period, db
+        )
     except InvalidPeriod as exc:
         raise HTTPException(
             status_code=422, detail=str(exc)
@@ -122,6 +128,19 @@ async def analyze_period(
                 "forecast_mae": a.profile.forecast.mae,
             }
             for a in analytics
+        ],
+        "savings": {
+            "current_monthly_savings": str(dash.savings),
+            "savings_rate": str(dash.savings_rate),
+            "total_monthly_contributions": str(total_contributions),
+            "potential_additional_savings": str(dash.potential_savings),
+            "unallocated_monthly_savings": str(
+                max(dash.savings - total_contributions, 0)
+            ),
+        },
+        "savings_goals": [
+            goal.model_dump(mode="json")
+            for goal in savings_goals
         ],
     }
 

@@ -16,13 +16,9 @@ class NotFound(Exception):
     pass
 
 
-async def simulate(
-    user_id: UUID,
-    period: str,
-    category_id: UUID,
-    reduction_percent: Decimal,
-    db: AsyncSession,
-) -> WhatIfRead:
+async def simulate( user_id: UUID, period: str, category_id: UUID, reduction_percent: Decimal,
+                db: AsyncSession, ) -> WhatIfRead:
+
     start, end = month_bounds(period)
 
     category = await db.get(Category, category_id)
@@ -44,14 +40,7 @@ async def simulate(
         user_id, period, db
     )
 
-    result = simulate_what_if(
-        current_amount, reduction_percent, income, expenses
-    )
+    result = simulate_what_if( current_amount, reduction_percent, income, expenses)
 
-    return WhatIfRead(
-        period=period,
-        category_name=category.name,
-        current_amount=current_amount,
-        reduction_percent=reduction_percent,
-        **result,
-    )
+    return WhatIfRead(period=period, category_name=category.name, current_amount=current_amount,
+        reduction_percent=reduction_percent, **result,)

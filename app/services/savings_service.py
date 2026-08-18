@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import SavingsContribution, SavingsGoal
 from app.schemas.common import (
+    SavingsGoalAnalysis,
     SavingsGoalContributeRead,
     SavingsGoalCreate,
 )
@@ -17,6 +19,7 @@ from app.services.analytics_service import (
     get_period_totals,
     month_bounds,
 )
+from app.utils.savings_goal import get_contribution_trend
 
 
 class NotFound(Exception):
@@ -44,8 +47,6 @@ async def create_goal(
 async def list_goals(
     user_id: UUID, db: AsyncSession
 ) -> list[SavingsGoal]:
-    from sqlalchemy.orm import selectinload
-
     result = await db.execute(
         select(SavingsGoal)
         .where(
@@ -56,6 +57,130 @@ async def list_goals(
         .order_by(SavingsGoal.deadline)
     )
     return list(result.scalars().unique().all())
+
+
+def _previous_month(year: int, month: int) -> tuple[int, int]:
+    return (year - 1, 12) if month == 1 else (year, month - 1)
+
+
+def _monthly_periods(period: str, count: int = 6) -> list[str]:
+    year, month = map(int, period.split("-"))
+    periods: list[str] = []
+    for _ in range(count):
+        periods.append(f"{year:04d}-{month:02d}")
+        year, month = _previous_month(year, month)
+    return list(reversed(periods))
+
+
+def _contribution_regularity(values: list[Decimal]) -> float | None:
+    """Return 1 for perfectly regular amounts and 0 for very irregular ones."""
+    if not any(values):
+        return None
+    mean = sum(values, Decimal("0")) / len(values)
+    if not mean:
+        return None
+    variance = sum((value - mean) ** 2 for value in values) / len(values)
+    coefficient_of_variation = variance.sqrt() / mean
+    return round(float(max(Decimal("0"), Decimal("1") - coefficient_of_variation)), 2)
+
+
+def _months_until(deadline: date, period: str) -> int:
+    year, month = map(int, period.split("-"))
+    return (deadline.year - year) * 12 + deadline.month - month
+
+
+async def build_goal_analyses(
+    user_id: UUID,
+    period: str,
+    db: AsyncSession,
+) -> list[SavingsGoalAnalysis]:
+    """Create compact, derived savings-goal data safe to send to the LLM."""
+    _, period_end = month_bounds(period)
+    result = await db.execute(
+        select(SavingsGoal)
+        .where(
+            SavingsGoal.user_id == user_id,
+            SavingsGoal.active.is_(True),
+        )
+        .options(selectinload(SavingsGoal.contributions))
+        .order_by(SavingsGoal.deadline)
+    )
+    goals = result.scalars().unique().all()
+    periods = _monthly_periods(period)
+    analyses: list[SavingsGoalAnalysis] = []
+
+    for goal in goals:
+        contributions = [
+            contribution
+            for contribution in goal.contributions
+            if contribution.created_at.date() <= period_end
+        ]
+        current_amount = money(sum(
+            (contribution.amount for contribution in contributions),
+            Decimal("0"),
+        ))
+        remaining_amount = money(max(
+            Decimal("0"), goal.target_amount - current_amount,
+        ))
+        totals_by_period = {item: Decimal("0") for item in periods}
+
+        for contribution in contributions:
+            contribution_period = contribution.created_at.strftime("%Y-%m")
+            if contribution_period in totals_by_period:
+                totals_by_period[contribution_period] += contribution.amount
+
+        monthly_values = list(totals_by_period.values())
+        active_months = [value for value in monthly_values if value > 0]
+        average = (
+            money(sum(monthly_values, Decimal("0")) / len(monthly_values))
+            if active_months else None
+        )
+        recent = money(monthly_values[-1]) if active_months else None
+        months_until = _months_until(goal.deadline, period)
+        required = (
+            money(remaining_amount / months_until)
+            if remaining_amount > 0 and months_until > 0
+            else None
+        )
+
+        analyses.append(SavingsGoalAnalysis(
+            goal_id=goal.id,
+            name=goal.name,
+            description=goal.description,
+            target_amount=goal.target_amount,
+            target_date=goal.deadline,
+            current_amount=current_amount,
+            remaining_amount=remaining_amount,
+            progress_percentage=round(
+                float(current_amount / goal.target_amount * 100), 2
+            ) if goal.target_amount else 0.0,
+            contribution_count=len(contributions),
+            average_monthly_contribution=average,
+            recent_monthly_contribution=recent,
+            contribution_trend=get_contribution_trend(monthly_values),
+            contribution_regularity=_contribution_regularity(monthly_values),
+            required_monthly_contribution=required,
+        ))
+    return analyses
+
+
+async def get_total_contributions_for_period(
+    user_id: UUID,
+    period: str,
+    db: AsyncSession,
+) -> Decimal:
+    start, end = month_bounds(period)
+
+    result = await db.execute(
+        select(SavingsContribution.amount)
+        .join(SavingsGoal)
+        .where(
+            SavingsGoal.user_id == user_id,
+            SavingsContribution.created_at >= start,
+            SavingsContribution.created_at < end + timedelta(days=1),
+        )
+    )
+    return money(sum(result.scalars().all(), Decimal("0")))
 
 
 async def _available_for_user(

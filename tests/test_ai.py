@@ -70,6 +70,30 @@ SAMPLE_CONTEXT = {
             "forecast_mae": 5000.0,
         },
     ],
+    "savings": {
+        "current_monthly_savings": "300000",
+        "savings_rate": "0.37500",
+        "total_monthly_contributions": "120000",
+        "potential_additional_savings": "17400",
+        "unallocated_monthly_savings": "180000",
+    },
+    "savings_goals": [{
+        "goal_id": "00000000-0000-0000-0000-000000000003",
+        "name": "Fonds voiture",
+        "description": "Épargne destinée à l'achat d'une voiture",
+        "target_amount": "8400000",
+        "target_date": "2028-06-01",
+        "current_amount": "1200000",
+        "remaining_amount": "7200000",
+        "progress_percentage": 14.29,
+        "contribution_count": 18,
+        "average_monthly_contribution": "84000",
+        "recent_monthly_contribution": "105000",
+        "contribution_trend": "increasing",
+        "contribution_regularity": 0.78,
+        "required_monthly_contribution": "327273",
+        "deadline_status": "upcoming",
+    }],
 }
 
 
@@ -89,6 +113,9 @@ def test_build_prompt_contains_key_data():
     assert "drift=" in prompt
     assert "level=" in prompt
     assert "volatility=" in prompt
+    assert "Fonds voiture" in prompt
+    assert "Épargne destinée à l'achat d'une voiture" in prompt
+    assert "total_monthly_contributions" in prompt
 
 
 def test_parse_response_valid_json():
