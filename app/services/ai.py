@@ -18,11 +18,15 @@ class AIAnalysisProvider(Protocol):
 
 SYSTEM_PROMPT = (
     "Tu es un assistant financier expert en pilotage de finances personnelles. "
-    "Tu reçois des données structurées (revenus, dépenses, catégories, dérives, volatilité) "
+    "Tu reçois des données structurées "
+    "(revenus, dépenses, catégories, dérives, volatilité, objectifs d'épargne) "
     "et tu dois fournir :\n"
-    "1. Un résumé narratif de la situation financière du mois.\n"
-    "2. Les principaux signaux d'alerte (dérives fortes, catégories à risque).\n"
-    "3. Des recommandations concrètes et chiffrées pour réduire les dépenses.\n"
+    "1. Un résumé narratif de la situation financière du mois "
+    "et du suivi des objectifs d'épargne.\n"
+    "2. Les principaux signaux d'alerte (dérives fortes, "
+    "catégories à risque, retard sur les objectifs d'épargne).\n"
+    "3. Des recommandations concrètes et chiffrées "
+    "pour réduire les dépenses et atteindre les objectifs d'épargne.\n"
     "4. Une estimation de l'impact si les recommandations sont suivies.\n\n"
     "IMPORTANT : n'invente jamais de chiffres. Utilise uniquement les valeurs "
     "fournies dans les données structurées.\n\n"
@@ -35,6 +39,7 @@ def _build_prompt(context: dict[str, Any]) -> str:
     period = context.get("period", "N/A")
     dashboard = context.get("dashboard", {})
     categories = context.get("categories", [])
+    savings_goals = context.get("savings_goals", [])
 
     lines = [
         f"Période analysée : {period}",
@@ -44,9 +49,25 @@ def _build_prompt(context: dict[str, Any]) -> str:
         f"Taux d'épargne : {dashboard.get('savings_rate', 0)}",
         f"Catégories en dérive : {dashboard.get('categories_in_drift', 0)}",
         f"Économies potentielles : {dashboard.get('potential_savings', 0)}",
+    ]
+
+    if savings_goals:
+        lines.append("")
+        lines.append("Objectifs d'épargne :")
+        for g in savings_goals:
+            target = g.get("target_amount", 0)
+            current = g.get("current_amount", 0)
+            pct = (current / target * 100) if target > 0 else 0
+            lines.append(
+                f"- {g.get('name', '?')} (id={g.get('goal_id', '?')}) : "
+                f"cible={target}, actuel={current} ({pct:.1f}%), "
+                f"échéance={g.get('deadline', 'N/A')}"
+            )
+
+    lines.extend([
         "",
         "Détail par catégorie :",
-    ]
+    ])
     for cat in categories:
         lines.append(
             f"- {cat.get('name', '?')} "
@@ -163,6 +184,14 @@ def _extract_known_numbers(context: dict[str, Any]) -> set[float]:
             "forecast_value",
         ):
             val = cat.get(key)
+            if val is not None:
+                try:
+                    numbers.add(float(val))
+                except (ValueError, TypeError):
+                    pass
+    for g in context.get("savings_goals", []):
+        for key in ("target_amount", "current_amount"):
+            val = g.get(key)
             if val is not None:
                 try:
                     numbers.add(float(val))

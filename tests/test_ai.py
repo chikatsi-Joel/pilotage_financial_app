@@ -8,8 +8,10 @@ import pytest
 from app.services.ai import (
     OllamaProvider,
     _build_prompt,
+    _extract_known_numbers,
     _fallback_analysis,
     _parse_response,
+    _validate_llm_output,
 )
 
 SAMPLE_CONTEXT = {
@@ -70,6 +72,15 @@ SAMPLE_CONTEXT = {
             "forecast_mae": 5000.0,
         },
     ],
+    "savings_goals": [
+        {
+            "goal_id": "00000000-0000-0000-0000-000000000010",
+            "name": "Fonds d'urgence",
+            "target_amount": 1000000.0,
+            "current_amount": 250000.0,
+            "deadline": "2026-12-31",
+        }
+    ],
 }
 
 
@@ -79,6 +90,10 @@ def test_build_prompt_contains_key_data():
     assert "800000" in prompt
     assert "Restaurants" in prompt
     assert "Alimentation" in prompt
+    assert "Fonds d'urgence" in prompt
+    assert "1000000.0" in prompt
+    assert "250000.0" in prompt
+    assert "2026-12-31" in prompt
     assert "expected=" in prompt
     assert "opportunity_score=" in prompt
     assert "confidence=" in prompt
@@ -89,6 +104,25 @@ def test_build_prompt_contains_key_data():
     assert "drift=" in prompt
     assert "level=" in prompt
     assert "volatility=" in prompt
+
+
+def test_extract_known_numbers_includes_savings_goals():
+    numbers = _extract_known_numbers(SAMPLE_CONTEXT)
+    assert 1000000.0 in numbers
+    assert 250000.0 in numbers
+
+
+def test_validate_llm_output_accepts_savings_goal_numbers():
+    llm_res = {
+        "summary": (
+            "Vous avez accumulé 250000 FCFA pour votre Fonds d'urgence "
+            "sur un objectif de 1000000."
+        ),
+        "alerts": [],
+        "recommendations": [],
+    }
+    validated = _validate_llm_output(llm_res, SAMPLE_CONTEXT)
+    assert "number_warnings" not in validated
 
 
 def test_parse_response_valid_json():
