@@ -2,7 +2,12 @@ from decimal import Decimal
 from app.services.analytics import money
 
 
-def simulate_what_if(current_amount: Decimal, reduction_percent: Decimal, current_income: Decimal | None = None, current_expenses: Decimal | None = None) -> dict:
+def simulate_what_if(
+    current_amount: Decimal,
+    reduction_percent: Decimal,
+    current_income: Decimal | None = None,
+    current_expenses: Decimal | None = None,
+) -> dict:
     new_target = money(current_amount * (Decimal("1") - reduction_percent / Decimal("100")))
     saving = money(current_amount - new_target)
     rate = None

@@ -3,18 +3,19 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_user
-from app.api.routers.analytics import compute_category_analytics, dashboard
-from app.db.session import get_db
-from app.models import AIAnalysis, User
+from app.api.deps import DbSession, UserDep
+from app.models import AIAnalysis
+from app.services import analytics_service
 from app.services.ai import OllamaProvider
+from app.services.analytics_service import InvalidPeriod
 
-router = APIRouter(prefix="/users/{user_id}/ai", tags=["ai"])
+router = APIRouter(
+    prefix="/users/{user_id}/ai", tags=["ai"]
+)
 
 _ai_provider: OllamaProvider | None = None
 
@@ -34,6 +35,7 @@ class AIAnalysisResponse(BaseModel):
     projected_impact: dict
     fallback: bool = False
     parse_error: str | None = None
+    number_warnings: list[str] | None = None
 
 
 class AIAnalysisStoredRead(BaseModel):
@@ -47,19 +49,34 @@ class AIAnalysisStoredRead(BaseModel):
     fallback: bool
 
 
-@router.post("/analyze", response_model=AIAnalysisResponse)
+@router.post(
+    "/analyze",
+    response_model=AIAnalysisResponse,
+)
 async def analyze_period(
     period: str,
-    user: User = Depends(get_user),
-    db: AsyncSession = Depends(get_db),
+    user: UserDep,
+    db: DbSession,
 ):
     try:
         date.fromisoformat(period + "-01")
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="period must be YYYY-MM") from exc
+        raise HTTPException(
+            status_code=422,
+            detail="period must be YYYY-MM",
+        ) from exc
 
-    analytics = await compute_category_analytics(user.id, period, db)
-    dash = await dashboard(period, user=user, db=db)
+    try:
+        analytics = await analytics_service.compute_category_analytics(
+            user.id, period, db
+        )
+        dash = await analytics_service.get_dashboard(
+            user.id, period, db
+        )
+    except InvalidPeriod as exc:
+        raise HTTPException(
+            status_code=422, detail=str(exc)
+        ) from exc
 
     context = {
         "period": period,
@@ -85,13 +102,22 @@ async def analyze_period(
                 "opportunity_score": a.opportunity_score,
                 "level": a.profile.level,
                 "trend": a.profile.trend,
-                "seasonality_strength": a.profile.seasonality_strength,
+                "seasonality_strength": (
+                    a.profile.seasonality_strength
+                ),
+                "seasonality_reliable": (
+                    a.profile.seasonality_reliable
+                ),
                 "volatility": a.profile.volatility,
                 "anomaly_score": a.profile.anomaly_score,
-                "change_points": list(a.profile.change_points),
+                "change_points": list(
+                    a.profile.change_points
+                ),
                 "drift_score": a.profile.drift_score,
                 "confidence": a.profile.confidence,
-                "forecast_method": a.profile.forecast.method,
+                "forecast_method": (
+                    a.profile.forecast.method
+                ),
                 "forecast_value": a.profile.forecast.value,
                 "forecast_mae": a.profile.forecast.mae,
             }
@@ -107,12 +133,17 @@ async def analyze_period(
         period=period,
         model=provider._model,
         summary=result.get("summary", ""),
-        alerts_json=json.dumps(result.get("alerts", []), ensure_ascii=False),
+        alerts_json=json.dumps(
+            result.get("alerts", []),
+            ensure_ascii=False,
+        ),
         recommendations_json=json.dumps(
-            result.get("recommendations", []), ensure_ascii=False
+            result.get("recommendations", []),
+            ensure_ascii=False,
         ),
         projected_impact_json=json.dumps(
-            result.get("projected_impact", {}), ensure_ascii=False
+            result.get("projected_impact", {}),
+            ensure_ascii=False,
         ),
         fallback=result.get("fallback", False),
     )
@@ -124,15 +155,22 @@ async def analyze_period(
         summary=result.get("summary", ""),
         alerts=result.get("alerts", []),
         recommendations=result.get("recommendations", []),
-        projected_impact=result.get("projected_impact", {}),
+        projected_impact=result.get(
+            "projected_impact", {}
+        ),
         fallback=result.get("fallback", False),
         parse_error=result.get("parse_error"),
+        number_warnings=result.get("number_warnings"),
     )
 
 
-@router.get("/analyses", response_model=list[AIAnalysisStoredRead])
-async def list_analyses(user: User = Depends(get_user),
-    db: AsyncSession = Depends(get_db),
+@router.get(
+    "/analyses",
+    response_model=list[AIAnalysisStoredRead],
+)
+async def list_analyses(
+    user: UserDep,
+    db: DbSession,
 ):
     result = await db.execute(
         select(AIAnalysis)
@@ -148,8 +186,12 @@ async def list_analyses(user: User = Depends(get_user),
             model=r.model,
             summary=r.summary,
             alerts=json.loads(r.alerts_json),
-            recommendations=json.loads(r.recommendations_json),
-            projected_impact=json.loads(r.projected_impact_json),
+            recommendations=json.loads(
+                r.recommendations_json
+            ),
+            projected_impact=json.loads(
+                r.projected_impact_json
+            ),
             fallback=r.fallback,
         )
         for r in rows
@@ -162,10 +204,17 @@ async def ai_health():
     try:
         import httpx
 
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{provider._base_url}/api/tags")
+        async with httpx.AsyncClient(
+            timeout=5.0
+        ) as client:
+            resp = await client.get(
+                f"{provider._base_url}/api/tags"
+            )
             resp.raise_for_status()
-            models = [m["name"] for m in resp.json().get("models", [])]
+            models = [
+                m["name"]
+                for m in resp.json().get("models", [])
+            ]
         return {
             "status": "ok",
             "ollama_url": provider._base_url,
