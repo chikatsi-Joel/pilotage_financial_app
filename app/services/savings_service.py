@@ -30,23 +30,17 @@ class BusinessRule(Exception):
     pass
 
 
-async def create_goal(
-    user_id: UUID,
-    payload: SavingsGoalCreate,
-    db: AsyncSession,
-) -> SavingsGoal:
-    goal = SavingsGoal(
-        user_id=user_id, **payload.model_dump()
-    )
+async def create_goal( user_id: UUID, payload: SavingsGoalCreate, db: AsyncSession, ) -> SavingsGoal:
+
+    goal = SavingsGoal( user_id=user_id, **payload.model_dump() )
     db.add(goal)
     await db.commit()
     await db.refresh(goal)
+
     return goal
 
 
-async def list_goals(
-    user_id: UUID, db: AsyncSession
-) -> list[SavingsGoal]:
+async def list_goals( user_id: UUID, db: AsyncSession ) -> list[SavingsGoal]:
     result = await db.execute(
         select(SavingsGoal)
         .where(
@@ -89,11 +83,7 @@ def _months_until(deadline: date, period: str) -> int:
     return (deadline.year - year) * 12 + deadline.month - month
 
 
-async def build_goal_analyses(
-    user_id: UUID,
-    period: str,
-    db: AsyncSession,
-) -> list[SavingsGoalAnalysis]:
+async def build_goal_analyses( user_id: UUID, period: str, db: AsyncSession, ) -> list[SavingsGoalAnalysis]:
     """Create compact, derived savings-goal data safe to send to the LLM."""
     _, period_end = month_bounds(period)
     result = await db.execute(
@@ -162,11 +152,7 @@ async def build_goal_analyses(
     return analyses
 
 
-async def get_total_contributions_for_period(
-    user_id: UUID,
-    period: str,
-    db: AsyncSession,
-) -> Decimal:
+async def get_total_contributions_for_period( user_id: UUID, period: str, db: AsyncSession, ) -> Decimal:
     start, end = month_bounds(period)
 
     result = await db.execute(
@@ -181,9 +167,8 @@ async def get_total_contributions_for_period(
     return money(sum(result.scalars().all(), Decimal("0")))
 
 
-async def _available_for_user(
-    user_id: UUID, d: date, db: AsyncSession
-) -> Decimal:
+async def _available_for_user( user_id: UUID, d: date, db: AsyncSession) -> Decimal:
+
     period = d.strftime("%Y-%m")
     start, end = month_bounds(period)
 
@@ -207,12 +192,8 @@ async def _available_for_user(
     return money(income - expenses - prior_contributions)
 
 
-async def contribute(
-    user_id: UUID,
-    goal_id: UUID,
-    amount: Decimal,
-    db: AsyncSession,
-) -> SavingsGoalContributeRead:
+async def contribute( user_id: UUID, goal_id: UUID, amount: Decimal, db: AsyncSession, ) -> SavingsGoalContributeRead:
+
     if amount <= 0:
         raise BusinessRule("Contribution amount must be positive")
 
@@ -229,14 +210,12 @@ async def contribute(
         raise BusinessRule("Cannot contribute to an inactive goal")
 
     available = await _available_for_user(user_id, date.today(), db)
+
     if available < amount:
         raise BusinessRule(f"Insufficient available funds "
             f"(available: {available}, requested: {amount})")
 
-    contribution = SavingsContribution(
-        savings_goal_id=goal.id,
-        amount=money(amount),
-    )
+    contribution = SavingsContribution( savings_goal_id=goal.id, amount=money(amount), )
     db.add(contribution)
     await db.commit()
 

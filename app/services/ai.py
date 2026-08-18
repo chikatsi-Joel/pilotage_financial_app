@@ -9,7 +9,7 @@ import ollama as _ollama
 
 from app.core.config import settings
 
-from .context_promt import SYSTEM_PROMPT
+from app.services.context.context_promt import SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
 

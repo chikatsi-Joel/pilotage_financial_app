@@ -34,9 +34,7 @@ class BusinessRule(Exception):
     pass
 
 
-async def recommend_budget(
-    user_id: UUID, period: str, db: AsyncSession
-) -> BudgetRead:
+async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> BudgetRead:
     start, _ = month_bounds(period)
 
     analytics = await compute_category_analytics(

@@ -19,12 +19,9 @@ async def create( user_id: UUID, payload: IncomeCreate, db: AsyncSession, ) -> I
     return income
 
 
-async def list_by_user(
-    user_id: UUID,
-    db: AsyncSession,
-    from_date: date | None = None,
-    to_date: date | None = None,
-) -> list[Income]:
+async def list_by_user(user_id: UUID, db: AsyncSession, from_date: date | None = None,
+    to_date: date | None = None,) -> list[Income]:
+
     query = select(Income).where(Income.user_id == user_id)
     if from_date:
         query = query.where(Income.income_date >= from_date)
@@ -32,4 +29,5 @@ async def list_by_user(
         query = query.where(Income.income_date <= to_date)
     query = query.order_by(Income.income_date.desc())
     result = await db.execute(query)
+
     return list(result.scalars().all())
