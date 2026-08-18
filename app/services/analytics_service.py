@@ -9,18 +9,26 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    Category, CategoryAnalytics, Expense,
-    Income, MonthlySnapshot,
+    Category,
+    CategoryAnalytics,
+    Expense,
+    Income,
+    MonthlySnapshot,
 )
 from app.schemas.common import (
-    CategoryAnalyticsRead, DashboardRead,
+    CategoryAnalyticsRead,
+    DashboardRead,
 )
 from app.services.analytics import FinancialAnalyticsEngine, money
 from app.services.analytics.models import (
     Category as DomainCategory,
+)
+from app.services.analytics.models import (
     CategoryType,
-    Expense as DomainExpense,
     OptimizationPotential,
+)
+from app.services.analytics.models import (
+    Expense as DomainExpense,
 )
 
 _engine = FinancialAnalyticsEngine()
@@ -50,9 +58,7 @@ def _to_domain_category(c: Category) -> DomainCategory:
             if c.essentiality.value == "ESSENTIAL"
             else CategoryType.NON_ESSENTIAL
         ),
-        optimization_potential=OptimizationPotential(
-            c.optimization_potential.value.lower()
-        ),
+        optimization_potential=OptimizationPotential(c.optimization_potential.value.lower()),
     )
 
 
@@ -119,10 +125,7 @@ async def compute_category_analytics(
         )
         .order_by(Category.name)
     )
-    categories = [
-        _to_domain_category(c)
-        for c in category_result.scalars().all()
-    ]
+    categories = [_to_domain_category(c) for c in category_result.scalars().all()]
 
     expense_result = await db.execute(
         select(Expense).where(
@@ -132,9 +135,7 @@ async def compute_category_analytics(
     )
     domain_expenses = _to_domain_expenses(expense_result.scalars().all())
 
-    results = _engine.analyze(
-        categories, domain_expenses, year, month
-    )
+    results = _engine.analyze(categories, domain_expenses, year, month)
 
     return [
         CategoryAnalyticsRead(
@@ -155,38 +156,33 @@ async def compute_category_analytics(
     ]
 
 
-async def get_dashboard(
-    user_id: UUID, period: str, db: AsyncSession
-) -> DashboardRead:
+async def get_dashboard(user_id: UUID, period: str, db: AsyncSession) -> DashboardRead:
     start, end = month_bounds(period)
 
     income_total = await _sum_amount(
-        db, Income, user_id, Income.income_date,
-        start, end,
+        db,
+        Income,
+        user_id,
+        Income.income_date,
+        start,
+        end,
     )
     expense_total = await _sum_amount(
-        db, Expense, user_id, Expense.expense_date,
-        start, end,
+        db,
+        Expense,
+        user_id,
+        Expense.expense_date,
+        start,
+        end,
     )
     savings = income_total - expense_total
     savings_rate = (
-        (savings / income_total).quantize(
-            Decimal("0.00001")
-        )
-        if income_total
-        else Decimal("0")
+        (savings / income_total).quantize(Decimal("0.00001")) if income_total else Decimal("0")
     )
 
-    analytics = await compute_category_analytics(
-        user_id, period, db
-    )
-    drifts = [
-        x for x in analytics
-        if x.profile.drift_score >= 0.5
-    ]
-    drifts.sort(
-        key=lambda x: x.profile.drift_score, reverse=True
-    )
+    analytics = await compute_category_analytics(user_id, period, db)
+    drifts = [x for x in analytics if x.profile.drift_score >= 0.5]
+    drifts.sort(key=lambda x: x.profile.drift_score, reverse=True)
 
     return DashboardRead(
         period=period,
@@ -205,22 +201,26 @@ async def get_dashboard(
     )
 
 
-async def refresh_analytics(
-    user_id: UUID, period: str, db: AsyncSession
-) -> dict:
+async def refresh_analytics(user_id: UUID, period: str, db: AsyncSession) -> dict:
     start, end = month_bounds(period)
 
-    analytics = await compute_category_analytics(
-        user_id, period, db
-    )
+    analytics = await compute_category_analytics(user_id, period, db)
 
     income = await _sum_amount(
-        db, Income, user_id, Income.income_date,
-        start, end,
+        db,
+        Income,
+        user_id,
+        Income.income_date,
+        start,
+        end,
     )
     expense = await _sum_amount(
-        db, Expense, user_id, Expense.expense_date,
-        start, end,
+        db,
+        Expense,
+        user_id,
+        Expense.expense_date,
+        start,
+        end,
     )
     savings = income - expense
     rate = (savings / income) if income else Decimal("0")
@@ -252,14 +252,11 @@ async def refresh_analytics(
         existing_result = await db.execute(
             select(CategoryAnalytics).where(
                 CategoryAnalytics.user_id == user_id,
-                CategoryAnalytics.category_id
-                == a.category_id,
+                CategoryAnalytics.category_id == a.category_id,
                 CategoryAnalytics.period == period,
             )
         )
-        existing = (
-            existing_result.scalar_one_or_none()
-        )
+        existing = existing_result.scalar_one_or_none()
         p = a.profile
         values = dict(
             user_id=user_id,
@@ -268,33 +265,18 @@ async def refresh_analytics(
             baseline=money(a.baseline_amount),
             trend=Decimal(str(p.trend)),
             volatility=Decimal(str(p.volatility)),
-            deviation=Decimal(
-                str(a.current_amount - a.expected_amount)
-            ),
+            deviation=Decimal(str(a.current_amount - a.expected_amount)),
             frequency=0,
             confidence=(
-                "HIGH" if p.confidence >= 0.75
-                else (
-                    "MEDIUM"
-                    if p.confidence >= 0.25
-                    else "LOW"
-                )
+                "HIGH" if p.confidence >= 0.75 else ("MEDIUM" if p.confidence >= 0.25 else "LOW")
             ),
             trend_direction=(
-                "INCREASING" if p.trend > 0.05
-                else (
-                    "DECREASING"
-                    if p.trend < -0.05
-                    else "STABLE"
-                )
+                "INCREASING" if p.trend > 0.05 else ("DECREASING" if p.trend < -0.05 else "STABLE")
             ),
             drift_signal=(
-                "STRONG_DRIFT" if p.drift_score >= 0.8
-                else (
-                    "ATTENTION"
-                    if p.drift_score >= 0.5
-                    else "NORMAL"
-                )
+                "STRONG_DRIFT"
+                if p.drift_score >= 0.8
+                else ("ATTENTION" if p.drift_score >= 0.5 else "NORMAL")
             ),
             current_amount=money(a.current_amount),
             estimated_saving=money(a.potential_saving),
@@ -329,11 +311,19 @@ async def get_period_totals(
 ) -> tuple[Decimal, Decimal]:
     start, end = month_bounds(period)
     income = await _sum_amount(
-        db, Income, user_id, Income.income_date,
-        start, end,
+        db,
+        Income,
+        user_id,
+        Income.income_date,
+        start,
+        end,
     )
     expense = await _sum_amount(
-        db, Expense, user_id, Expense.expense_date,
-        start, end,
+        db,
+        Expense,
+        user_id,
+        Expense.expense_date,
+        start,
+        end,
     )
     return income, expense

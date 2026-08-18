@@ -44,9 +44,7 @@ async def list_by_user(
         query = query.where(Expense.expense_date <= to_date)
     if category_id:
         query = query.where(Expense.category_id == category_id)
-    query = query.order_by(
-        Expense.expense_date.desc(), Expense.created_at.desc()
-    )
+    query = query.order_by(Expense.expense_date.desc(), Expense.created_at.desc())
     result = await db.execute(query)
     return list(result.scalars().all())
 

@@ -1,5 +1,4 @@
-
-SYSTEM_PROMT = SYSTEM_PROMPT = """
+SYSTEM_PROMPT = """
 Tu es un assistant expert en analyse et pilotage des finances personnelles.
 
 Tu reçois un contexte financier structuré calculé par un moteur analytique.

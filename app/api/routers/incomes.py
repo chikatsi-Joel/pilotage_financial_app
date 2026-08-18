@@ -6,9 +6,7 @@ from app.api.deps import DbSession, UserDep
 from app.schemas.common import IncomeCreate, IncomeRead
 from app.services import income_service
 
-router = APIRouter(
-    prefix="/users/{user_id}/incomes", tags=["incomes"]
-)
+router = APIRouter(prefix="/users/{user_id}/incomes", tags=["incomes"])
 
 
 @router.post(
@@ -31,6 +29,4 @@ async def list_incomes(
     from_date: date | None = None,
     to_date: date | None = None,
 ):
-    return await income_service.list_by_user(
-        user.id, db, from_date, to_date
-    )
+    return await income_service.list_by_user(user.id, db, from_date, to_date)

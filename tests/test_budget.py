@@ -7,8 +7,11 @@ from app.services.budget import generate_budget
 def test_budget_does_not_reduce_essentials_and_exposes_savings():
     cat1, cat2 = uuid4(), uuid4()
     result = generate_budget(
-        "2026-08", Decimal("800000"), Decimal("500000"),
-        Decimal("300000"), None,
+        "2026-08",
+        Decimal("800000"),
+        Decimal("500000"),
+        Decimal("300000"),
+        None,
         [
             {
                 "category_id": cat1,

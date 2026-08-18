@@ -9,8 +9,10 @@ class SavingsContributionTrend(StrEnum):
     INCREASING = "increasing"
 
 
-def get_contribution_trend( values: list[Decimal],
-                            threshold: Decimal = Decimal("0.05"), ) -> SavingsContributionTrend:
+def get_contribution_trend(
+    values: list[Decimal],
+    threshold: Decimal = Decimal("0.05"),
+) -> SavingsContributionTrend:
 
     if not any(values):
         return SavingsContributionTrend.UNKNOWN
