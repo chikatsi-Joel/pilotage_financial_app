@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ from sqlalchemy import select
 
 from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
-from app.services import analytics_service
+from app.services import analytics_service, savings_service
 from app.services.ai import OllamaProvider
 from app.services.analytics_service import InvalidPeriod
 
@@ -73,6 +74,9 @@ async def analyze_period(
         dash = await analytics_service.get_dashboard(
             user.id, period, db
         )
+        savings_goals = await savings_service.list_goals(
+            user.id, db
+        )
     except InvalidPeriod as exc:
         raise HTTPException(
             status_code=422, detail=str(exc)
@@ -122,6 +126,21 @@ async def analyze_period(
                 "forecast_mae": a.profile.forecast.mae,
             }
             for a in analytics
+        ],
+        "savings_goals": [
+            {
+                "goal_id": str(g.id),
+                "name": g.name,
+                "target_amount": float(g.target_amount),
+                "current_amount": float(
+                    sum(
+                        (c.amount for c in g.contributions),
+                        Decimal("0"),
+                    )
+                ),
+                "deadline": g.deadline.isoformat(),
+            }
+            for g in savings_goals
         ],
     }
 
