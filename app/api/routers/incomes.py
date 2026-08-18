@@ -1,11 +1,10 @@
 from datetime import date
 
 from fastapi import APIRouter, status
-from sqlalchemy import select
 
 from app.api.deps import DbSession, UserDep
-from app.models import Income
 from app.schemas.common import IncomeCreate, IncomeRead
+from app.services import income_service
 
 router = APIRouter(
     prefix="/users/{user_id}/incomes", tags=["incomes"]
@@ -22,13 +21,7 @@ async def create_income(
     user: UserDep,
     db: DbSession,
 ):
-    income = Income(
-        user_id=user.id, **payload.model_dump()
-    )
-    db.add(income)
-    await db.commit()
-    await db.refresh(income)
-    return income
+    return await income_service.create(user.id, payload, db)
 
 
 @router.get("", response_model=list[IncomeRead])
@@ -38,17 +31,6 @@ async def list_incomes(
     from_date: date | None = None,
     to_date: date | None = None,
 ):
-    query = select(Income).where(
-        Income.user_id == user.id
+    return await income_service.list_by_user(
+        user.id, db, from_date, to_date
     )
-    if from_date:
-        query = query.where(
-            Income.income_date >= from_date
-        )
-    if to_date:
-        query = query.where(
-            Income.income_date <= to_date
-        )
-    query = query.order_by(Income.income_date.desc())
-    result = await db.execute(query)
-    return result.scalars().all()

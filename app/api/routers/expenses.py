@@ -2,11 +2,11 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
 
 from app.api.deps import DbSession, UserDep
-from app.models import Category, Expense
 from app.schemas.common import ExpenseCreate, ExpenseRead
+from app.services import expense_service
+from app.services.expense_service import NotFound
 
 router = APIRouter(
     prefix="/users/{user_id}/expenses", tags=["expenses"]
@@ -26,16 +26,14 @@ async def create_expense(
     user: UserDep,
     db: DbSession,
 ):
-    category = await db.get(Category, payload.category_id)
-    if not category or category.user_id != user.id:
-        raise HTTPException(
-            status_code=404, detail="Category not found"
+    try:
+        return await expense_service.create(
+            user.id, payload, db
         )
-    expense = Expense(user_id=user.id, **payload.model_dump())
-    db.add(expense)
-    await db.commit()
-    await db.refresh(expense)
-    return expense
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404, detail=str(exc)
+        ) from exc
 
 
 @router.get("", response_model=list[ExpenseRead])
@@ -46,18 +44,9 @@ async def list_expenses(
     to_date: date | None = None,
     category_id: UUID | None = None,
 ):
-    query = select(Expense).where(Expense.user_id == user.id)
-    if from_date:
-        query = query.where(Expense.expense_date >= from_date)
-    if to_date:
-        query = query.where(Expense.expense_date <= to_date)
-    if category_id:
-        query = query.where(Expense.category_id == category_id)
-    query = query.order_by(
-        Expense.expense_date.desc(), Expense.created_at.desc()
+    return await expense_service.list_by_user(
+        user.id, db, from_date, to_date, category_id
     )
-    result = await db.execute(query)
-    return result.scalars().all()
 
 
 @router.put(
@@ -71,27 +60,14 @@ async def update_expense(
     user: UserDep,
     db: DbSession,
 ):
-    result = await db.execute(
-        select(Expense).where(
-            Expense.id == expense_id,
-            Expense.user_id == user.id,
+    try:
+        return await expense_service.update(
+            user.id, expense_id, payload, db
         )
-    )
-    expense = result.scalar_one_or_none()
-    if not expense:
+    except NotFound as exc:
         raise HTTPException(
-            status_code=404, detail="Expense not found"
-        )
-    category = await db.get(Category, payload.category_id)
-    if not category or category.user_id != user.id:
-        raise HTTPException(
-            status_code=404, detail="Category not found"
-        )
-    for key, value in payload.model_dump().items():
-        setattr(expense, key, value)
-    await db.commit()
-    await db.refresh(expense)
-    return expense
+            status_code=404, detail=str(exc)
+        ) from exc
 
 
 @router.delete(
@@ -104,16 +80,11 @@ async def delete_expense(
     user: UserDep,
     db: DbSession,
 ):
-    result = await db.execute(
-        select(Expense).where(
-            Expense.id == expense_id,
-            Expense.user_id == user.id,
+    try:
+        await expense_service.delete(
+            user.id, expense_id, db
         )
-    )
-    expense = result.scalar_one_or_none()
-    if not expense:
+    except NotFound as exc:
         raise HTTPException(
-            status_code=404, detail="Expense not found"
-        )
-    await db.delete(expense)
-    await db.commit()
+            status_code=404, detail=str(exc)
+        ) from exc

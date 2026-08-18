@@ -8,7 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SavingsContribution, SavingsGoal
-from app.schemas.common import SavingsGoalContributeRead
+from app.schemas.common import (
+    SavingsGoalContributeRead,
+    SavingsGoalCreate,
+)
 from app.services.analytics import money
 from app.services.analytics_service import (
     get_period_totals,
@@ -22,6 +25,37 @@ class NotFound(Exception):
 
 class BusinessRule(Exception):
     pass
+
+
+async def create_goal(
+    user_id: UUID,
+    payload: SavingsGoalCreate,
+    db: AsyncSession,
+) -> SavingsGoal:
+    goal = SavingsGoal(
+        user_id=user_id, **payload.model_dump()
+    )
+    db.add(goal)
+    await db.commit()
+    await db.refresh(goal)
+    return goal
+
+
+async def list_goals(
+    user_id: UUID, db: AsyncSession
+) -> list[SavingsGoal]:
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(SavingsGoal)
+        .where(
+            SavingsGoal.user_id == user_id,
+            SavingsGoal.active.is_(True),
+        )
+        .options(selectinload(SavingsGoal.contributions))
+        .order_by(SavingsGoal.deadline)
+    )
+    return list(result.scalars().unique().all())
 
 
 async def _available_for_user(
@@ -73,10 +107,8 @@ async def contribute(
 
     available = await _available_for_user(user_id, date.today(), db)
     if available < amount:
-        raise BusinessRule(
-            f"Insufficient available funds "
-            f"(available: {available}, requested: {amount})"
-        )
+        raise BusinessRule(f"Insufficient available funds "
+            f"(available: {available}, requested: {amount})")
 
     contribution = SavingsContribution(
         savings_goal_id=goal.id,

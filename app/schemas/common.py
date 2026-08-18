@@ -50,6 +50,13 @@ class CategoryRead(ORMModel):
     active: bool
 
 
+class CategoryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    essentiality: str | None = None
+    optimization_potential: str | None = None
+    active: bool | None = None
+
+
 class ExpenseCreate(BaseModel):
     amount: Decimal = Field(gt=0)
     category_id: UUID

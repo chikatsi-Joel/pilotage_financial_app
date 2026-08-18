@@ -1,11 +1,8 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, UserDep
-from app.models import SavingsGoal
 from app.schemas.common import (
     SavingsGoalContribute,
     SavingsGoalContributeRead,
@@ -33,13 +30,9 @@ async def create_goal(
     user: UserDep,
     db: DbSession,
 ):
-    goal = SavingsGoal(
-        user_id=user.id, **payload.model_dump()
+    return await savings_service.create_goal(
+        user.id, payload, db
     )
-    db.add(goal)
-    await db.commit()
-    await db.refresh(goal)
-    return goal
 
 
 @router.get("", response_model=list[SavingsGoalRead])
@@ -47,16 +40,7 @@ async def list_goals(
     user: UserDep,
     db: DbSession,
 ):
-    result = await db.execute(
-        select(SavingsGoal)
-        .where(
-            SavingsGoal.user_id == user.id,
-            SavingsGoal.active.is_(True),
-        )
-        .options(selectinload(SavingsGoal.contributions))
-        .order_by(SavingsGoal.deadline)
-    )
-    return result.scalars().unique().all()
+    return await savings_service.list_goals(user.id, db)
 
 
 @router.post(

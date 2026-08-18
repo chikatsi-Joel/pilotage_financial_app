@@ -130,9 +130,7 @@ async def compute_category_analytics(
             Expense.expense_date <= current_end,
         )
     )
-    domain_expenses = _to_domain_expenses(
-        expense_result.scalars().all()
-    )
+    domain_expenses = _to_domain_expenses(expense_result.scalars().all())
 
     results = _engine.analyze(
         categories, domain_expenses, year, month
