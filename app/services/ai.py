@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Protocol
 
 import ollama as _ollama
@@ -23,6 +24,8 @@ SYSTEM_PROMPT = (
     "2. Les principaux signaux d'alerte (dérives fortes, catégories à risque).\n"
     "3. Des recommandations concrètes et chiffrées pour réduire les dépenses.\n"
     "4. Une estimation de l'impact si les recommandations sont suivies.\n\n"
+    "IMPORTANT : n'invente jamais de chiffres. Utilise uniquement les valeurs "
+    "fournies dans les données structurées.\n\n"
     "Réponds toujours en JSON valide avec les clés : "
     "summary, alerts, recommendations, projected_impact."
 )
@@ -54,7 +57,8 @@ def _build_prompt(context: dict[str, Any]) -> str:
             f"variation={cat.get('variation_percentage', 0)}%, "
             f"level={cat.get('level', 0)}, "
             f"trend={cat.get('trend', 0)}, "
-            f"seasonality={cat.get('seasonality_strength', 0)}, "
+            f"seasonality={cat.get('seasonality_strength', 0)} "
+            f"(fiable={cat.get('seasonality_reliable', False)}), "
             f"volatility={cat.get('volatility', 0)}, "
             f"anomaly={cat.get('anomaly_score', 0)}, "
             f"change_points={cat.get('change_points', [])}, "
@@ -100,7 +104,8 @@ class OllamaProvider:
                 options={"temperature": 0.3},
             )
             raw = response["message"]["content"]
-            return _parse_response(raw)
+            result = _parse_response(raw)
+            return _validate_llm_output(result, structured_context)
         except _ollama.ResponseError as exc:
             log.error("Ollama API error: %s", exc)
             return _fallback_analysis(structured_context, str(exc))
@@ -125,6 +130,88 @@ def _parse_response(raw: str) -> dict[str, Any]:
             "projected_impact": {},
             "parse_error": "La réponse du modèle n'est pas du JSON valide.",
         }
+
+
+def _extract_known_numbers(context: dict[str, Any]) -> set[float]:
+    """Extract all known numeric values from the input context."""
+    numbers: set[float] = set()
+    dashboard = context.get("dashboard", {})
+    for key in (
+        "income", "expenses", "savings",
+        "savings_rate", "potential_savings",
+    ):
+        val = dashboard.get(key)
+        if val is not None:
+            try:
+                numbers.add(float(val))
+            except (ValueError, TypeError):
+                pass
+    for cat in context.get("categories", []):
+        for key in (
+            "current_amount", "baseline_amount",
+            "expected_amount", "potential_saving",
+            "opportunity_score", "level", "trend",
+            "seasonality_strength", "volatility",
+            "anomaly_score", "drift_score", "confidence",
+            "forecast_value",
+        ):
+            val = cat.get(key)
+            if val is not None:
+                try:
+                    numbers.add(float(val))
+                except (ValueError, TypeError):
+                    pass
+    return numbers
+
+
+def _validate_llm_output(
+    result: dict[str, Any],
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Post-validation : extract all numbers from the LLM text
+    and verify they exist in the input context.
+
+    Adds 'number_warnings' to result if hallucinated numbers
+    are detected.
+    """
+    known = _extract_known_numbers(context)
+
+    text_fields = [result.get("summary", "")]
+    for alert in result.get("alerts", []):
+        text_fields.append(alert.get("message", ""))
+        text_fields.append(alert.get("category", ""))
+    for rec in result.get("recommendations", []):
+        text_fields.append(rec.get("action", ""))
+        text_fields.append(rec.get("justification", ""))
+
+    full_text = " ".join(text_fields)
+    found_numbers = re.findall(
+        r"\b\d[\d\s]*[\.,]?\d*\b", full_text
+    )
+
+    warnings: list[str] = []
+    for num_str in found_numbers:
+        clean = num_str.replace(" ", "").replace(",", ".")
+        try:
+            val = float(clean)
+        except ValueError:
+            continue
+        if val == 0:
+            continue
+        matched = any(
+            abs(val - kf) / max(abs(kf), 1) < 0.05
+            for kf in known
+        )
+        if not matched:
+            warnings.append(num_str)
+
+    if warnings:
+        result["number_warnings"] = warnings
+        log.warning(
+            "LLM may have hallucinated numbers: %s", warnings
+        )
+    return result
 
 
 def _fallback_analysis(context: dict[str, Any], error: str) -> dict[str, Any]:

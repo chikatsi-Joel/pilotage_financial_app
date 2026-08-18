@@ -15,6 +15,7 @@ from app.services.analytics.statistics import (
     mad,
     robust_baseline,
     robust_center,
+    robust_relative_dispersion,
     robust_z,
     theil_sen_trend,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "residual_anomaly_score",
     "robust_baseline",
     "robust_center",
+    "robust_relative_dispersion",
     "robust_z",
     "seasonality_strength",
     "theil_sen_trend",

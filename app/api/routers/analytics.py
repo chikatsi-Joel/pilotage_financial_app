@@ -74,6 +74,7 @@ def _profile_to_dict(profile) -> dict:
         "level": profile.level,
         "trend": profile.trend,
         "seasonality_strength": profile.seasonality_strength,
+        "seasonality_reliable": profile.seasonality_reliable,
         "volatility": profile.volatility,
         "anomaly_score": profile.anomaly_score,
         "change_points": profile.change_points,

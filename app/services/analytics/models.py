@@ -45,6 +45,7 @@ class TimeSeriesProfile:
     level: float
     trend: float
     seasonality_strength: float
+    seasonality_reliable: bool
     volatility: float
     anomaly_score: float
     change_points: tuple[int, ...]

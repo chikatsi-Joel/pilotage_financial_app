@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     attention_deviation_threshold: float = 0.20
     strong_deviation_threshold: float = 0.50
 
+    # Opportunity score weights (should sum to 1.0)
+    weight_saving: float = 0.45
+    weight_persistent: float = 0.35
+    weight_anomaly: float = 0.20
+
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3:latest"
     ollama_timeout: float = 60.0

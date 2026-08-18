@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 
+from app.core.config import settings
 from app.services.analytics.forecast import forecast
 from app.services.analytics.models import (
     Category,
@@ -78,7 +79,7 @@ class FinancialAnalyticsEngine:
 
         anomaly = residual_anomaly_score(values)
         drift = drift_score(values)
-        seasonal = seasonality_strength(values)
+        seasonal, seasonal_reliable = seasonality_strength(values)
         volatility = mad(values) / max(
             abs(robust_center(values)), 1e-9
         )
@@ -99,18 +100,20 @@ class FinancialAnalyticsEngine:
             1,
         )
 
+        w_s = settings.weight_saving
+        w_p = settings.weight_persistent
+        w_a = settings.weight_anomaly
+        essential_factor = (
+            0.25 if category.type.value == "essential" else 1
+        )
         score_val = min(
             max(
                 (
-                    0.45 * (saving / max(current, 1))
-                    + 0.35 * persistent
-                    + 0.20 * min(anomaly / 3, 1)
+                    w_s * (saving / max(current, 1))
+                    + w_p * persistent
+                    + w_a * min(anomaly / 3, 1)
                 )
-                * (
-                    0.25
-                    if category.type.value == "essential"
-                    else 1
-                ),
+                * essential_factor,
                 0,
             ),
             1,
@@ -121,11 +124,12 @@ class FinancialAnalyticsEngine:
             level=baseline,
             trend=trend,
             seasonality_strength=seasonal,
+            seasonality_reliable=seasonal_reliable,
             volatility=volatility,
             anomaly_score=anomaly,
             change_points=changes,
             drift_score=drift,
-            confidence=confidence(len(values)),
+            confidence=confidence(values),
             forecast=Forecast(method, value, mae),
         )
 

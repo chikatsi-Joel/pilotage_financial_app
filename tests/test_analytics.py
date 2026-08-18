@@ -11,6 +11,7 @@ from app.services.analytics import (
     residual_anomaly_score,
     robust_baseline,
     robust_center,
+    robust_relative_dispersion,
     robust_z,
     seasonality_strength,
     theil_sen_trend,
@@ -20,6 +21,10 @@ from app.services.analytics.models import (
     CategoryType,
     Expense,
     OptimizationPotential,
+)
+from app.services.ai import (
+    _extract_known_numbers,
+    _validate_llm_output,
 )
 
 
@@ -37,10 +42,35 @@ def test_mad_filters_outlier():
     assert m < 5.0, f"MAD should be small, got {m}"
 
 
+def test_robust_relative_dispersion():
+    stable = [100.0, 102.0, 98.0, 101.0, 99.0]
+    volatile = [100.0, 200.0, 50.0, 300.0, 80.0]
+    assert robust_relative_dispersion(stable) < (
+        robust_relative_dispersion(volatile)
+    )
+
+
+def test_robust_relative_dispersion_empty():
+    assert robust_relative_dispersion([]) == 0.0
+
+
+def test_robust_relative_dispersion_zero_center():
+    assert robust_relative_dispersion([0.0, 0.0, 0.0]) == 0.0
+
+
 def test_confidence_increases_with_history():
-    assert confidence(1) < confidence(6)
-    assert confidence(12) == 1.0
-    assert confidence(24) == 1.0
+    assert confidence([1.0] * 3) < confidence([1.0] * 6)
+    assert confidence([1.0] * 12) > 0.9
+
+
+def test_confidence_penalizes_dispersion():
+    stable = [100.0] * 12
+    volatile = [100.0, 200.0, 50.0] * 4
+    assert confidence(stable) > confidence(volatile)
+
+
+def test_confidence_empty():
+    assert confidence([]) == 0.0
 
 
 def test_theil_sen_trend_positive():
@@ -83,6 +113,23 @@ def test_change_points_empty_short():
     assert detect_change_points([1.0, 2.0]) == ()
 
 
+def test_seasonality_strength_short():
+    strength, reliable = seasonality_strength([1.0] * 5)
+    assert strength == 0.0
+    assert reliable is False
+
+
+def test_seasonality_strength_long_enough():
+    import math
+    values = [
+        100 + 20 * math.sin(2 * math.pi * i / 12)
+        for i in range(36)
+    ]
+    strength, reliable = seasonality_strength(values)
+    assert reliable is True
+    assert strength > 0.0
+
+
 def test_money_rounds():
     assert money(Decimal("10.005")) == Decimal("10.01")
     assert money(Decimal("10.004")) == Decimal("10.00")
@@ -113,6 +160,7 @@ def test_full_engine_analysis():
     assert result.opportunity_score > 0
     assert result.profile.confidence > 0
     assert result.profile.drift_score >= 0
+    assert isinstance(result.profile.seasonality_reliable, bool)
     assert result.profile.forecast.method in (
         "naive", "ewma", "trend", "seasonal_naive"
     )
@@ -156,3 +204,47 @@ def test_engine_analyze_sorts_by_opportunity_score():
     results = engine.analyze(cats, expenses, 2026, 6)
     assert len(results) == 2
     assert results[0].opportunity_score >= results[1].opportunity_score
+
+
+def test_extract_known_numbers():
+    context = {
+        "dashboard": {"income": "800000", "expenses": "500000"},
+        "categories": [
+            {"current_amount": 150000.0, "baseline_amount": 145000.0},
+        ],
+    }
+    numbers = _extract_known_numbers(context)
+    assert 800000.0 in numbers
+    assert 500000.0 in numbers
+    assert 150000.0 in numbers
+
+
+def test_validate_llm_output_clean():
+    result = {
+        "summary": "Dépenses totales de 500000 avec un revenu de 800000.",
+        "alerts": [],
+        "recommendations": [],
+        "projected_impact": {},
+    }
+    context = {
+        "dashboard": {"income": "800000", "expenses": "500000"},
+        "categories": [],
+    }
+    validated = _validate_llm_output(result, context)
+    assert "number_warnings" not in validated
+
+
+def test_validate_llm_output_detects_hallucination():
+    result = {
+        "summary": "Vous avez dépensé 999999 ce mois-ci.",
+        "alerts": [],
+        "recommendations": [],
+        "projected_impact": {},
+    }
+    context = {
+        "dashboard": {"income": "800000", "expenses": "500000"},
+        "categories": [],
+    }
+    validated = _validate_llm_output(result, context)
+    assert "number_warnings" in validated
+    assert len(validated["number_warnings"]) > 0
