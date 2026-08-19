@@ -22,6 +22,7 @@ async def simulate( user_id: UUID, period: str, category_id: UUID, reduction_per
     start, end = month_bounds(period)
 
     category = await db.get(Category, category_id)
+
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
@@ -32,13 +33,9 @@ async def simulate( user_id: UUID, period: str, category_id: UUID, reduction_per
             Expense.expense_date.between(start, end),
         )
     )
-    current_amount = sum(
-        amount_result.scalars().all(), Decimal("0")
-    )
+    current_amount = sum(amount_result.scalars().all(), Decimal("0"))
 
-    income, expenses = await get_period_totals(
-        user_id, period, db
-    )
+    income, expenses = await get_period_totals(user_id, period, db)
 
     result = simulate_what_if( current_amount, reduction_percent, income, expenses)
 

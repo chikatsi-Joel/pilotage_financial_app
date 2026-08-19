@@ -1,9 +1,13 @@
 import api, { buildPath } from "./client";
 import type { Income, IncomeCreate } from "../types";
 
+
+
+
 function path(userId: string) {
   return buildPath("/users/{user_id}/incomes", { user_id: userId });
 }
+
 
 export const incomes = {
   list: (userId: string, from?: string, to?: string) =>

@@ -57,10 +57,8 @@ async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> Budg
     goal = goal_result.scalars().first()
     target_savings = None
     if goal:
-        current = sum(
-            (c.amount for c in goal.contributions),
-            Decimal("0"),
-        )
+        current = sum( (c.amount for c in goal.contributions), Decimal("0"), )
+
         months_left = max(
             1,
             (goal.deadline.year - start.year) * 12
@@ -202,9 +200,8 @@ async def update_recommendation_status(
     )
 
 
-async def get_budget(
-    user_id: UUID, period: str, db: AsyncSession
-) -> dict:
+async def get_budget(user_id: UUID, period: str, db: AsyncSession) -> dict:
+
     result = await db.execute(
         select(Budget).where(
             Budget.user_id == user_id,

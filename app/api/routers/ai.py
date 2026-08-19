@@ -49,40 +49,22 @@ class AIAnalysisStoredRead(BaseModel):
     fallback: bool
 
 
-@router.post(
-    "/analyze",
-    response_model=AIAnalysisResponse,
-)
-async def analyze_period(
-    period: str,
-    user: UserDep,
-    db: DbSession,
-):
+@router.post("/analyze", response_model=AIAnalysisResponse,)
+async def analyze_period(period: str, user: UserDep, db: DbSession,):
     try:
         date.fromisoformat(period + "-01")
     except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="period must be YYYY-MM",
-        ) from exc
+        raise HTTPException(status_code=422, detail="period must be YYYY-MM",) from exc
 
     try:
-        analytics = await analytics_service.compute_category_analytics(
-            user.id, period, db
-        )
-        dash = await analytics_service.get_dashboard(
-            user.id, period, db
-        )
-        savings_goals = await savings_service.build_goal_analyses(
-            user.id, period, db
-        )
-        total_contributions = await savings_service.get_total_contributions_for_period(
-            user.id, period, db
-        )
+
+        analytics = await analytics_service.compute_category_analytics(user.id, period, db)
+        dash = await analytics_service.get_dashboard( user.id, period, db)
+        savings_goals = await savings_service.build_goal_analyses(user.id, period, db)
+        total_contributions = await savings_service.get_total_contributions_for_period(user.id, period, db)
+
     except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     context = {
         "period": period,
@@ -126,8 +108,7 @@ async def analyze_period(
                 ),
                 "forecast_value": a.profile.forecast.value,
                 "forecast_mae": a.profile.forecast.mae,
-            }
-            for a in analytics
+            } for a in analytics
         ],
         "savings": {
             "current_monthly_savings": str(dash.savings),
@@ -147,19 +128,13 @@ async def analyze_period(
     provider = get_ai_provider()
     result = await provider.analyze(context)
 
-    entity = AIAnalysis(
+    """entity = AIAnalysis(
         user_id=user.id,
         period=period,
         model=provider._model,
         summary=result.get("summary", ""),
-        alerts_json=json.dumps(
-            result.get("alerts", []),
-            ensure_ascii=False,
-        ),
-        recommendations_json=json.dumps(
-            result.get("recommendations", []),
-            ensure_ascii=False,
-        ),
+        alerts_json=json.dumps( result.get("alerts", []), ensure_ascii=False,),
+        recommendations_json=json.dumps(result.get("recommendations", []), ensure_ascii=False,),
         projected_impact_json=json.dumps(
             result.get("projected_impact", {}),
             ensure_ascii=False,
@@ -167,7 +142,7 @@ async def analyze_period(
         fallback=result.get("fallback", False),
     )
     db.add(entity)
-    await db.commit()
+    await db.commit()"""
 
     return AIAnalysisResponse(
         period=period,
@@ -187,10 +162,7 @@ async def analyze_period(
     "/analyses",
     response_model=list[AIAnalysisStoredRead],
 )
-async def list_analyses(
-    user: UserDep,
-    db: DbSession,
-):
+async def list_analyses(user: UserDep, db: DbSession,):
     result = await db.execute(
         select(AIAnalysis)
         .where(AIAnalysis.user_id == user.id)

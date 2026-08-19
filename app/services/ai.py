@@ -111,7 +111,9 @@ class OllamaProvider:
             )
             raw = response["message"]["content"]
             result = _parse_response(raw)
+            log.info("ai result : ", result)
             return _validate_llm_output(result, structured_context)
+
         except _ollama.ResponseError as exc:
             log.error("Ollama API error: %s", exc)
             return _fallback_analysis(structured_context, str(exc))

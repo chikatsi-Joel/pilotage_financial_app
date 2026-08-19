@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -86,44 +86,53 @@ def _months_until(deadline: date, period: str) -> int:
 async def build_goal_analyses( user_id: UUID, period: str, db: AsyncSession, ) -> list[SavingsGoalAnalysis]:
     """Create compact, derived savings-goal data safe to send to the LLM."""
     _, period_end = month_bounds(period)
+    periods = _monthly_periods(period)
+
     result = await db.execute(
         select(SavingsGoal)
         .where(
             SavingsGoal.user_id == user_id,
             SavingsGoal.active.is_(True),
         )
-        .options(selectinload(SavingsGoal.contributions))
+        .options(
+            selectinload(
+                SavingsGoal.contributions.and_(
+                    SavingsContribution.created_at <= period_end
+                )
+            )
+        )
         .order_by(SavingsGoal.deadline)
     )
-    goals = result.scalars().unique().all()
-    periods = _monthly_periods(period)
+    goals = result.scalars().all()
+
     analyses: list[SavingsGoalAnalysis] = []
 
     for goal in goals:
-        contributions = [contribution for contribution in goal.contributions
-                         if contribution.created_at.date() <= period_end
-        ]
+        totals_by_period = {p: Decimal("0") for p in periods}
+        current_amount = Decimal("0")
+        contribution_count = 0
 
-        current_amount = money(sum(
-            (contribution.amount for contribution in contributions),
-            Decimal("0"),
-        ))
-
-        remaining_amount = money(max( Decimal("0"), goal.target_amount - current_amount, ))
-        totals_by_period = {item: Decimal("0") for item in periods}
-
-        for contribution in contributions:
+        for contribution in goal.contributions:
+            current_amount += contribution.amount
+            contribution_count += 1
             contribution_period = contribution.created_at.strftime("%Y-%m")
-            if contribution_period in totals_by_period:
-                totals_by_period[contribution_period] += contribution.amount
+            bucket = totals_by_period.get(contribution_period)
+            if bucket is not None:
+                totals_by_period[contribution_period] = bucket + contribution.amount
+
+        current_amount = money(current_amount)
+        remaining_amount = money(max(Decimal("0"), goal.target_amount - current_amount))
 
         monthly_values = list(totals_by_period.values())
-        active_months = [value for value in monthly_values if value > 0]
+        active_months = [v for v in monthly_values if v > 0]
+
         average = (
             money(sum(monthly_values, Decimal("0")) / len(monthly_values))
-            if active_months else None
+            if active_months
+            else None
         )
         recent = money(monthly_values[-1]) if active_months else None
+
         months_until = _months_until(goal.deadline, period)
         required = (
             money(remaining_amount / months_until)
@@ -131,32 +140,39 @@ async def build_goal_analyses( user_id: UUID, period: str, db: AsyncSession, ) -
             else None
         )
 
-        analyses.append(SavingsGoalAnalysis(
-            goal_id=goal.id,
-            name=goal.name,
-            description=goal.description,
-            target_amount=goal.target_amount,
-            target_date=goal.deadline,
-            current_amount=current_amount,
-            remaining_amount=remaining_amount,
-            progress_percentage=round(
-                float(current_amount / goal.target_amount * 100), 2
-            ) if goal.target_amount else 0.0,
-            contribution_count=len(contributions),
-            average_monthly_contribution=average,
-            recent_monthly_contribution=recent,
-            contribution_trend=get_contribution_trend(monthly_values),
-            contribution_regularity=_contribution_regularity(monthly_values),
-            required_monthly_contribution=required,
-        ))
+        analyses.append(
+            SavingsGoalAnalysis(
+                goal_id=goal.id,
+                name=goal.name,
+                description=goal.description,
+                target_amount=goal.target_amount,
+                target_date=goal.deadline,
+                current_amount=current_amount,
+                remaining_amount=remaining_amount,
+                progress_percentage=(
+                    round(float(current_amount / goal.target_amount * 100), 2)
+                    if goal.target_amount
+                    else 0.0
+                ),
+                contribution_count=contribution_count,
+                average_monthly_contribution=average,
+                recent_monthly_contribution=recent,
+                contribution_trend=get_contribution_trend(monthly_values),
+                contribution_regularity=_contribution_regularity(monthly_values),
+                required_monthly_contribution=required,
+            )
+        )
+
     return analyses
 
 
-async def get_total_contributions_for_period( user_id: UUID, period: str, db: AsyncSession, ) -> Decimal:
+async def get_total_contributions_for_period(
+    user_id: UUID, period: str, db: AsyncSession, ) -> Decimal:
+
     start, end = month_bounds(period)
 
     result = await db.execute(
-        select(SavingsContribution.amount)
+        select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")))
         .join(SavingsGoal)
         .where(
             SavingsGoal.user_id == user_id,
@@ -164,20 +180,17 @@ async def get_total_contributions_for_period( user_id: UUID, period: str, db: As
             SavingsContribution.created_at < end + timedelta(days=1),
         )
     )
-    return money(sum(result.scalars().all(), Decimal("0")))
+    return money(result.scalar_one())
 
 
-async def _available_for_user( user_id: UUID, d: date, db: AsyncSession) -> Decimal:
-
+async def _available_for_user(user_id: UUID, d: date, db: AsyncSession) -> Decimal:
     period = d.strftime("%Y-%m")
     start, end = month_bounds(period)
 
-    income, expenses = await get_period_totals(
-        user_id, period, db
-    )
+    income, expenses = await get_period_totals(user_id, period, db)
 
     contrib_result = await db.execute(
-        select(SavingsContribution.amount)
+        select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")))
         .join(SavingsGoal)
         .where(
             SavingsGoal.user_id == user_id,
@@ -185,24 +198,26 @@ async def _available_for_user( user_id: UUID, d: date, db: AsyncSession) -> Deci
             SavingsContribution.created_at < end,
         )
     )
-    prior_contributions = sum(
-        contrib_result.scalars().all(), Decimal("0")
-    )
+    prior_contributions = contrib_result.scalar_one()
 
     return money(income - expenses - prior_contributions)
 
 
-async def contribute( user_id: UUID, goal_id: UUID, amount: Decimal, db: AsyncSession, ) -> SavingsGoalContributeRead:
-
+async def contribute(
+    user_id: UUID,
+    goal_id: UUID,
+    amount: Decimal,
+    db: AsyncSession,
+) -> SavingsGoalContributeRead:
     if amount <= 0:
         raise BusinessRule("Contribution amount must be positive")
 
     result = await db.execute(
-        select(SavingsGoal).where(
-            SavingsGoal.id == goal_id,
-            SavingsGoal.user_id == user_id,
-        )
+        select(SavingsGoal)
+        .where(SavingsGoal.id == goal_id, SavingsGoal.user_id == user_id)
+        .with_for_update()
     )
+
     goal = result.scalar_one_or_none()
     if not goal:
         raise NotFound("Savings goal not found")
@@ -210,21 +225,23 @@ async def contribute( user_id: UUID, goal_id: UUID, amount: Decimal, db: AsyncSe
         raise BusinessRule("Cannot contribute to an inactive goal")
 
     available = await _available_for_user(user_id, date.today(), db)
-
     if available < amount:
-        raise BusinessRule(f"Insufficient available funds "
-            f"(available: {available}, requested: {amount})")
+        raise BusinessRule(
+            f"Insufficient available funds "
+            f"(available: {available}, requested: {amount})"
+        )
 
-    contribution = SavingsContribution( savings_goal_id=goal.id, amount=money(amount), )
+    current_total_result = await db.execute(
+        select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")))
+        .where(SavingsContribution.savings_goal_id == goal.id)
+    )
+    current_total = current_total_result.scalar_one()
+
+    contribution = SavingsContribution(savings_goal_id=goal.id, amount=money(amount))
     db.add(contribution)
     await db.commit()
 
-    total_result = await db.execute(
-        select(SavingsContribution.amount).where(
-            SavingsContribution.savings_goal_id == goal.id,
-        )
-    )
-    new_total = money(sum(total_result.scalars().all(), Decimal("0")))
+    new_total = money(current_total + money(amount))
 
     return SavingsGoalContributeRead(
         goal_id=goal.id,
@@ -234,3 +251,4 @@ async def contribute( user_id: UUID, goal_id: UUID, amount: Decimal, db: AsyncSe
         target_amount=goal.target_amount,
         completed=new_total >= goal.target_amount,
     )
+

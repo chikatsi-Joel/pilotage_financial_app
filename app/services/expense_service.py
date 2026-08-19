@@ -14,12 +14,10 @@ class NotFound(Exception):
     pass
 
 
-async def create(
-    user_id: UUID,
-    payload: ExpenseCreate,
-    db: AsyncSession,
-) -> Expense:
+async def create( user_id: UUID, payload: ExpenseCreate, db: AsyncSession,) -> Expense:
+
     category = await db.get(Category, payload.category_id)
+
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
@@ -78,11 +76,7 @@ async def update(
     return expense
 
 
-async def delete(
-    user_id: UUID,
-    expense_id: UUID,
-    db: AsyncSession,
-) -> None:
+async def delete(user_id: UUID, expense_id: UUID, db: AsyncSession, ) -> None:
     result = await db.execute(
         select(Expense).where(
             Expense.id == expense_id,

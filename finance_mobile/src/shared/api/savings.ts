@@ -5,6 +5,9 @@ import type {
   SavingsGoalContributeRead,
 } from "../types";
 
+
+
+
 function path(userId: string, extra?: Record<string, string>) {
   return buildPath("/users/{user_id}/savings-goals", {
     user_id: userId,

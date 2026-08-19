@@ -1,6 +1,8 @@
 import api, { buildPath } from "./client";
 import type { User, UserCreate } from "../types";
 
+
+
 export const users = {
   create: (data: UserCreate) =>
     api.post<User>("/users", data).then((r) => r.data),
