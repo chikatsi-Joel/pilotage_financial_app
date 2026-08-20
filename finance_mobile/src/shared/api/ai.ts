@@ -1,5 +1,10 @@
 import api, { buildPath } from "./client";
-import type { AIAnalysis, AIAnalysisStored, AIHealth } from "../types";
+import type {
+  AIAnalysis,
+  AIAnalysisStored,
+  AIHealth,
+  PaginatedResponse,
+} from "../types";
 
 function path(userId: string) {
   return buildPath("/users/{user_id}/ai", { user_id: userId });
@@ -12,9 +17,11 @@ export const ai = {
         params: { period },
       })
       .then((r) => r.data),
-  listAnalyses: (userId: string) =>
+  listAnalyses: (userId: string, opts?: { cursor?: string; limit?: number }) =>
     api
-      .get<AIAnalysisStored[]>(`${path(userId)}/analyses`)
+      .get<PaginatedResponse<AIAnalysisStored>>(`${path(userId)}/analyses`, {
+        params: { cursor: opts?.cursor, limit: opts?.limit },
+      })
       .then((r) => r.data),
   health: (userId: string) =>
     api.get<AIHealth>(`${path(userId)}/health`).then((r) => r.data),

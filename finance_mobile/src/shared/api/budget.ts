@@ -3,6 +3,7 @@ import type {
   Budget,
   BudgetSummary,
   BudgetDecision,
+  PaginatedResponse,
   Recommendation,
   RecommendationStatus,
 } from "../types";
@@ -28,11 +29,18 @@ export const budget = {
         params: { period },
       })
       .then((r) => r.data),
-  listRecommendations: (userId: string, period: string) =>
+  listRecommendations: (
+    userId: string,
+    period: string,
+    opts?: { cursor?: string; limit?: number },
+  ) =>
     api
-      .get<Recommendation[]>(`${path(userId)}/recommendations`, {
-        params: { period },
-      })
+      .get<PaginatedResponse<Recommendation>>(
+        `${path(userId)}/recommendations`,
+        {
+          params: { period, cursor: opts?.cursor, limit: opts?.limit },
+        },
+      )
       .then((r) => r.data),
   updateRecommendationStatus: (
     userId: string,

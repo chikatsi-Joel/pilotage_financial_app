@@ -1,3 +1,9 @@
+export interface PaginatedResponse<T> {
+  items: T[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
 export interface User {
   id: string;
   name: string;

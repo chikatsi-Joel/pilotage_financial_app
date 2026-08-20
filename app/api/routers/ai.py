@@ -3,15 +3,17 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
+from app.schemas.common import PaginatedResponse
 from app.services import analytics_service, savings_service
 from app.services.ai import OllamaProvider
 from app.services.analytics_service import InvalidPeriod
+from app.services.pagination import paginate
 
 router = APIRouter(
     prefix="/users/{user_id}/ai", tags=["ai"]
@@ -160,33 +162,41 @@ async def analyze_period(period: str, user: UserDep, db: DbSession,):
 
 @router.get(
     "/analyses",
-    response_model=list[AIAnalysisStoredRead],
+    response_model=PaginatedResponse[AIAnalysisStoredRead],
 )
-async def list_analyses(user: UserDep, db: DbSession,):
-    result = await db.execute(
+async def list_analyses(
+    user: UserDep,
+    db: DbSession,
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    query = (
         select(AIAnalysis)
         .where(AIAnalysis.user_id == user.id)
-        .order_by(AIAnalysis.created_at.desc())
-        .limit(20)
     )
-    rows = result.scalars().all()
-    return [
-        AIAnalysisStoredRead(
-            id=str(r.id),
-            period=r.period,
-            model=r.model,
-            summary=r.summary,
-            alerts=json.loads(r.alerts_json),
-            recommendations=json.loads(
-                r.recommendations_json
-            ),
-            projected_impact=json.loads(
-                r.projected_impact_json
-            ),
-            fallback=r.fallback,
-        )
-        for r in rows
-    ]
+
+    items, next_cursor, has_more = await paginate(
+        db, query, limit, cursor,
+        id_col=AIAnalysis.id, sort_col=AIAnalysis.created_at, sort_desc=True,
+    )
+
+    return PaginatedResponse(
+        items=[
+            AIAnalysisStoredRead(
+                id=str(r.id),
+                period=r.period,
+                model=r.model,
+                summary=r.summary,
+                alerts=json.loads(r.alerts_json),
+                recommendations=json.loads(r.recommendations_json),
+                projected_impact=json.loads(r.projected_impact_json),
+                fallback=r.fallback,
+            )
+            for r in items
+        ],
+        next_cursor=next_cursor,
+        has_more=has_more,
+    )
 
 
 @router.get("/health")

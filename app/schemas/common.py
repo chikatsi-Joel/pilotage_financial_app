@@ -7,6 +7,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.utils.savings_goal import SavingsContributionTrend
 
 
+class PaginatedResponse[T](BaseModel):
+    items: list[T]
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
+class CursorParams(BaseModel):
+    cursor: str | None = Field(default=None, description="ID of last item from previous page")
+    limit: int = Field(default=20, ge=1, le=100, description="Items per page")
+
+
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

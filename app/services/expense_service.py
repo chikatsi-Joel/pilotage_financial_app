@@ -8,16 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Category, Expense
 from app.schemas.common import ExpenseCreate
+from app.services.pagination import paginate
 
 
 class NotFound(Exception):
     pass
 
 
-async def create( user_id: UUID, payload: ExpenseCreate, db: AsyncSession,) -> Expense:
-
+async def create(user_id: UUID, payload: ExpenseCreate, db: AsyncSession) -> Expense:
     category = await db.get(Category, payload.category_id)
-
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
@@ -29,12 +28,11 @@ async def create( user_id: UUID, payload: ExpenseCreate, db: AsyncSession,) -> E
 
 
 async def list_by_user(
-    user_id: UUID,
-    db: AsyncSession,
-    from_date: date | None = None,
-    to_date: date | None = None,
-    category_id: UUID | None = None,
-) -> list[Expense]:
+    user_id: UUID, db: AsyncSession, from_date: date | None = None,
+    to_date: date | None = None, category_id: UUID | None = None,
+    *, cursor: str | None = None,  limit: int = 20,) -> tuple[list[Expense], str | None, bool]:
+
+
     query = select(Expense).where(Expense.user_id == user_id)
     if from_date:
         query = query.where(Expense.expense_date >= from_date)
@@ -42,18 +40,12 @@ async def list_by_user(
         query = query.where(Expense.expense_date <= to_date)
     if category_id:
         query = query.where(Expense.category_id == category_id)
-    query = query.order_by(
-        Expense.expense_date.desc(), Expense.created_at.desc()
-    )
-    result = await db.execute(query)
-    return list(result.scalars().all())
+
+    return await paginate(db, query, limit, cursor, id_col=Expense.id, sort_col=Expense.created_at, sort_desc=True, )
 
 
 async def update(
-    user_id: UUID,
-    expense_id: UUID,
-    payload: ExpenseCreate,
-    db: AsyncSession,
+    user_id: UUID, expense_id: UUID, payload: ExpenseCreate, db: AsyncSession
 ) -> Expense:
     result = await db.execute(
         select(Expense).where(
@@ -76,7 +68,7 @@ async def update(
     return expense
 
 
-async def delete(user_id: UUID, expense_id: UUID, db: AsyncSession, ) -> None:
+async def delete(user_id: UUID, expense_id: UUID, db: AsyncSession) -> None:
     result = await db.execute(
         select(Expense).where(
             Expense.id == expense_id,

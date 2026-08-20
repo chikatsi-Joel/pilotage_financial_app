@@ -127,21 +127,32 @@ async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> Budg
 
 
 async def list_recommendations(
-    user_id: UUID, period: str, db: AsyncSession
-) -> list[RecommendationRead]:
-    result = await db.execute(
+    user_id: UUID,
+    period: str,
+    db: AsyncSession,
+    *,
+    cursor: str | None = None,
+    limit: int = 20,
+) -> tuple[list[RecommendationRead], str | None, bool]:
+    from app.services.pagination import paginate
+
+    query = (
         select(Recommendation)
         .where(
             Recommendation.user_id == user_id,
             Recommendation.period == period,
         )
-        .order_by(Recommendation.impact_estimated.desc())
     )
-    recs = result.scalars().all()
-    if not recs:
-        return []
 
-    cat_ids = [r.category_id for r in recs]
+    items, next_cursor, has_more = await paginate(
+        db, query, limit, cursor,
+        id_col=Recommendation.id, sort_col=Recommendation.impact_estimated, sort_desc=True,
+    )
+
+    if not items:
+        return [], None, False
+
+    cat_ids = [r.category_id for r in items]
     cats = await db.execute(
         select(Category).where(Category.id.in_(cat_ids))
     )
@@ -157,8 +168,8 @@ async def list_recommendations(
             justification=r.justification,
             status=r.status.value,
         )
-        for r in recs
-    ]
+        for r in items
+    ], next_cursor, has_more
 
 
 async def update_recommendation_status(

@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,7 +30,9 @@ class BusinessRule(Exception):
     pass
 
 
-async def create_goal( user_id: UUID, payload: SavingsGoalCreate, db: AsyncSession, ) -> SavingsGoal:
+async def create_goal(
+    user_id: UUID, payload: SavingsGoalCreate, db: AsyncSession
+) -> SavingsGoal:
 
     goal = SavingsGoal( user_id=user_id, **payload.model_dump() )
     db.add(goal)
@@ -40,17 +42,28 @@ async def create_goal( user_id: UUID, payload: SavingsGoalCreate, db: AsyncSessi
     return goal
 
 
-async def list_goals( user_id: UUID, db: AsyncSession ) -> list[SavingsGoal]:
-    result = await db.execute(
+async def list_goals(
+    user_id: UUID,
+    db: AsyncSession,
+    *,
+    cursor: str | None = None,
+    limit: int = 20,
+) -> tuple[list[SavingsGoal], str | None, bool]:
+    from app.services.pagination import paginate
+
+    query = (
         select(SavingsGoal)
         .where(
             SavingsGoal.user_id == user_id,
             SavingsGoal.active.is_(True),
         )
         .options(selectinload(SavingsGoal.contributions))
-        .order_by(SavingsGoal.deadline)
     )
-    return list(result.scalars().unique().all())
+
+    return await paginate(
+        db, query, limit, cursor,
+        id_col=SavingsGoal.id, sort_col=SavingsGoal.deadline, sort_desc=False,
+    )
 
 
 def _previous_month(year: int, month: int) -> tuple[int, int]:
@@ -83,7 +96,9 @@ def _months_until(deadline: date, period: str) -> int:
     return (deadline.year - year) * 12 + deadline.month - month
 
 
-async def build_goal_analyses( user_id: UUID, period: str, db: AsyncSession, ) -> list[SavingsGoalAnalysis]:
+async def build_goal_analyses(
+    user_id: UUID, period: str, db: AsyncSession
+) -> list[SavingsGoalAnalysis]:
     """Create compact, derived savings-goal data safe to send to the LLM."""
     _, period_end = month_bounds(period)
     periods = _monthly_periods(period)
@@ -225,6 +240,7 @@ async def contribute(
         raise BusinessRule("Cannot contribute to an inactive goal")
 
     available = await _available_for_user(user_id, date.today(), db)
+
     if available < amount:
         raise BusinessRule(
             f"Insufficient available funds "

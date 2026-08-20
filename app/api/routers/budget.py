@@ -1,14 +1,19 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import DbSession, UserDep
 from app.models import RecommendationStatus
 from app.schemas.common import (
-    BudgetDecision, BudgetRead, RecommendationRead,
+    BudgetDecision,
+    BudgetRead,
+    PaginatedResponse,
+    RecommendationRead,
 )
 from app.services import budget_service
 from app.services.analytics_service import InvalidPeriod
 from app.services.budget_service import (
-    BusinessRule, Conflict, NotFound,
+    BusinessRule,
+    Conflict,
+    NotFound,
 )
 
 router = APIRouter(prefix="/users/{user_id}", tags=["budget"])
@@ -37,15 +42,20 @@ async def recommend_budget(
 
 @router.get(
     "/budget/recommendations",
-    response_model=list[RecommendationRead],
+    response_model=PaginatedResponse[RecommendationRead],
 )
 async def list_recommendations(
     period: str,
     user: UserDep,
     db: DbSession,
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
 ):
-    return await budget_service.list_recommendations(
-        user.id, period, db
+    items, next_cursor, has_more = await budget_service.list_recommendations(
+        user.id, period, db, cursor=cursor, limit=limit,
+    )
+    return PaginatedResponse(
+        items=items, next_cursor=next_cursor, has_more=has_more,
     )
 
 

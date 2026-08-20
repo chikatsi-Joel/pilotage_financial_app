@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import (
+    PaginatedResponse,
     SavingsGoalContribute,
     SavingsGoalContributeRead,
     SavingsGoalCreate,
@@ -35,12 +36,19 @@ async def create_goal(
     )
 
 
-@router.get("", response_model=list[SavingsGoalRead])
+@router.get("", response_model=PaginatedResponse[SavingsGoalRead])
 async def list_goals(
     user: UserDep,
     db: DbSession,
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
 ):
-    return await savings_service.list_goals(user.id, db)
+    items, next_cursor, has_more = await savings_service.list_goals(
+        user.id, db, cursor=cursor, limit=limit,
+    )
+    return PaginatedResponse(
+        items=items, next_cursor=next_cursor, has_more=has_more,
+    )
 
 
 @router.post(

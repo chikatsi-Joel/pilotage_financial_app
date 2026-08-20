@@ -1,5 +1,5 @@
 import api, { buildPath } from "./client";
-import type { Expense, ExpenseCreate } from "../types";
+import type { Expense, ExpenseCreate, PaginatedResponse } from "../types";
 
 function path(userId: string, extra?: Record<string, string>) {
   return buildPath("/users/{user_id}/expenses", {
@@ -9,10 +9,25 @@ function path(userId: string, extra?: Record<string, string>) {
 }
 
 export const expenses = {
-  list: (userId: string, from?: string, to?: string, categoryId?: string) =>
+  list: (
+    userId: string,
+    opts?: {
+      from?: string;
+      to?: string;
+      categoryId?: string;
+      cursor?: string;
+      limit?: number;
+    },
+  ) =>
     api
-      .get<Expense[]>(path(userId), {
-        params: { from_date: from, to_date: to, category_id: categoryId },
+      .get<PaginatedResponse<Expense>>(path(userId), {
+        params: {
+          from_date: opts?.from,
+          to_date: opts?.to,
+          category_id: opts?.categoryId,
+          cursor: opts?.cursor,
+          limit: opts?.limit,
+        },
       })
       .then((r) => r.data),
   create: (userId: string, data: ExpenseCreate) =>
