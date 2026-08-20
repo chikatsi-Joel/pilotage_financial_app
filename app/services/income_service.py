@@ -28,13 +28,11 @@ async def list_by_user(
     cursor: str | None = None,
     limit: int = 20,
 ) -> tuple[list[Income], str | None, bool]:
+
     query = select(Income).where(Income.user_id == user_id)
     if from_date:
         query = query.where(Income.income_date >= from_date)
     if to_date:
         query = query.where(Income.income_date <= to_date)
 
-    return await paginate(
-        db, query, limit, cursor,
-        id_col=Income.id, sort_col=Income.income_date, sort_desc=True,
-    )
+    return await paginate(db, query, limit, cursor, id_col=Income.id, sort_col=Income.income_date, sort_desc=True,)

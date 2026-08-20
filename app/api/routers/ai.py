@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -167,8 +168,8 @@ async def analyze_period(period: str, user: UserDep, db: DbSession,):
 async def list_analyses(
     user: UserDep,
     db: DbSession,
-    cursor: str | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
+    cursor: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     query = (
         select(AIAnalysis)

@@ -1,28 +1,254 @@
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Card, Pill, SectionTitle } from "../../src/ui/components";
 import { colors } from "../../src/ui/theme";
 
-const categories = [
-  ["Alimentation", "120 000", "145 000", "basket-outline", colors.primary],
-  ["Transport", "48 000", "60 000", "car-outline", colors.accent],
-  ["Loisirs", "37 000", "30 000", "party-popper", colors.warning],
+const CATEGORIES = [
+  { name: "Logement & Charges", amount: "1 150 €", icon: "home", tint: colors.primary, pct: "48%" },
+  { name: "Alimentation", amount: "480 €", icon: "food-variant", tint: colors.accent, pct: "20%" },
+  { name: "Transports", amount: "220 €", icon: "car", tint: colors.textMuted, pct: "9%" },
+  { name: "Loisirs & Sorties", amount: "350 €", icon: "gamepad-variant", tint: "#E91E63", pct: "14%" },
 ] as const;
 
+type Tab = "budget" | "ia";
+
 export default function Budget() {
-  return <SafeAreaView edges={["top"]} style={styles.safeArea}><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <View style={styles.header}><View><Text style={styles.eyebrow}>AOÛT 2026</Text><Text style={styles.title}>Votre budget</Text></View><View style={styles.monthButton}><MaterialCommunityIcons color={colors.primary} name="calendar-month-outline" size={20} /></View></View>
-    <Card style={styles.hero}><Text style={styles.heroLabel}>Budget recommandé</Text><Text style={styles.heroAmount}>380 000 <Text style={styles.heroCurrency}>FCFA</Text></Text><Text style={styles.heroCopy}>Une enveloppe équilibrée pour préserver vos objectifs.</Text><View style={styles.heroFooter}><View><Text style={styles.smallLabel}>Épargne suggérée</Text><Text style={styles.savings}>120 000 FCFA</Text></View><Pill label="RÉALISTE" tone="success" /></View></Card>
-    <SectionTitle action="Modifier" title="Répartition proposée" />
-    <View style={styles.categoryList}>{categories.map(([name, spent, target, icon, tint]) => <Card key={name} style={styles.category}><View style={[styles.categoryIcon, { backgroundColor: `${tint}18` }]}><MaterialCommunityIcons color={tint} name={icon} size={22} /></View><View style={styles.categoryCopy}><View style={styles.categoryTitleRow}><Text style={styles.categoryName}>{name}</Text><Text style={styles.categoryAmount}>{spent}</Text></View><View style={styles.rail}><View style={[styles.fill, { backgroundColor: tint, width: name === "Loisirs" ? "88%" : name === "Transport" ? "62%" : "72%" }]} /></View><Text style={styles.target}>sur {target} FCFA prévus</Text></View></Card>)}</View>
-    <SectionTitle title="Conseil du mois" />
-    <View style={styles.tip}><MaterialCommunityIcons color="#FFFFFF" name="lightbulb-on-outline" size={24} /><View style={styles.tipCopy}><Text style={styles.tipTitle}>Réduire sans se priver</Text><Text style={styles.tipText}>Limiter les sorties à 2 cette semaine pourrait libérer 15 000 FCFA.</Text></View></View>
-    <Pressable style={styles.primaryAction}><Text style={styles.primaryActionText}>Valider ce budget</Text><MaterialCommunityIcons color="#FFFFFF" name="arrow-right" size={20} /></Pressable>
-  </ScrollView></SafeAreaView>;
+  const [tab, setTab] = useState<Tab>("budget");
+
+  return (
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero card */}
+        <View style={styles.hero}>
+          <View style={styles.heroBlur1} />
+          <View style={styles.heroBlur2} />
+          <View style={styles.heroInner}>
+            <Text style={styles.heroLabel}>Budget Mensuel Total</Text>
+            <Text style={styles.heroAmount}>2 400 €</Text>
+            <Text style={styles.heroSub}>Revenus estimés : 3 200 €</Text>
+          </View>
+        </View>
+
+        {/* Tab selector */}
+        <View style={styles.tabBar}>
+          <Pressable
+            onPress={() => setTab("budget")}
+            style={[styles.tab, tab === "budget" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, tab === "budget" && styles.tabTextActive]}>
+              Mon Budget
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setTab("ia")}
+            style={[styles.tab, tab === "ia" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, tab === "ia" && styles.tabTextActive]}>
+              Proposition IA
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Section title */}
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Répartition actuelle</Text>
+          <Pressable style={styles.modifierPill}>
+            <Text style={styles.modifierPillText}>Modifier</Text>
+          </Pressable>
+        </View>
+
+        {/* Categories card */}
+        <View style={styles.categoriesCard}>
+          {CATEGORIES.map((cat, i) => (
+            <View key={cat.name}>
+              <View style={styles.catRow}>
+                <View style={styles.catLeft}>
+                  <View style={[styles.catIcon, { backgroundColor: `${cat.tint}18` }]}>
+                    <MaterialCommunityIcons color={cat.tint} name={cat.icon} size={18} />
+                  </View>
+                  <Text style={styles.catName}>{cat.name}</Text>
+                </View>
+                <Text style={styles.catAmount}>{cat.amount}</Text>
+              </View>
+              <View style={styles.barTrack}>
+                <View style={[styles.barFill, { backgroundColor: cat.tint, width: cat.pct }]} />
+              </View>
+              {i < CATEGORIES.length - 1 && <View style={styles.catDivider} />}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-  category: { alignItems: "center", flexDirection: "row", gap: 13, padding: 15 }, categoryAmount: { color: colors.text, fontSize: 14, fontWeight: "800" }, categoryCopy: { flex: 1, gap: 7 }, categoryIcon: { alignItems: "center", borderRadius: 14, height: 45, justifyContent: "center", width: 45 }, categoryList: { gap: 10 }, categoryName: { color: colors.text, fontWeight: "800" }, categoryTitleRow: { flexDirection: "row", justifyContent: "space-between" }, content: { padding: 20, paddingBottom: 32 }, eyebrow: { color: colors.textMuted, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }, fill: { borderRadius: 4, height: "100%" }, header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" }, hero: { backgroundColor: colors.text, borderColor: colors.text, gap: 8, marginTop: 24, padding: 21 }, heroAmount: { color: "#FFFFFF", fontSize: 31, fontWeight: "800" }, heroCopy: { color: "#C9D1DF", fontSize: 13, lineHeight: 19 }, heroCurrency: { fontSize: 14 }, heroFooter: { alignItems: "center", borderTopColor: "#304158", borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 9, paddingTop: 14 }, heroLabel: { color: "#C9D1DF", fontSize: 13, fontWeight: "700" }, monthButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 14, height: 43, justifyContent: "center", width: 43 }, primaryAction: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 17, flexDirection: "row", gap: 9, justifyContent: "center", marginTop: 26, paddingVertical: 16 }, primaryActionText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" }, rail: { backgroundColor: colors.surfaceMuted, borderRadius: 4, height: 7, overflow: "hidden" }, safeArea: { backgroundColor: colors.background, flex: 1 }, savings: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", marginTop: 3 }, smallLabel: { color: "#AAB5C7", fontSize: 11 }, target: { color: colors.textMuted, fontSize: 11 }, tip: { alignItems: "flex-start", backgroundColor: colors.accent, borderRadius: 21, flexDirection: "row", gap: 12, padding: 17 }, tipCopy: { flex: 1, gap: 4 }, tipText: { color: "#F1EBFF", fontSize: 12, lineHeight: 18 }, tipTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" }, title: { color: colors.text, fontSize: 25, fontWeight: "800", marginTop: 4 },
+  safeArea: { backgroundColor: colors.background, flex: 1 },
+  content: { padding: 16, paddingBottom: 32 },
+
+  /* Hero */
+  hero: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    overflow: "hidden",
+    padding: 16,
+  },
+  heroBlur1: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius: 999,
+    height: 128,
+    position: "absolute",
+    right: -48,
+    top: -48,
+    width: 128,
+  },
+  heroBlur2: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius: 999,
+    height: 96,
+    position: "absolute",
+    bottom: -32,
+    left: -32,
+    width: 96,
+  },
+  heroInner: { gap: 4, position: "relative", zIndex: 1 },
+  heroLabel: {
+    color: "rgba(255,255,255,0.80)",
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  heroAmount: {
+    color: "#FFFFFF",
+    fontSize: 40,
+    fontWeight: "700",
+    lineHeight: 48,
+    letterSpacing: -0.5,
+  },
+  heroSub: {
+    color: "rgba(255,255,255,0.90)",
+    fontSize: 16,
+    marginTop: 4,
+  },
+
+  /* Tabs */
+  tabBar: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    marginTop: 20,
+    padding: 4,
+  },
+  tab: {
+    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 10,
+  },
+  tabActive: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  tabTextActive: {
+    color: "#FFFFFF",
+  },
+
+  /* Section */
+  sectionRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    marginTop: 24,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  modifierPill: {
+    backgroundColor: `${colors.primary}18`,
+    borderRadius: 99,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  modifierPillText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  /* Categories card */
+  categoriesCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  catRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  catLeft: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  catIcon: {
+    alignItems: "center",
+    borderRadius: 99,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  catName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  catAmount: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  barTrack: {
+    backgroundColor: `${colors.text}12`,
+    borderRadius: 99,
+    height: 8,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  barFill: {
+    borderRadius: 99,
+    height: "100%",
+  },
+  catDivider: {
+    backgroundColor: colors.border,
+    height: 1,
+    marginVertical: 14,
+  },
 });

@@ -1,7 +1,7 @@
 {
   ".opencode/plugins/graphify.js": {
-    "mtime": 1787217582.6783192,
-    "seen": 1787217801.7918837,
+    "mtime": 1787218819.3697226,
+    "seen": 1787221620.5148401,
     "ast_hash": "b33d000860642c6f4907a877e0387a21",
     "semantic_hash": "b33d000860642c6f4907a877e0387a21"
   },
@@ -30,10 +30,10 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "app/api/routers/ai.py": {
-    "mtime": 1787166724.893,
-    "seen": 1787217801.7918837,
-    "ast_hash": "f2a4eb0ef6e536fa2fb1dbccb9389c8a",
-    "semantic_hash": "f2a4eb0ef6e536fa2fb1dbccb9389c8a"
+    "mtime": 1787220297.1585362,
+    "seen": 1787221620.5148401,
+    "ast_hash": "335473f0063fcff8f58e855982c02a74",
+    "semantic_hash": ""
   },
   "app/api/routers/analytics.py": {
     "mtime": 1787056085.2292955,
@@ -42,34 +42,34 @@
     "semantic_hash": "409086d2dc41d51d700ad31807556e9f"
   },
   "app/api/routers/budget.py": {
-    "mtime": 1787043623.429335,
-    "seen": 1787217801.7918837,
-    "ast_hash": "955646012920a63981a2dd748ffdb689",
-    "semantic_hash": "955646012920a63981a2dd748ffdb689"
+    "mtime": 1787220461.4395456,
+    "seen": 1787221620.5148401,
+    "ast_hash": "3dee77a509db5458eaf901d5f1814bf9",
+    "semantic_hash": ""
   },
   "app/api/routers/expenses.py": {
-    "mtime": 1787060541.9408274,
-    "seen": 1787217801.7918837,
-    "ast_hash": "f0c5059e67d08cecba9fd8b447e3b60b",
-    "semantic_hash": "f0c5059e67d08cecba9fd8b447e3b60b"
+    "mtime": 1787220033.9978037,
+    "seen": 1787221620.5148401,
+    "ast_hash": "4984ff08a2d5956a0353047e9e5bd470",
+    "semantic_hash": ""
   },
   "app/api/routers/incomes.py": {
-    "mtime": 1787060534.7761827,
-    "seen": 1787217801.7918837,
-    "ast_hash": "023d7ba05dc3f7ccf5dbf3ade9a66ffd",
-    "semantic_hash": "023d7ba05dc3f7ccf5dbf3ade9a66ffd"
+    "mtime": 1787220039.3201222,
+    "seen": 1787221620.5148401,
+    "ast_hash": "781e2788247e2c55d180aa126c520d37",
+    "semantic_hash": ""
   },
   "app/api/routers/master_data.py": {
-    "mtime": 1787060749.299,
-    "seen": 1787217801.7918837,
-    "ast_hash": "93acd364a32707142e0b7968134f318e",
-    "semantic_hash": "93acd364a32707142e0b7968134f318e"
+    "mtime": 1787220070.2476332,
+    "seen": 1787221620.5148401,
+    "ast_hash": "ca1f3ebc0fff62d2824e3d661b8a851e",
+    "semantic_hash": ""
   },
   "app/api/routers/savings.py": {
-    "mtime": 1787060711.6078453,
-    "seen": 1787217801.7918837,
-    "ast_hash": "859a236af5ec4401812f3830dac185c3",
-    "semantic_hash": "859a236af5ec4401812f3830dac185c3"
+    "mtime": 1787220263.8002863,
+    "seen": 1787221620.5148401,
+    "ast_hash": "3c27eace55fd6113574020e7e958628b",
+    "semantic_hash": ""
   },
   "app/api/routers/users.py": {
     "mtime": 1787173506.646,
@@ -138,10 +138,10 @@
     "semantic_hash": "4003d088fb739bdab74e14b0d1e91e21"
   },
   "app/schemas/common.py": {
-    "mtime": 1787074281.009637,
-    "seen": 1787217801.7918837,
-    "ast_hash": "503616419a8cf7ac053ae6ba2a1fb3d2",
-    "semantic_hash": "503616419a8cf7ac053ae6ba2a1fb3d2"
+    "mtime": 1787220416.8433564,
+    "seen": 1787221620.5148401,
+    "ast_hash": "aa953af9be1f672bf766765726894d9d",
+    "semantic_hash": ""
   },
   "app/services/__init__.py": {
     "mtime": 1787071946.606,
@@ -210,16 +210,16 @@
     "semantic_hash": "a0c5424cd11009fe4535ffcf1865785c"
   },
   "app/services/budget_service.py": {
-    "mtime": 1787166331.407,
-    "seen": 1787217801.7918837,
-    "ast_hash": "6e371648ee1ec578552dbe53ef49395e",
-    "semantic_hash": "6e371648ee1ec578552dbe53ef49395e"
+    "mtime": 1787219983.1879227,
+    "seen": 1787221620.5148401,
+    "ast_hash": "91ceb58a9a5be5d621ab4213bc0177b2",
+    "semantic_hash": ""
   },
   "app/services/category_service.py": {
-    "mtime": 1787074860.0,
-    "seen": 1787217801.7918837,
-    "ast_hash": "a6d0b21e96086820ef9bc37907d9ea70",
-    "semantic_hash": "a6d0b21e96086820ef9bc37907d9ea70"
+    "mtime": 1787220481.7437906,
+    "seen": 1787221620.5148401,
+    "ast_hash": "e954bf42b73b71d2fcc57607f3ee553e",
+    "semantic_hash": ""
   },
   "app/services/context/__init__.py": {
     "mtime": 1787080112.5861266,
@@ -234,22 +234,22 @@
     "semantic_hash": "51eead64d5f8ed36459351b7b143444a"
   },
   "app/services/expense_service.py": {
-    "mtime": 1787214113.27,
-    "seen": 1787217801.7918837,
-    "ast_hash": "c19b767df3fe7a48074d69120ec61ae8",
-    "semantic_hash": "c19b767df3fe7a48074d69120ec61ae8"
+    "mtime": 1787221601.51,
+    "seen": 1787221620.5148401,
+    "ast_hash": "c2c2ff11efcf1a5cf454f6b1fec46a28",
+    "semantic_hash": ""
   },
   "app/services/income_service.py": {
-    "mtime": 1787172996.288,
-    "seen": 1787217801.7918837,
-    "ast_hash": "3de9e41c5ab7508f6ded7aadaa3b8c99",
-    "semantic_hash": "3de9e41c5ab7508f6ded7aadaa3b8c99"
+    "mtime": 1787219918.1099243,
+    "seen": 1787221620.5148401,
+    "ast_hash": "3f4159e4d5a8e508da75c8ce1f5eada3",
+    "semantic_hash": ""
   },
   "app/services/savings_service.py": {
-    "mtime": 1787173834.908,
-    "seen": 1787217801.7918837,
-    "ast_hash": "f7944ba64f04e18bf99e83e57bacebfa",
-    "semantic_hash": "f7944ba64f04e18bf99e83e57bacebfa"
+    "mtime": 1787220471.1553857,
+    "seen": 1787221620.5148401,
+    "ast_hash": "67d0dd2c343f96ff5bf31e5d810be0c4",
+    "semantic_hash": ""
   },
   "app/services/user_service.py": {
     "mtime": 1787173416.063,
@@ -342,10 +342,10 @@
     "semantic_hash": "6bec72a27f657fb62591acffb1ff6f0c"
   },
   "finance_mobile/src/shared/api/ai.ts": {
-    "mtime": 1787093684.8327708,
-    "seen": 1787217801.7918837,
-    "ast_hash": "6fac0ffb98c6b108c0dbef2ea01b9784",
-    "semantic_hash": "6fac0ffb98c6b108c0dbef2ea01b9784"
+    "mtime": 1787220714.0255544,
+    "seen": 1787221620.5148401,
+    "ast_hash": "0bd9a56f5ac48939a70bec87bada226f",
+    "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/analytics.ts": {
     "mtime": 1787093659.477218,
@@ -354,16 +354,16 @@
     "semantic_hash": "5a31964a81c760836a39b1f2d731a544"
   },
   "finance_mobile/src/shared/api/budget.ts": {
-    "mtime": 1787093662.096649,
-    "seen": 1787217801.7918837,
-    "ast_hash": "fd3187cffa6e53f867ab5c87f1a16edc",
-    "semantic_hash": "fd3187cffa6e53f867ab5c87f1a16edc"
+    "mtime": 1787220702.1793623,
+    "seen": 1787221620.5148401,
+    "ast_hash": "70e65804a682111a78c07b28e9621825",
+    "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/categories.ts": {
-    "mtime": 1787093653.8775046,
-    "seen": 1787217801.7918837,
-    "ast_hash": "db30f7776b8ff7f263a51c627ad2e30f",
-    "semantic_hash": "db30f7776b8ff7f263a51c627ad2e30f"
+    "mtime": 1787220684.1049926,
+    "seen": 1787221620.5148401,
+    "ast_hash": "a36ccf5ab16cc7a1d3adc99ec9b79cc5",
+    "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/client.ts": {
     "mtime": 1787093470.423,
@@ -372,16 +372,16 @@
     "semantic_hash": "dbb409b214b4b377f58079c3dea05462"
   },
   "finance_mobile/src/shared/api/expenses.ts": {
-    "mtime": 1787093657.701838,
-    "seen": 1787217801.7918837,
-    "ast_hash": "802f94e3480ec4d1bab464e18ab2334f",
-    "semantic_hash": "802f94e3480ec4d1bab464e18ab2334f"
+    "mtime": 1787220674.2237768,
+    "seen": 1787221620.5148401,
+    "ast_hash": "5f2ce719043b8f8411273ba00652235e",
+    "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/incomes.ts": {
-    "mtime": 1787093835.332,
-    "seen": 1787217801.7918837,
-    "ast_hash": "72ff34762f216c4a873f06873f72c27f",
-    "semantic_hash": "72ff34762f216c4a873f06873f72c27f"
+    "mtime": 1787220679.879036,
+    "seen": 1787221620.5148401,
+    "ast_hash": "9fc78d63b857fddf44059f39a45b0de7",
+    "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/index.ts": {
     "mtime": 1787093693.769318,
@@ -390,10 +390,10 @@
     "semantic_hash": "25df170ea8ab8ad32c94c1ec32215808"
   },
   "finance_mobile/src/shared/api/savings.ts": {
-    "mtime": 1787093828.171,
-    "seen": 1787217801.7918837,
-    "ast_hash": "f57c831cddcc55211227612814ddea1a",
-    "semantic_hash": "f57c831cddcc55211227612814ddea1a"
+    "mtime": 1787220690.613823,
+    "seen": 1787221620.5148401,
+    "ast_hash": "c5aba4abf6c9141816a7d6d4d8852410",
+    "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/users.ts": {
     "mtime": 1787093822.028,
@@ -414,10 +414,10 @@
     "semantic_hash": "9c43b991e70bf7c5ba8799be81aed097"
   },
   "finance_mobile/src/shared/types/index.ts": {
-    "mtime": 1787093248.2634542,
-    "seen": 1787217801.7918837,
-    "ast_hash": "22e852858d9daf2be0ebded2c7a355c6",
-    "semantic_hash": "22e852858d9daf2be0ebded2c7a355c6"
+    "mtime": 1787220599.2892883,
+    "seen": 1787221620.5148401,
+    "ast_hash": "9387a9ef66178e9d85160661aa9cbe3e",
+    "semantic_hash": ""
   },
   "finance_mobile/src/ui/components.tsx": {
     "mtime": 1787094406.428851,
@@ -508,5 +508,263 @@
     "seen": 1787217801.7918837,
     "ast_hash": "a1e18c418e2e19cec005e31cb83e7241",
     "semantic_hash": "a1e18c418e2e19cec005e31cb83e7241"
+  },
+  ".opencode/opencode.json": {
+    "mtime": 1787218141.827468,
+    "seen": 1787221620.5148401,
+    "ast_hash": "1efe24ecf938911d4f23e4b1c6ec91f7",
+    "semantic_hash": ""
+  },
+  "app/services/pagination.py": {
+    "mtime": 1787220382.3675835,
+    "seen": 1787221620.5148401,
+    "ast_hash": "ac897eb5e17731151e89fc1d84cdcb7b",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1787217582.6768587,
+    "seen": 1787221620.5148401,
+    "ast_hash": "21ceb6533048be51308e69e7b74a35cf",
+    "semantic_hash": ""
+  },
+  "API_DESIGN.md": {
+    "mtime": 1787055559.5650804,
+    "seen": 1787221620.5148401,
+    "ast_hash": "58b30483058340c540ed3126519312fa",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1786972628.298394,
+    "seen": 1787221620.5148401,
+    "ast_hash": "bdf68e37826a3ce90b98d1faaf0ebd7a",
+    "semantic_hash": ""
+  },
+  "docker-compose.yml": {
+    "mtime": 1787214415.577,
+    "seen": 1787221620.5148401,
+    "ast_hash": "35a7bdedadf5aa6aab4a2f0c4bd90957",
+    "semantic_hash": ""
+  },
+  "docs/DECISIONS.md": {
+    "mtime": 1786969182.8976755,
+    "seen": 1787221620.5148401,
+    "ast_hash": "e4483b770a28de1b2fd9c902f54b8431",
+    "semantic_hash": ""
+  },
+  "docs/rr.html": {
+    "mtime": 1787092237.41,
+    "seen": 1787221620.5148401,
+    "ast_hash": "0d968bcb30c88892976a198c845ea9e6",
+    "semantic_hash": ""
+  },
+  "finance_mobile/README.md": {
+    "mtime": 1787093161.163773,
+    "seen": 1787221620.5148401,
+    "ast_hash": "ae24dd1bbcf6aadaf6cf93e093ddf4b8",
+    "semantic_hash": ""
+  },
+  "requirements.txt": {
+    "mtime": 1787039564.5926816,
+    "seen": 1787221620.5148401,
+    "ast_hash": "5816a74d4b157f883cc8c9c3f83f60b6",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/ajouter_une_d_pense/code.html": {
+    "mtime": 1787094170.357558,
+    "seen": 1787221620.5148401,
+    "ast_hash": "9271938bb5cb7fabb46c27577f53cb16",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/analyse_des_d_rives/code.html": {
+    "mtime": 1787094170.4629965,
+    "seen": 1787221620.5148401,
+    "ast_hash": "ef12897fe858676db7d4214b2fcc7056",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/analyse_ia_d_taill_e/code.html": {
+    "mtime": 1787094170.5105853,
+    "seen": 1787221620.5148401,
+    "ast_hash": "0035e71316683a03291bcd75577c3054",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/bienvenue/code.html": {
+    "mtime": 1787094170.5429728,
+    "seen": 1787221620.5148401,
+    "ast_hash": "52ceed2f8249e0f1e9114590481adbde",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/budget_recommand/code.html": {
+    "mtime": 1787094170.5589912,
+    "seen": 1787221620.5148401,
+    "ast_hash": "391c6cc2701ffda5443e9b6d62f4a20a",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/cr_er_une_cat_gorie/code.html": {
+    "mtime": 1787094170.4452584,
+    "seen": 1787221620.5148401,
+    "ast_hash": "63c0c9c1e34de623abb05a61fad8a273",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/historique_des_transactions/code.html": {
+    "mtime": 1787094170.4211783,
+    "seen": 1787221620.5148401,
+    "ast_hash": "864011af286c55f89598451e31334a8f",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/l_quilibre_financier_1/DESIGN.md": {
+    "mtime": 1787094170.590019,
+    "seen": 1787221620.5148401,
+    "ast_hash": "a64b5227c4367073113845e6e2901824",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/l_quilibre_financier_2/DESIGN.md": {
+    "mtime": 1787094170.598678,
+    "seen": 1787221620.5148401,
+    "ast_hash": "e943d469c83b699741ccf6c0a2f716c8",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/objectifs_d_pargne/code.html": {
+    "mtime": 1787094170.572917,
+    "seen": 1787221620.5148401,
+    "ast_hash": "23299acbbd1aceb3c57a2f35d08e2033",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/profil/code.html": {
+    "mtime": 1787094170.4029243,
+    "seen": 1787221620.5148401,
+    "ast_hash": "28ca9caa9e52634bb4919a07296c5ef5",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/souscription_premium/code.html": {
+    "mtime": 1787094170.5273077,
+    "seen": 1787221620.5148401,
+    "ast_hash": "83b51bab297011fb7879ceb3d9a9c28e",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/succ_s/code.html": {
+    "mtime": 1787094170.4785638,
+    "seen": 1787221620.5148401,
+    "ast_hash": "6f7a7a5e98f20b04eedbf8c9c6fe942d",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/tableau_de_bord/code.html": {
+    "mtime": 1787094170.4931808,
+    "seen": 1787221620.5148401,
+    "ast_hash": "7a686b082d001e5c0c53afd5359b8910",
+    "semantic_hash": ""
+  },
+  "finance_mobile/assets/android-icon-background.png": {
+    "mtime": 1787091745.3829544,
+    "seen": 1787221620.5148401,
+    "ast_hash": "2d65569cc0e2afdcea0af9f9902d4173",
+    "semantic_hash": ""
+  },
+  "finance_mobile/assets/android-icon-foreground.png": {
+    "mtime": 1787091745.3874865,
+    "seen": 1787221620.5148401,
+    "ast_hash": "72e71a9c846c6aa4ae32476641a00e18",
+    "semantic_hash": ""
+  },
+  "finance_mobile/assets/android-icon-monochrome.png": {
+    "mtime": 1787091745.3907707,
+    "seen": 1787221620.5148401,
+    "ast_hash": "1e097dab989759fc0b69440092ca22cd",
+    "semantic_hash": ""
+  },
+  "finance_mobile/assets/favicon.png": {
+    "mtime": 1787091745.394551,
+    "seen": 1787221620.5148401,
+    "ast_hash": "d9f444efbdfbe7931aa93beada07318a",
+    "semantic_hash": ""
+  },
+  "finance_mobile/assets/icon.png": {
+    "mtime": 1787091745.4064877,
+    "seen": 1787221620.5148401,
+    "ast_hash": "cb975bba2216ce10a60e6c0ffe9941a2",
+    "semantic_hash": ""
+  },
+  "finance_mobile/assets/splash-icon.png": {
+    "mtime": 1787091745.4086242,
+    "seen": 1787221620.5148401,
+    "ast_hash": "97dae5a0e62ad8551d8a31897b425e63",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/ajouter_une_d_pense/screen.png": {
+    "mtime": 1787094170.3732624,
+    "seen": 1787221620.5148401,
+    "ast_hash": "56f7b257524d3984507020cefb01ff19",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/analyse_des_d_rives/screen.png": {
+    "mtime": 1787094170.4698393,
+    "seen": 1787221620.5148401,
+    "ast_hash": "9e1582e525d6ff478837236f62c45868",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/analyse_ia_d_taill_e/screen.png": {
+    "mtime": 1787094170.5177908,
+    "seen": 1787221620.5148401,
+    "ast_hash": "72eff2ea141eb7c1050063cb80d1c8c6",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/bienvenue/screen.png": {
+    "mtime": 1787094170.550481,
+    "seen": 1787221620.5148401,
+    "ast_hash": "729a5985bfab8c9019113d11fb2e2f4a",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/budget_recommand/screen.png": {
+    "mtime": 1787094170.5651689,
+    "seen": 1787221620.5148401,
+    "ast_hash": "55358008e65fd788aaaf1d86025e8864",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/cr_er_une_cat_gorie/screen.png": {
+    "mtime": 1787094170.4537756,
+    "seen": 1787221620.5148401,
+    "ast_hash": "536a1aabf4ee3d9b0ed11a9606445873",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/historique_des_transactions/screen.png": {
+    "mtime": 1787094170.4271781,
+    "seen": 1787221620.5148401,
+    "ast_hash": "8e11b03bd04820158e0711875e5de7bc",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/logo_l_quilibre_financier_violet/screen.png": {
+    "mtime": 1787094170.4366944,
+    "seen": 1787221620.5148401,
+    "ast_hash": "6332eb4a5e5cf0951f8b3d28454dd308",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/objectifs_d_pargne/screen.png": {
+    "mtime": 1787094170.5811954,
+    "seen": 1787221620.5148401,
+    "ast_hash": "86a11c2e845413d719bf308abc65a352",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/profil/screen.png": {
+    "mtime": 1787094170.4094262,
+    "seen": 1787221620.5148401,
+    "ast_hash": "8bebe081cdd45a46aa89b105c5169305",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/souscription_premium/screen.png": {
+    "mtime": 1787094170.5348237,
+    "seen": 1787221620.5148401,
+    "ast_hash": "6d368bfd472eb6eeb2793b4a64eb0d43",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/succ_s/screen.png": {
+    "mtime": 1787094170.485014,
+    "seen": 1787221620.5148401,
+    "ast_hash": "cf2f5ce6f0374bb2d3fb3728f8582bde",
+    "semantic_hash": ""
+  },
+  "stitch_finances_baseline_analyzer/stitch_finances_baseline_analyzer/tableau_de_bord/screen.png": {
+    "mtime": 1787094170.5030746,
+    "seen": 1787221620.5148401,
+    "ast_hash": "a7a8e8af7255894e8fd06274778c57f3",
+    "semantic_hash": ""
   }
 }

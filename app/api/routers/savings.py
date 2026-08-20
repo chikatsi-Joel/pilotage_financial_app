@@ -1,3 +1,4 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
@@ -40,8 +41,8 @@ async def create_goal(
 async def list_goals(
     user: UserDep,
     db: DbSession,
-    cursor: str | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
+    cursor: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     items, next_cursor, has_more = await savings_service.list_goals(
         user.id, db, cursor=cursor, limit=limit,
