@@ -1,6 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {Link, router} from "expo-router";
+import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
 
@@ -34,31 +36,38 @@ const GOALS = [
   },
 ] as const;
 
-function CircularProgress({ pct }: { pct: number }) {
-  const rightVisible = pct <= 0.5;
-  const leftDeg = rightVisible ? 0 : Math.round((pct - 0.5) * 360);
-  const rightDeg = rightVisible ? Math.round(pct * 360) : 180;
+const cpSize = 48;
+const cpStroke = 4;
+const cpRadius = (cpSize - cpStroke) / 2;
+const cpCircumference = 2 * Math.PI * cpRadius;
+
+function DonutProgress({ pct }: { pct: number }) {
+  const dash = pct * cpCircumference;
 
   return (
     <View style={cpStyles.wrap}>
-      <View style={cpStyles.track}>
-        <View style={cpStyles.rightClip}>
-          <View
-            style={[
-              cpStyles.semiFill,
-              { transform: [{ rotate: `${rightDeg}deg` }] },
-            ]}
-          />
-        </View>
-        <View style={cpStyles.leftClip}>
-          <View
-            style={[
-              cpStyles.semiFill,
-              { transform: [{ rotate: `${leftDeg}deg` }] },
-            ]}
-          />
-        </View>
-      </View>
+      <Svg height={cpSize} width={cpSize}>
+        <Circle
+          cx={cpSize / 2}
+          cy={cpSize / 2}
+          fill="none"
+          r={cpRadius}
+          stroke="#E5EEFF"
+          strokeWidth={cpStroke}
+        />
+        <Circle
+          cx={cpSize / 2}
+          cy={cpSize / 2}
+          fill="none"
+          origin={`${cpSize / 2}, ${cpSize / 2}`}
+          r={cpRadius}
+          rotation={-90}
+          stroke={colors.primary}
+          strokeDasharray={`${dash}, ${cpCircumference}`}
+          strokeLinecap="round"
+          strokeWidth={cpStroke}
+        />
+      </Svg>
       <View style={cpStyles.center}>
         <Text style={cpStyles.pct}>{Math.round(pct * 100)}%</Text>
       </View>
@@ -93,14 +102,16 @@ export default function Savings() {
             <Text style={styles.progressTitle}>Progression globale</Text>
             <Text style={styles.progressSub}>45% de l'objectif total</Text>
           </View>
-          <CircularProgress pct={0.45} />
+          <DonutProgress pct={0.45} />
         </View>
 
         {/* ── Goals ── */}
         <Text style={styles.goalsTitle}>Vos objectifs</Text>
         <View style={styles.goalsList}>
           {GOALS.map((g) => (
-            <View key={g.name} style={styles.goalCard}>
+            <Link key={g.name} href="/savings-detail" asChild>
+            <Pressable>
+            <View style={styles.goalCard}>
               <View style={styles.goalTop}>
                 <View style={styles.goalLeft}>
                   <View style={styles.goalIcon}>
@@ -134,6 +145,8 @@ export default function Savings() {
                 </View>
               </View>
             </View>
+            </Pressable>
+            </Link>
           ))}
         </View>
 
@@ -168,7 +181,8 @@ export default function Savings() {
       </ScrollView>
 
       {/* ── FAB ── */}
-      <Pressable style={styles.fab}>
+      <Pressable style={styles.fab}
+            onPress={() => router.push("/add-goal")}>
         <MaterialCommunityIcons color="#FFFFFF" name="plus" size={22} />
         <Text style={styles.fabText}>Nouveau</Text>
       </Pressable>
@@ -419,53 +433,9 @@ const styles = StyleSheet.create({
   },
 });
 
-/* ── Donut progress (two-half clip, no SVG) ── */
-const cpSize = 48;
-const cpTrackW = 4;
-const cpHalf = cpSize / 2;
 const cpStyles = StyleSheet.create({
-  wrap: { height: cpSize, width: cpSize },
-  track: {
-    backgroundColor: "#E5EEFF",
-    borderRadius: 999,
-    height: cpSize,
-    overflow: "hidden",
-    width: cpSize,
-  },
-  rightClip: {
-    height: cpHalf,
-    overflow: "hidden",
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: cpSize,
-  },
-  leftClip: {
-    bottom: 0,
-    height: cpHalf,
-    left: 0,
-    overflow: "hidden",
-    position: "absolute",
-    width: cpSize,
-  },
-  semiFill: {
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    height: cpSize,
-    position: "absolute",
-    top: cpHalf,
-    width: cpSize,
-  },
-  center: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 999,
-    height: cpSize - cpTrackW * 2,
-    justifyContent: "center",
-    position: "absolute",
-    top: cpTrackW,
-    width: cpSize - cpTrackW * 2,
-  },
+  wrap: { alignItems: "center", height: cpSize, justifyContent: "center", width: cpSize },
+  center: { alignItems: "center", height: "100%", justifyContent: "center", position: "absolute", width: "100%" },
   pct: {
     color: colors.primary,
     fontSize: 12,

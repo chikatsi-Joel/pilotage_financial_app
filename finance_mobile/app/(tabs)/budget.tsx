@@ -93,13 +93,13 @@ const styles = StyleSheet.create({
 
   /* Hero */
   hero: {
-    backgroundColor: colors.primary,
+    backgroundColor: "#E5EEFF",
     borderRadius: 16,
     overflow: "hidden",
     padding: 16,
   },
   heroBlur1: {
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: `${colors.primary}10`,
     borderRadius: 999,
     height: 128,
     position: "absolute",
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     width: 128,
   },
   heroBlur2: {
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: `${colors.primary}08`,
     borderRadius: 999,
     height: 96,
     position: "absolute",
@@ -118,21 +118,21 @@ const styles = StyleSheet.create({
   },
   heroInner: { gap: 4, position: "relative", zIndex: 1 },
   heroLabel: {
-    color: "rgba(255,255,255,0.80)",
+    color: "#474552",
     fontSize: 14,
     fontWeight: "500",
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   heroAmount: {
-    color: "#FFFFFF",
+    color: colors.primary,
     fontSize: 40,
     fontWeight: "700",
     lineHeight: 48,
     letterSpacing: -0.5,
   },
   heroSub: {
-    color: "rgba(255,255,255,0.90)",
+    color: colors.textMuted,
     fontSize: 16,
     marginTop: 4,
   },
