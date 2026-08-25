@@ -8,7 +8,7 @@
   "6": "deps.py",
   "7": "theme.ts",
   "8": "analytics_service.py",
-  "9": "money",
+  "9": "routers/budget.py",
   "10": "stats-detail.tsx",
   "11": "Expense",
   "12": "expo",
@@ -46,7 +46,7 @@
   "44": "budget.tsx",
   "45": "dashboard.tsx",
   "46": "components.tsx",
-  "47": "simulate",
+  "47": "list_incomes",
   "48": "analyse-detail.tsx",
   "49": "add-goal.tsx",
   "50": "devDependencies",
@@ -68,5 +68,6 @@
   "66": "zustand",
   "67": "add-expense.tsx",
   "68": "budget-details.tsx",
-  "69": "simulation.tsx"
+  "69": "simulation.tsx",
+  "70": "get"
 }
