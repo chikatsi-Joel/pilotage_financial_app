@@ -1,0 +1,78 @@
+<html lang="fr"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "secondary-fixed-dim": "#c7c5d1", "surface-bright": "#f8f9ff", "background": "#f8f9ff", "on-primary-fixed-variant": "#4234a2", "surface-dim": "#cbdbf5", "tertiary-container": "#865dd2", "outline": "#787584", "on-surface-variant": "#474552", "surface-variant": "#d3e4fe", "tertiary": "#6d43b7", "tertiary-fixed": "#ebdcff", "surface-container-lowest": "#ffffff", "on-primary": "#ffffff", "surface": "#f8f9ff", "surface-container-highest": "#d3e4fe", "surface-container-low": "#eff4ff", "on-primary-fixed": "#160066", "inverse-primary": "#c6bfff", "on-secondary-container": "#64636d", "primary": "#584cb9", "on-error-container": "#93000a", "surface-container-high": "#dce9ff", "surface-tint": "#5a4ebb", "primary-fixed": "#e4dfff", "inverse-on-surface": "#eaf1ff", "on-tertiary-fixed-variant": "#572ba0", "on-secondary": "#ffffff", "on-secondary-fixed-variant": "#46464f", "primary-fixed-dim": "#c6bfff", "inverse-surface": "#213145", "primary-container": "#7165d3", "on-tertiary-fixed": "#260059", "error": "#ba1a1a", "on-error": "#ffffff", "on-primary-container": "#fffbff", "on-secondary-fixed": "#1a1b23", "secondary-fixed": "#e3e1ed", "on-background": "#0b1c30", "on-tertiary-container": "#fffbff", "error-container": "#ffdad6", "tertiary-fixed-dim": "#d3bbff", "surface-container": "#e5eeff", "secondary-container": "#e3e1ed", "secondary": "#5d5d67", "on-surface": "#0b1c30", "on-tertiary": "#ffffff", "outline-variant": "#c8c4d5" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin-mobile": "16px", "gutter": "24px", "xs": "4px", "sm": "12px", "xl": "40px", "md": "16px", "lg": "24px", "margin-desktop": "64px", "base": "8px" }, "fontFamily": { "body-md": ["Inter"], "label-sm": ["Inter"], "headline-md": ["Inter"] } } } }</script><style>@layer base { body { -webkit-tap-highlight-color: transparent; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } .no-scrollbar::-webkit-scrollbar { display: none; } </style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-background text-on-background font-body-md"><header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-16 px-md flex items-center justify-between"><div class="flex items-center gap-xs"><img alt="Logo Pilotage Finances" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeZ99KzC9dTee1ueb5qFspB4YiIzwD4GCspC32uzLt5eD58HeEmIP9qBV4mxKjZh2J3WPurrvtW3h17WBk8b-1yfwsMcZZFMxbrqsPMPwgaG3dcRen8Sac4dvSWnaYL48JCZisiwetgnV7ewlw3eZKMRaIwfQK5je1IZXZEDYViTus284YN6Yh9fb_sCT5VjwXGbkXMYM21kcfA3_2IbMTTLkObJHoFknR9_Rs-5Pxi_Cj9-OdAy-W"/><span class="font-headline-md text-on-surface">Créer Une Catégorie</span></div><div class="flex items-center gap-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="min-h-screen pt-16 pb-24 bg-surface"><div class="flex flex-col w-full h-full pb-32">
+<div class="px-md mt-sm mb-lg">
+<div class="flex flex-col">
+<label class="font-label-md text-on-surface-variant mb-base uppercase tracking-wider text-[10px]" for="categoryName">Nom de la catégorie</label>
+<input class="w-full bg-surface-container-lowest text-on-surface font-body-md py-sm px-md rounded-xl placeholder:text-outline-variant focus:outline-none focus:ring-1 focus:ring-primary shadow-sm" id="categoryName" placeholder="Ex: Courses, Transport..." type="text"/>
+</div>
+</div>
+<div class="px-md mb-lg">
+<label class="font-label-md text-on-surface-variant mb-base uppercase tracking-wider text-[10px] block">Icône</label>
+<div class="grid grid-cols-5 gap-sm mt-base">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer ring-2 ring-primary">
+<span class="material-symbols-outlined text-primary">shopping_cart</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">directions_car</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">home</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">restaurant</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">flight</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">pets</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">local_hospital</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">school</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">fitness_center</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">more_horiz</span>
+</div>
+</div>
+</div>
+<div class="px-md mb-lg">
+<label class="font-label-md text-on-surface-variant mb-base uppercase tracking-wider text-[10px] block">Couleur</label>
+<div class="flex gap-sm mt-base overflow-x-auto no-scrollbar pb-2">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center cursor-pointer ring-2 ring-primary ring-offset-2 ring-offset-surface">
+<span class="material-symbols-outlined text-on-primary text-sm">check</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-tertiary flex items-center justify-center cursor-pointer"></div>
+<div class="w-10 h-10 rounded-full bg-error flex items-center justify-center cursor-pointer"></div>
+<div class="w-10 h-10 rounded-full bg-[#10b981] flex items-center justify-center cursor-pointer"></div>
+<div class="w-10 h-10 rounded-full bg-[#3b82f6] flex items-center justify-center cursor-pointer"></div>
+<div class="w-10 h-10 rounded-full bg-[#f59e0b] flex items-center justify-center cursor-pointer"></div>
+<div class="w-10 h-10 rounded-full bg-[#ec4899] flex items-center justify-center cursor-pointer"></div>
+</div>
+</div>
+<div class="px-md mb-xl">
+<div class="flex flex-col">
+<label class="font-label-md text-on-surface-variant mb-base uppercase tracking-wider text-[10px]" for="budgetLimit">Budget mensuel (Optionnel)</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest text-on-surface font-body-md py-sm pl-md pr-xl rounded-xl placeholder:text-outline-variant focus:outline-none focus:ring-1 focus:ring-primary shadow-sm" id="budgetLimit" placeholder="0.00" type="number"/>
+<span class="absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant font-body-md">€</span>
+</div>
+</div>
+</div>
+<div class="px-md mt-auto">
+<button class="w-full bg-primary text-on-primary font-label-md py-4 rounded-xl shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-[20px]">save</span>
+      Enregistrer la catégorie
+    </button>
+</div>
+</div></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/80 backdrop-blur-xl shadow-[0_-1px_8px_rgba(0,0,0,0.04)]" data-active-classes="text-primary font-bold"><div class="h-16 flex items-center justify-around px-md text-on-surface-variant"><a class="flex flex-col items-center justify-center gap-1 transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-label-sm text-[10px] uppercase">Tableau</span></a><a class="flex flex-col items-center justify-center gap-1 transition-colors" data-path="analyse" href="#"><span class="material-symbols-outlined">monitoring</span><span class="font-label-sm text-[10px] uppercase">Analyse</span></a><a class="flex flex-col items-center justify-center gap-1 transition-colors" data-path="creer-une-categorie" href="#"><span class="material-symbols-outlined">add_circle</span><span class="font-label-sm text-[10px] uppercase text-center">Catégorie</span></a><a class="flex flex-col items-center justify-center gap-1 transition-colors" data-path="budget" href="#"><span class="material-symbols-outlined">account_balance_wallet</span><span class="font-label-sm text-[10px] uppercase">Budget</span></a><a class="flex flex-col items-center justify-center gap-1 transition-colors" data-path="epargne" href="#"><span class="material-symbols-outlined">savings</span><span class="font-label-sm text-[10px] uppercase">Épargne</span></a></div></nav></body></html>

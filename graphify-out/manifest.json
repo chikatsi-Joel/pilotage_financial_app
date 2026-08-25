@@ -288,27 +288,27 @@
     "semantic_hash": "9fec357172fc0459579ce1b999956301"
   },
   "finance_mobile/app/(tabs)/_layout.tsx": {
-    "mtime": 1787226545.242982,
-    "seen": 1787236792.4602094,
-    "ast_hash": "7c2c82f879c8850026e162c9ad788f27",
+    "mtime": 1787237971.6970687,
+    "seen": 1787309984.4936256,
+    "ast_hash": "f75010828b2192fe5d918220602c0c8b",
     "semantic_hash": ""
   },
   "finance_mobile/app/(tabs)/budget.tsx": {
-    "mtime": 1787226516.5476327,
-    "seen": 1787236792.4602094,
-    "ast_hash": "914a9db1a7f80f76b62a55d98981ff4f",
+    "mtime": 1787308419.1964798,
+    "seen": 1787309984.4936256,
+    "ast_hash": "50483d4e076fa554ff6efbdb64c3ddd9",
     "semantic_hash": ""
   },
   "finance_mobile/app/(tabs)/dashboard.tsx": {
-    "mtime": 1787236388.7862732,
-    "seen": 1787236792.4602094,
-    "ast_hash": "0fab773542aec6dac7818a5366fa2b86",
+    "mtime": 1787308644.345,
+    "seen": 1787309984.4936256,
+    "ast_hash": "19cb94d273e71008370a1e865198c076",
     "semantic_hash": ""
   },
   "finance_mobile/app/(tabs)/savings.tsx": {
-    "mtime": 1787232565.5352397,
-    "seen": 1787236792.4602094,
-    "ast_hash": "46355c17ef7a918cac807f0486810a42",
+    "mtime": 1787243684.819,
+    "seen": 1787309984.4936256,
+    "ast_hash": "c3cf55513b6a261fbecb95bf9e20e119",
     "semantic_hash": ""
   },
   "finance_mobile/app/_layout.tsx": {
@@ -330,9 +330,9 @@
     "semantic_hash": "5ac0374e6466712e3287506a121fa01b"
   },
   "finance_mobile/package.json": {
-    "mtime": 1787231496.7901073,
-    "seen": 1787236792.4602094,
-    "ast_hash": "62f86eb10f15faae21693593c997fa10",
+    "mtime": 1787306498.3866472,
+    "seen": 1787309984.4936256,
+    "ast_hash": "6721e48c8d176438f5b24eba9cb57bde",
     "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/ai.ts": {
@@ -522,9 +522,9 @@
     "semantic_hash": ""
   },
   "API_DESIGN.md": {
-    "mtime": 1787055559.5650804,
-    "seen": 1787221620.5148401,
-    "ast_hash": "58b30483058340c540ed3126519312fa",
+    "mtime": 1787236832.641,
+    "seen": 1787309984.4936256,
+    "ast_hash": "4bfc26a5662ba8692d641484c7f9508e",
     "semantic_hash": ""
   },
   "README.md": {
@@ -762,21 +762,39 @@
     "semantic_hash": ""
   },
   "finance_mobile/app/(tabs)/analyse.tsx": {
-    "mtime": 1787232180.6712396,
-    "seen": 1787236792.4602094,
-    "ast_hash": "88949a3e2c27a88cf98932984397e7df",
+    "mtime": 1787308398.3011343,
+    "seen": 1787309984.4936256,
+    "ast_hash": "ed33a89e398864ad225464c36c887b2d",
     "semantic_hash": ""
   },
   "finance_mobile/app/analyse-detail.tsx": {
-    "mtime": 1787232836.64,
-    "seen": 1787236792.4602094,
-    "ast_hash": "d765bc2b5558702d356d57995e3cb9fb",
+    "mtime": 1787241914.358,
+    "seen": 1787309984.4936256,
+    "ast_hash": "6143e36e859725b03c54fc6fddeb22f0",
     "semantic_hash": ""
   },
   "finance_mobile/app/depenses.tsx": {
     "mtime": 1787233593.8595636,
     "seen": 1787236792.4602094,
     "ast_hash": "e6f9f2bd1805703998f1f6bbfdb30596",
+    "semantic_hash": ""
+  },
+  "finance_mobile/app/add-goal.tsx": {
+    "mtime": 1787306313.6681592,
+    "seen": 1787309984.4936256,
+    "ast_hash": "38dc53ab259fb9b1c27f743dff3af50b",
+    "semantic_hash": ""
+  },
+  "finance_mobile/app/savings-detail.tsx": {
+    "mtime": 1787238725.7564533,
+    "seen": 1787309984.4936256,
+    "ast_hash": "aa644c80311704c08500963b96f32040",
+    "semantic_hash": ""
+  },
+  "finance_mobile/app/simulation.tsx": {
+    "mtime": 1787306713.7801394,
+    "seen": 1787309984.4936256,
+    "ast_hash": "f554c55f04c681ea34e626cba7a4365d",
     "semantic_hash": ""
   }
 }

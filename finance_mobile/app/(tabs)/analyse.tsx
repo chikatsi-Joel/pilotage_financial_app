@@ -6,7 +6,6 @@ import { router } from "expo-router";
 import { Card, Pill, SectionTitle } from "../../src/ui/components";
 import { colors } from "../../src/ui/theme";
 
-
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 interface DriftCategory {
@@ -84,12 +83,13 @@ const RECOMMENDATIONS: Recommendation[] = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════
+//  SOUS-COMPOSANTS
+// ═══════════════════════════════════════════════════════════
 
 function AiSummaryCard() {
   return (
     <Card style={aiStyles.card}>
-      <View style={aiStyles.deco1} />
-      <View style={aiStyles.deco2} />
       <View style={aiStyles.header}>
         <View style={aiStyles.icon}>
           <MaterialCommunityIcons color="#FFFFFF" name="brain" size={22} />
@@ -127,26 +127,6 @@ const aiStyles = StyleSheet.create({
     borderColor: colors.primarySoft,
     gap: 12,
     marginTop: 24,
-    overflow: "hidden",
-    position: "relative",
-  },
-  deco1: {
-    backgroundColor: `${colors.primary}10`,
-    borderRadius: 999,
-    height: 160,
-    position: "absolute",
-    right: -40,
-    top: -40,
-    width: 160,
-  },
-  deco2: {
-    backgroundColor: `${colors.primary}08`,
-    borderRadius: 999,
-    height: 120,
-    left: -30,
-    position: "absolute",
-    bottom: -30,
-    width: 120,
   },
   header: { alignItems: "center", flexDirection: "row", gap: 12 },
   icon: {
@@ -403,76 +383,156 @@ const recoStyles = StyleSheet.create({
   impact: { color: colors.textMuted, fontSize: 12 },
 });
 
-// ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+//  SEASONALITY — SIMPLE AVEC FLÈCHE DANS LA BARRE
+// ═══════════════════════════════════════════════════════════
+
+const SEASON_TREND = [62, 64, 61, 68, 72, 85];
 
 function SeasonalityCard() {
+  const max = Math.max(...SEASON_TREND);
+
   return (
-    <Card>
-      <View style={seasonStyles.header}>
-        <View style={seasonStyles.icon}>
-          <MaterialCommunityIcons
-            color={colors.primary}
-            name="chart-timeline-variant"
-            size={24}
-          />
-        </View>
-        <View style={seasonStyles.copy}>
-          <Text style={seasonStyles.title}>Août = mois de hausse</Text>
-          <Text style={seasonStyles.text}>
-            Historiquement, vos dépenses augmentent de 15 % en août
-            (rentrée, festivals). Votre baseline est fiable à 82 %.
-          </Text>
-        </View>
+    <Card style={seasonStyles.card}>
+      <Text style={seasonStyles.title}>Tendance Août</Text>
+      <Text style={seasonStyles.subtitle}>
+        Vos dépenses augmentent habituellement ce mois-ci.
+      </Text>
+
+      {/* Graphe : flèche dans la dernière barre */}
+      <View style={seasonStyles.chart}>
+        {SEASON_TREND.map((val, i) => {
+          const isLast = i === SEASON_TREND.length - 1;
+          return (
+            <View key={i} style={seasonStyles.col}>
+              <View
+                style={[
+                  seasonStyles.bar,
+                  { height: `${(val / max) * 100}%` },
+                  isLast && seasonStyles.barActive,
+                ]}
+              >
+                {isLast && (
+                  <View style={seasonStyles.arrow}>
+                    <Text style={seasonStyles.arrowText}>↗</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
       </View>
 
+      <View style={seasonStyles.labels}>
+        <Text style={seasonStyles.label}>Mars</Text>
+        <Text style={seasonStyles.label}>Août</Text>
+      </View>
+
+      {/* 3 chiffres */}
       <View style={seasonStyles.metrics}>
-        <SeasonMetric value="82 %" label="Fiabilité" />
-        <View style={seasonStyles.metricDivider} />
-        <SeasonMetric value="+15 %" label="Hausse moy." />
-        <View style={seasonStyles.metricDivider} />
-        <SeasonMetric value="6 mois" label="Historique" />
+        <View style={seasonStyles.metric}>
+          <Text style={seasonStyles.metricValue}>82 %</Text>
+          <Text style={seasonStyles.metricLabel}>Fiabilité</Text>
+        </View>
+        <View style={seasonStyles.metric}>
+          <Text style={seasonStyles.metricValue}>+15 %</Text>
+          <Text style={seasonStyles.metricLabel}>Hausse</Text>
+        </View>
+        <View style={seasonStyles.metric}>
+          <Text style={seasonStyles.metricValue}>6 mois</Text>
+          <Text style={seasonStyles.metricLabel}>Historique</Text>
+        </View>
       </View>
     </Card>
   );
 }
 
-function SeasonMetric({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={seasonStyles.metric}>
-      <Text style={seasonStyles.metricValue}>{value}</Text>
-      <Text style={seasonStyles.metricLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const seasonStyles = StyleSheet.create({
-  header: { alignItems: "flex-start", flexDirection: "row", gap: 12 },
-  icon: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderRadius: 14,
-    height: 47,
-    justifyContent: "center",
-    width: 47,
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderColor: colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 16,
+    padding: 20,
   },
-  copy: { flex: 1, gap: 4 },
-  title: { color: colors.text, fontSize: 14, fontWeight: "800" },
-  text: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
+  title: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  subtitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: -10,
+  },
+
+  /* Graphe */
+  chart: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    gap: 6,
+    height: 64,
+  },
+  col: {
+    alignItems: "center",
+    flex: 1,
+    height: "100%",
+    justifyContent: "flex-end",
+  },
+  bar: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 3,
+    width: "100%",
+  },
+  barActive: {
+    backgroundColor: colors.primary,
+    borderRadius: 10, // ← plus arrondi
+  },
+  arrow: {
+    alignItems: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 6,
+  },
+  arrowText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  labels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  label: {
+    color: colors.textMuted,
+    fontSize: 11,
+  },
+
+  /* Métriques */
   metrics: {
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: "row",
-    marginTop: 16,
+    justifyContent: "space-between",
     paddingTop: 16,
   },
-  metric: { alignItems: "center", flex: 1 },
-  metricDivider: {
-    backgroundColor: colors.border,
-    height: 32,
-    width: 1,
+  metric: {
+    alignItems: "center",
+    gap: 4,
   },
-  metricValue: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  metricLabel: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
+  metricValue: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  metricLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
 });
 
 // ═══════════════════════════════════════════════════════════

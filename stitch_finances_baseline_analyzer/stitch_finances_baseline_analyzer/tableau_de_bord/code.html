@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "outline": "#787584", "surface-container-highest": "#d3e4fe", "error-container": "#ffdad6", "tertiary": "#6d43b7", "secondary-container": "#e3e1ed", "on-primary-fixed-variant": "#4234a2", "surface-variant": "#d3e4fe", "on-secondary-container": "#64636d", "surface-container-lowest": "#ffffff", "surface-container-high": "#dce9ff", "on-tertiary": "#ffffff", "surface-container-low": "#eff4ff", "error": "#ba1a1a", "on-error-container": "#93000a", "on-secondary-fixed": "#1a1b23", "surface": "#f8f9ff", "surface-dim": "#cbdbf5", "on-surface-variant": "#474552", "background": "#f8f9ff", "on-primary": "#ffffff", "on-primary-fixed": "#160066", "secondary": "#5d5d67", "on-secondary": "#ffffff", "tertiary-fixed": "#ebdcff", "tertiary-fixed-dim": "#d3bbff", "secondary-fixed-dim": "#c7c5d1", "inverse-on-surface": "#eaf1ff", "on-surface": "#0b1c30", "surface-tint": "#5a4ebb", "surface-bright": "#f8f9ff", "on-tertiary-container": "#fffbff", "primary-fixed": "#e4dfff", "inverse-primary": "#c6bfff", "primary-fixed-dim": "#c6bfff", "surface-container": "#e5eeff", "tertiary-container": "#865dd2", "outline-variant": "#c8c4d5", "primary": "#584cb9", "inverse-surface": "#213145", "on-tertiary-fixed-variant": "#572ba0", "on-tertiary-fixed": "#260059", "on-error": "#ffffff", "primary-container": "#7165d3", "secondary-fixed": "#e3e1ed", "on-background": "#0b1c30", "on-secondary-fixed-variant": "#46464f", "on-primary-container": "#fffbff" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "base": "8px", "xs": "4px", "sm": "12px", "xl": "40px", "gutter": "24px", "margin-mobile": "16px", "md": "16px", "lg": "24px", "margin-desktop": "64px" }, "fontFamily": { "display-lg": ["Inter"], "headline-lg": ["Inter"], "headline-md": ["Inter"], "headline-lg-mobile": ["Inter"], "body-lg": ["Inter"], "body-md": ["Inter"], "label-md": ["Inter"], "label-sm": ["Inter"] }, "fontSize": { "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }], "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }], "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }], "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "600" }] } } } }</script><style>@layer base { body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; } .pt-safe { padding-top: env(safe-area-inset-top); } .pb-safe { padding-bottom: env(safe-area-inset-bottom); } }</style></head><body class="bg-surface font-body-md text-on-surface"><header class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-16 px-margin-mobile flex items-center justify-between"><div class="flex items-center gap-sm"><img alt="Logo Pilotage" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLtrJhgu1uphUw8WPOfr4uj8c_umuI-3_4gV-nzOQWQHGGj5Y75SdozVMc6YsQVOMoJOV4uO4BB9Uqnnim3SCQfCTOACuRGxSwuJynTifP5KMdK6mmooVG7_6dL5yGWXcs3ZDeas0wtKTb6bpEfFifqklS-2-a3VtuH5qiQ2KyT19g-DCnmWWFtg7ousBvVULi2PMuEpkNgp0cW8vHX2k5MWrDycPPbggBUCy4V4qIx5UnAwmevAewg1Vw"><span class="font-headline-md text-headline-md text-on-surface">Tableau De Bord</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="pt-16 pb-24 bg-surface min-h-screen overflow-y-auto"><div class="flex flex-col w-full gap-xl px-margin-mobile">
+<!-- Solde Section -->
+<section class="mt-lg">
+<div class="bg-surface-container rounded-3xl p-lg flex flex-col gap-sm shadow-sm relative overflow-hidden group">
+<div class="absolute -right-16 -top-16 w-48 h-48 bg-primary/5 rounded-full blur-2xl transition-all duration-700 group-hover:scale-110"></div>
+<div class="absolute -left-8 -bottom-8 w-32 h-32 bg-tertiary-container/5 rounded-full blur-xl transition-all duration-700 group-hover:scale-125"></div>
+<div class="relative z-10 flex flex-col items-center">
+<h2 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-xs">Solde Restant</h2>
+<div class="font-display-lg text-display-lg text-primary mb-md">2 450,00 €</div>
+<!-- Discreet Sparkline -->
+<div class="w-full h-12 mt-sm relative opacity-80">
+<svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 200 40">
+<defs>
+<linearGradient id="trendGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#584cb9" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#584cb9" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<path d="M0,30 Q20,35 40,25 T80,20 T120,10 T160,15 T200,5 L200,40 L0,40 Z" fill="url(#trendGradient)"></path>
+<path d="M0,30 Q20,35 40,25 T80,20 T120,10 T160,15 T200,5" fill="none" stroke="#584cb9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<circle cx="200" cy="5" fill="#ffffff" r="4" stroke="#584cb9" stroke-width="2"></circle>
+</svg>
+</div>
+<div class="flex items-center gap-xs mt-xs text-tertiary">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-label-sm text-label-sm">+12% vs mois dernier</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Alertes Section -->
+<section class="flex flex-col gap-sm">
+<h3 class="font-headline-md text-headline-md text-on-surface">Vigilance Budgétaire</h3>
+<div class="grid grid-cols-2 gap-sm">
+<!-- Alert Card 1 -->
+<div class="bg-surface-container-lowest rounded-2xl p-sm shadow-sm flex flex-col gap-xs border border-surface-container-high transition-transform duration-300 active:scale-95">
+<div class="flex justify-between items-start">
+<div class="w-8 h-8 rounded-full bg-error-container text-on-error-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">restaurant</span>
+</div>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-full font-label-sm text-label-sm">+58%</span>
+</div>
+<div class="mt-xs">
+<div class="font-body-md text-body-md text-on-surface font-medium">Restaurants</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant mt-1">Budget dépassé</div>
+</div>
+</div>
+<!-- Alert Card 2 -->
+<div class="bg-surface-container-lowest rounded-2xl p-sm shadow-sm flex flex-col gap-xs border border-surface-container-high transition-transform duration-300 active:scale-95">
+<div class="flex justify-between items-start">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">directions_car</span>
+</div>
+<span class="bg-tertiary-fixed-dim text-on-tertiary-fixed px-2 py-0.5 rounded-full font-label-sm text-label-sm">+15%</span>
+</div>
+<div class="mt-xs">
+<div class="font-body-md text-body-md text-on-surface font-medium">Transport</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant mt-1">À surveiller</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Chart Section -->
+<section class="flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-on-surface">Réel vs Prévu</h3>
+<button class="font-label-md text-label-md text-primary bg-primary-fixed/20 px-3 py-1.5 rounded-full">Ce mois</button>
+</div>
+<div class="bg-surface-container-lowest rounded-3xl p-md shadow-sm border border-surface-container-high relative">
+<!-- Simplified Bar Chart SVG -->
+<div class="h-48 w-full relative flex items-end justify-between px-2 pt-8 pb-6">
+<!-- Y-Axis Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pt-8 pb-6 pointer-events-none">
+<div class="w-full border-t border-dashed border-outline-variant/30"></div>
+<div class="w-full border-t border-dashed border-outline-variant/30"></div>
+<div class="w-full border-t border-dashed border-outline-variant/30"></div>
+<div class="w-full border-t border-solid border-outline-variant/50"></div>
+</div>
+<!-- S1 -->
+<div class="flex flex-col items-center gap-2 z-10 w-8 group">
+<div class="w-full h-full flex items-end justify-center gap-1">
+<div class="w-3 bg-secondary-fixed-dim rounded-t-sm h-[60%] transition-all duration-300 group-hover:bg-secondary"></div>
+<div class="w-3 bg-primary rounded-t-sm h-[45%] transition-all duration-300 group-hover:bg-primary-container"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">S1</span>
+</div>
+<!-- S2 -->
+<div class="flex flex-col items-center gap-2 z-10 w-8 group">
+<div class="w-full h-full flex items-end justify-center gap-1">
+<div class="w-3 bg-secondary-fixed-dim rounded-t-sm h-[80%] transition-all duration-300 group-hover:bg-secondary"></div>
+<div class="w-3 bg-primary rounded-t-sm h-[90%] transition-all duration-300 group-hover:bg-primary-container"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">S2</span>
+</div>
+<!-- S3 -->
+<div class="flex flex-col items-center gap-2 z-10 w-8 group">
+<div class="w-full h-full flex items-end justify-center gap-1">
+<div class="w-3 bg-secondary-fixed-dim rounded-t-sm h-[50%] transition-all duration-300 group-hover:bg-secondary"></div>
+<div class="w-3 bg-primary rounded-t-sm h-[30%] transition-all duration-300 group-hover:bg-primary-container"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">S3</span>
+</div>
+<!-- S4 -->
+<div class="flex flex-col items-center gap-2 z-10 w-8 group">
+<div class="w-full h-full flex items-end justify-center gap-1">
+<div class="w-3 bg-secondary-fixed-dim rounded-t-sm h-[70%] transition-all duration-300 group-hover:bg-secondary"></div>
+<div class="w-3 bg-primary rounded-t-sm h-[20%] transition-all duration-300 group-hover:bg-primary-container"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">S4</span>
+</div>
+</div>
+<div class="flex justify-center gap-md mt-sm border-t border-surface-container-high pt-sm">
+<div class="flex items-center gap-xs">
+<div class="w-3 h-3 rounded-full bg-secondary-fixed-dim"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Prévu</span>
+</div>
+<div class="flex items-center gap-xs">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Réel</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Section: Epargne & Next -->
+<section class="flex flex-col gap-sm pb-xl">
+<div class="bg-tertiary-fixed rounded-3xl p-md shadow-sm relative overflow-hidden">
+<div class="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white/20 to-transparent pointer-events-none"></div>
+<div class="flex justify-between items-center relative z-10">
+<div class="flex flex-col gap-xs">
+<span class="font-label-md text-label-md text-on-tertiary-fixed uppercase tracking-wider">Épargne Réalisée</span>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-on-tertiary-fixed">450,00 €</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-fixed-variant opacity-80 mt-1">Objectif: 500€</span>
+</div>
+<div class="w-16 h-16 relative">
+<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+<path class="text-tertiary-fixed-dim" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="100, 100" stroke-width="3"></path>
+<path class="text-tertiary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="90, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center font-label-sm text-label-sm text-tertiary font-bold">90%</div>
+</div>
+</div>
+</div>
+</section>
+<!-- FAB -->
+<button class="fixed bottom-24 right-margin-mobile w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center transition-transform duration-300 hover:scale-105 active:scale-95 z-40 focus:outline-none focus:ring-4 focus:ring-primary/30">
+<span class="material-symbols-outlined text-[28px]">add</span>
+</button>
+</div></main><nav class="fixed bottom-0 w-full z-50 bg-white/90 backdrop-blur-xl pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)]" data-active-classes="text-primary font-bold"><div class="flex justify-between items-center h-16 px-gutter"><a aria-current="page" class="flex flex-col items-center gap-xs transition-colors text-primary font-bold" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-label-sm text-label-sm">Dashboard</span></a><a class="flex flex-col items-center gap-xs text-on-surface-variant transition-colors" data-path="analyse" href="#"><span class="material-symbols-outlined">insights</span><span class="font-label-sm text-label-sm">Analyse</span></a><a class="flex flex-col items-center gap-xs text-on-surface-variant transition-colors" data-path="budget" href="#"><span class="material-symbols-outlined">account_balance_wallet</span><span class="font-label-sm text-label-sm">Budget</span></a><a class="flex flex-col items-center gap-xs text-on-surface-variant transition-colors" data-path="epargne" href="#"><span class="material-symbols-outlined">savings</span><span class="font-label-sm text-label-sm">Épargne</span></a></div></nav>
+
+</body></html>

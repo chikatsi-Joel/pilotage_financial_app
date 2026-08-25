@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
@@ -440,14 +440,14 @@ export default function Dashboard() {
           <Text style={styles.soldeLabel}>Solde Restant</Text>
           <Text style={styles.soldeAmount}>2 450,00 €</Text>
           <Sparkline />
-          <View style={styles.soldeTrend}>
+          <Pressable style={styles.soldeTrend} hitSlop={12} onPress={() => router.push("/stats-detail")}>
             <MaterialCommunityIcons
               color={colors.accent}
               name="trending-up"
               size={16}
             />
             <Text style={styles.soldeTrendText}>+12% vs mois dernier</Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* ── Vigilance Budgétaire ── */}
@@ -518,6 +518,11 @@ export default function Dashboard() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* FAB */}
+      <Pressable style={styles.fab} onPress={() => router.push("/add-expense")}>
+        <MaterialCommunityIcons color="#FFFFFF" name="plus" size={24} />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -552,7 +557,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5EEFF",
     borderRadius: 24,
     gap: 4,
-    overflow: "hidden",
     padding: 24,
     position: "relative",
     shadowColor: colors.primary,

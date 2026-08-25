@@ -181,11 +181,11 @@ export default function Savings() {
       </ScrollView>
 
       {/* ── FAB ── */}
-      <Pressable style={styles.fab}
+      {/* <Pressable style={styles.fab}
             onPress={() => router.push("/add-goal")}>
         <MaterialCommunityIcons color="#FFFFFF" name="plus" size={22} />
         <Text style={styles.fabText}>Nouveau</Text>
-      </Pressable>
+      </Pressable>*/}
     </SafeAreaView>
   );
 }
