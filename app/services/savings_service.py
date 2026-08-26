@@ -96,9 +96,7 @@ def _months_until(deadline: date, period: str) -> int:
     return (deadline.year - year) * 12 + deadline.month - month
 
 
-async def build_goal_analyses(
-    user_id: UUID, period: str, db: AsyncSession
-) -> list[SavingsGoalAnalysis]:
+async def build_goal_analyses(user_id: UUID, period: str, db: AsyncSession) -> list[SavingsGoalAnalysis]:
     """Create compact, derived savings-goal data safe to send to the LLM."""
     _, period_end = month_bounds(period)
     periods = _monthly_periods(period)
@@ -181,8 +179,7 @@ async def build_goal_analyses(
     return analyses
 
 
-async def get_total_contributions_for_period(
-    user_id: UUID, period: str, db: AsyncSession, ) -> Decimal:
+async def get_total_contributions_for_period(user_id: UUID, period: str, db: AsyncSession, ) -> Decimal:
 
     start, end = month_bounds(period)
 
@@ -218,12 +215,7 @@ async def _available_for_user(user_id: UUID, d: date, db: AsyncSession) -> Decim
     return money(income - expenses - prior_contributions)
 
 
-async def contribute(
-    user_id: UUID,
-    goal_id: UUID,
-    amount: Decimal,
-    db: AsyncSession,
-) -> SavingsGoalContributeRead:
+async def contribute(user_id: UUID, goal_id: UUID, amount: Decimal, db: AsyncSession,) -> SavingsGoalContributeRead:
     if amount <= 0:
         raise BusinessRule("Contribution amount must be positive")
 
