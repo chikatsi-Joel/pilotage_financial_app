@@ -3782,7 +3782,7 @@
       "file_type": "code",
       "norm_label": "health()",
       "source_file": "app/main.py",
-      "source_location": "L46"
+      "source_location": "L45"
     },
     {
       "id": "app_services_user_service_create_user",
@@ -9918,7 +9918,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "app/main.py",
-      "source_location": "L47",
+      "source_location": "L46",
       "weight": 1.0
     },
     {
@@ -12486,7 +12486,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "app/main.py",
-      "source_location": "L45",
+      "source_location": "L44",
       "weight": 1.0
     },
     {
@@ -20232,7 +20232,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "app/main.py",
-      "source_location": "L46",
+      "source_location": "L45",
       "weight": 1.0
     },
     {
@@ -26927,5 +26927,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "730ccded3fe5f8dc157825e4d76e2bdab4fa3952"
+  "built_at_commit": "3271ced4313b1f72cfe2f32ac63c612363da9ca3"
 }
