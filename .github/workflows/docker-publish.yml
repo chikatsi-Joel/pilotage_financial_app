@@ -11,6 +11,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,3 +45,26 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy sur le VPS Hostinger
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            docker pull ${{ env.IMAGE_NAME }}:1.0.0
+            docker stop financial_app || true
+            docker rm financial_app || true
+            docker run -d \
+              --name financial_app \
+              --restart unless-stopped \
+              -p 8000:8000 \
+              --env-file /opt/financial_app/.env \
+              ${{ env.IMAGE_NAME }}:1.0.0
+            docker image prune -f
