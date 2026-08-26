@@ -59,13 +59,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
-            docker pull ${{ env.IMAGE_NAME }}:1.0.0
-            docker stop financial_app || true
-            docker rm financial_app || true
-            docker run -d \
-              --name financial_app \
-              --restart unless-stopped \
-              -p 8000:8000 \
-              --env-file /opt/financial_app/.env \
-              ${{ env.IMAGE_NAME }}:1.0.0
+            cd /docker/financial_manager/
+            docker compose pull finance_app
+            docker compose up -d
             docker image prune -f
