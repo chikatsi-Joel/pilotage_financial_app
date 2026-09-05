@@ -24,7 +24,7 @@ async def category_analytics(
     db: DbSession,
 ):
     try:
-        analytics = await analytics_service.compute_category_analytics(
+        analytics = await analytics_service.get_category_analytics_snapshot(
             user.id, period, db
         )
     except InvalidPeriod as exc:
@@ -41,7 +41,7 @@ async def dashboard(
     db: DbSession,
 ):
     try:
-        return await analytics_service.get_dashboard(
+        return await analytics_service.get_dashboard_snapshot(
             user.id, period, db
         )
     except InvalidPeriod as exc:

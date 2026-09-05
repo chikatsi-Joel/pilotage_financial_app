@@ -4,7 +4,9 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON
 
 from app.db.base import Base
 
@@ -168,6 +170,10 @@ class CategoryAnalytics(Base):
     drift_signal: Mapped[DriftSignal] = mapped_column(Enum(DriftSignal), nullable=False)
     current_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     estimated_saving: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
+    profile_data: Mapped[dict | None] = mapped_column(
+        JSON().with_variant(postgresql.JSONB(), "postgresql"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "category_id", "period", name="uq_category_analytics_period"),)

@@ -47,11 +47,7 @@ async def create(user_id: UUID, payload: CategoryCreate, db: AsyncSession) -> Ca
 
 async def list_by_user(
     user_id: UUID,
-    db: AsyncSession,
-    *,
-    cursor: str | None = None,
-    limit: int = 20,
-) -> tuple[list[Category], str | None, bool]:
+    db: AsyncSession, *, cursor: str | None = None, limit: int = 20,) -> tuple[list[Category], str | None, bool]:
     query = select(Category).where(Category.user_id == user_id)
 
     return await paginate(
@@ -60,9 +56,7 @@ async def list_by_user(
     )
 
 
-async def update(
-    user_id: UUID, category_id: UUID, payload: CategoryUpdate, db: AsyncSession
-) -> Category:
+async def update( user_id: UUID, category_id: UUID, payload: CategoryUpdate, db: AsyncSession) -> Category:
     category = await db.get(Category, category_id)
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")

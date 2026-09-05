@@ -5,23 +5,29 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    Category, CategoryAnalytics, Expense,
-    Income, MonthlySnapshot,
+    Category,
+    CategoryAnalytics,
+    Expense,
+    Income,
+    MonthlySnapshot,
 )
 from app.schemas.common import (
-    CategoryAnalyticsRead, DashboardRead,
+    CategoryAnalyticsRead,
+    DashboardRead,
+    ForecastRead,
+    TimeSeriesProfileRead,
 )
 from app.services.analytics import FinancialAnalyticsEngine, money
+from app.services.analytics.models import Category as DomainCategory
 from app.services.analytics.models import (
-    Category as DomainCategory,
     CategoryType,
-    Expense as DomainExpense,
     OptimizationPotential,
 )
+from app.services.analytics.models import Expense as DomainExpense
 
 _engine = FinancialAnalyticsEngine()
 
@@ -298,6 +304,7 @@ async def refresh_analytics(
             ),
             current_amount=money(a.current_amount),
             estimated_saving=money(a.potential_saving),
+            profile_data=_profile_to_dict(p),
         )
         if existing is None:
             db.add(CategoryAnalytics(**values))
@@ -337,3 +344,155 @@ async def get_period_totals(
         start, end,
     )
     return income, expense
+
+
+async def invalidate_snapshots(
+    user_id: UUID, period: str, db: AsyncSession
+) -> None:
+    await db.execute(
+        delete(CategoryAnalytics).where(
+            CategoryAnalytics.user_id == user_id,
+            CategoryAnalytics.period == period,
+        )
+    )
+    await db.execute(
+        delete(MonthlySnapshot).where(
+            MonthlySnapshot.user_id == user_id,
+            MonthlySnapshot.period == period,
+        )
+    )
+    await db.flush()
+    await refresh_analytics(user_id, period, db)
+
+
+def _snapshot_to_category_read(
+    row: CategoryAnalytics,
+) -> CategoryAnalyticsRead:
+    p = row.profile_data or {}
+    forecast = p.get("forecast", {})
+    profile = TimeSeriesProfileRead(
+        level=p.get("level", 0.0),
+        trend=p.get("trend", 0.0),
+        seasonality_strength=p.get("seasonality_strength", 0.0),
+        seasonality_reliable=p.get("seasonality_reliable", False),
+        volatility=p.get("volatility", 0.0),
+        anomaly_score=p.get("anomaly_score", 0.0),
+        change_points=tuple(p.get("change_points", [])),
+        drift_score=p.get("drift_score", 0.0),
+        confidence=p.get("confidence", 0.0),
+        forecast=ForecastRead(
+            method=forecast.get("method", "ewma"),
+            value=forecast.get("value", 0.0),
+            mae=forecast.get("mae"),
+        ),
+    )
+    return CategoryAnalyticsRead(
+        category_id=row.category_id,
+        name="",
+        description="",
+        period=row.period,
+        essential=row.trend_direction is not None,
+        current_amount=float(row.current_amount),
+        baseline_amount=float(row.baseline) if row.baseline else 0.0,
+        expected_amount=float(row.current_amount - row.deviation),
+        variation_percentage=(
+            float(row.deviation / row.baseline * 100)
+            if row.baseline
+            else 0.0
+        ),
+        potential_saving=float(row.estimated_saving),
+        opportunity_score=0.0,
+        profile=profile,
+    )
+
+
+async def get_category_analytics_snapshot(
+    user_id: UUID, period: str, db: AsyncSession
+) -> list[CategoryAnalyticsRead]:
+    result = await db.execute(
+        select(CategoryAnalytics).where(
+            CategoryAnalytics.user_id == user_id,
+            CategoryAnalytics.period == period,
+        )
+    )
+    rows = result.scalars().all()
+
+    if rows and all(r.profile_data is not None for r in rows):
+        cat_result = await db.execute(
+            select(Category).where(
+                Category.user_id == user_id,
+            )
+        )
+        names = {c.id: c.name for c in cat_result.scalars().all()}
+
+        reads = []
+        for row in rows:
+            r = _snapshot_to_category_read(row)
+            r.name = names.get(row.category_id, "")
+            reads.append(r)
+        return reads
+
+    await refresh_analytics(user_id, period, db)
+    return await get_category_analytics_snapshot(user_id, period, db)
+
+
+async def get_dashboard_snapshot(
+    user_id: UUID, period: str, db: AsyncSession
+) -> DashboardRead:
+    snapshot_result = await db.execute(
+        select(MonthlySnapshot).where(
+            MonthlySnapshot.user_id == user_id,
+            MonthlySnapshot.period == period,
+        )
+    )
+    snapshot = snapshot_result.scalar_one_or_none()
+
+    if snapshot is not None:
+        cats_result = await db.execute(
+            select(CategoryAnalytics).where(
+                CategoryAnalytics.user_id == user_id,
+                CategoryAnalytics.period == period,
+            )
+        )
+        cats = cats_result.scalars().all()
+
+        if all(c.profile_data is not None for c in cats):
+            cat_result = await db.execute(
+                select(Category).where(
+                    Category.user_id == user_id,
+                )
+            )
+            names = {c.id: c.name for c in cat_result.scalars().all()}
+
+            reads = []
+            for row in cats:
+                r = _snapshot_to_category_read(row)
+                r.name = names.get(row.category_id, "")
+                reads.append(r)
+
+            drifts = [
+                x for x in reads
+                if x.profile.drift_score >= 0.5
+            ]
+            drifts.sort(
+                key=lambda x: x.profile.drift_score, reverse=True
+            )
+
+            return DashboardRead(
+                period=period,
+                income=snapshot.income,
+                expenses=snapshot.expenses,
+                savings=snapshot.savings,
+                savings_rate=snapshot.savings_rate,
+                categories_in_drift=len(drifts),
+                potential_savings=money(
+                    sum(
+                        (x.potential_saving for x in reads),
+                        0.0,
+                    )
+                ),
+                top_drift_categories=drifts[:5],
+            )
+
+    await refresh_analytics(user_id, period, db)
+    return await get_dashboard_snapshot(user_id, period, db)

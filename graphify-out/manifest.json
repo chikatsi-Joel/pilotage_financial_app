@@ -36,10 +36,10 @@
     "semantic_hash": ""
   },
   "app/api/routers/analytics.py": {
-    "mtime": 1787056085.2292955,
-    "seen": 1787217801.7918837,
-    "ast_hash": "409086d2dc41d51d700ad31807556e9f",
-    "semantic_hash": "409086d2dc41d51d700ad31807556e9f"
+    "mtime": 1787762572.2549064,
+    "seen": 1787763088.8641508,
+    "ast_hash": "1103abe2a45cae00622876d77dcc21dc",
+    "semantic_hash": ""
   },
   "app/api/routers/budget.py": {
     "mtime": 1787220461.4395456,
@@ -126,10 +126,10 @@
     "semantic_hash": "91c9fa79a80027eac68246c62c07e971"
   },
   "app/models/entities.py": {
-    "mtime": 1787074281.0086403,
-    "seen": 1787217801.7918837,
-    "ast_hash": "125b3f39b215dd528dab7c68e7594fb6",
-    "semantic_hash": "125b3f39b215dd528dab7c68e7594fb6"
+    "mtime": 1787762699.886578,
+    "seen": 1787763088.8641508,
+    "ast_hash": "0c9625936d3f53b7ddc1c356d6d718f2",
+    "semantic_hash": ""
   },
   "app/schemas/__init__.py": {
     "mtime": 1787071894.191,
@@ -198,10 +198,10 @@
     "semantic_hash": "87862525a9f8f05fc97e3d797e31cc1f"
   },
   "app/services/analytics_service.py": {
-    "mtime": 1787061023.618,
-    "seen": 1787217801.7918837,
-    "ast_hash": "2d13c0e1cdc4e89076cd3d1b18ac499b",
-    "semantic_hash": "2d13c0e1cdc4e89076cd3d1b18ac499b"
+    "mtime": 1787762983.6757724,
+    "seen": 1787763088.8641508,
+    "ast_hash": "b13be1feeea3fb2765eb6a1020431e29",
+    "semantic_hash": ""
   },
   "app/services/budget.py": {
     "mtime": 1787039500.1004293,
@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "app/services/category_service.py": {
-    "mtime": 1787220481.7437906,
-    "seen": 1787221620.5148401,
-    "ast_hash": "e954bf42b73b71d2fcc57607f3ee553e",
+    "mtime": 1787761642.705,
+    "seen": 1787763088.8641508,
+    "ast_hash": "8bf4a83cc611fd91100d773b85e3ccf6",
     "semantic_hash": ""
   },
   "app/services/context/__init__.py": {
@@ -234,21 +234,21 @@
     "semantic_hash": "51eead64d5f8ed36459351b7b143444a"
   },
   "app/services/expense_service.py": {
-    "mtime": 1787221601.51,
-    "seen": 1787221620.5148401,
-    "ast_hash": "c2c2ff11efcf1a5cf454f6b1fec46a28",
+    "mtime": 1787762534.0563583,
+    "seen": 1787763088.8641508,
+    "ast_hash": "449abb2ed9e917c7b02101e7ddb3341d",
     "semantic_hash": ""
   },
   "app/services/income_service.py": {
-    "mtime": 1787222549.581,
-    "seen": 1787236792.4602094,
-    "ast_hash": "68d0a938f8cc8cb71c374532a545dd1e",
+    "mtime": 1787762551.335526,
+    "seen": 1787763088.8641508,
+    "ast_hash": "46e8c5c2fb1011e07829008d7765e2a4",
     "semantic_hash": ""
   },
   "app/services/savings_service.py": {
-    "mtime": 1787220471.1553857,
-    "seen": 1787221620.5148401,
-    "ast_hash": "67d0dd2c343f96ff5bf31e5d810be0c4",
+    "mtime": 1787761371.518,
+    "seen": 1787761393.8817399,
+    "ast_hash": "59a77fef9470c2d6889bba6fd0c57e6e",
     "semantic_hash": ""
   },
   "app/services/user_service.py": {
@@ -474,10 +474,10 @@
     "semantic_hash": "a9348b26a8a301baa8c303025d52abe2"
   },
   "tests/test_analytics.py": {
-    "mtime": 1787040971.8400662,
-    "seen": 1787217801.7918837,
-    "ast_hash": "0ece5a3e1d9479593693a8a73e15baa6",
-    "semantic_hash": "0ece5a3e1d9479593693a8a73e15baa6"
+    "mtime": 1787763033.4683836,
+    "seen": 1787763088.8651474,
+    "ast_hash": "6509d85c2ba91e29b1dd8257da04a06e",
+    "semantic_hash": ""
   },
   "tests/test_budget.py": {
     "mtime": 1787039147.5571048,
@@ -822,9 +822,15 @@
     "semantic_hash": ""
   },
   ".github/workflows/docker-publish.yml": {
-    "mtime": 1787759288.151,
-    "seen": 1787759454.3214781,
-    "ast_hash": "80ff4500493f887e221dffd88d6dfba5",
+    "mtime": 1787761256.235,
+    "seen": 1787761393.8817399,
+    "ast_hash": "70ac3411a5b949b96fc3a71c8daec103",
+    "semantic_hash": ""
+  },
+  "migrations/versions/0003_add_category_analytics_profile_data.py": {
+    "mtime": 1787762604.255583,
+    "seen": 1787763088.8651474,
+    "ast_hash": "e4ac559b23c42d1f03cee0c14041f68d",
     "semantic_hash": ""
   }
 }

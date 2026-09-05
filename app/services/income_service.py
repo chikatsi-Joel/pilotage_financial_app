@@ -8,12 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Income
 from app.schemas.common import IncomeCreate
+from app.services.analytics_service import invalidate_snapshots
 from app.services.pagination import paginate
 
 
 async def create(user_id: UUID, payload: IncomeCreate, db: AsyncSession) -> Income:
     income = Income(user_id=user_id, **payload.model_dump())
     db.add(income)
+    await db.flush()
+
+    period = f"{income.income_date.year}-{income.income_date.month:02d}"
+    await invalidate_snapshots(user_id, period, db)
     await db.commit()
     await db.refresh(income)
     return income

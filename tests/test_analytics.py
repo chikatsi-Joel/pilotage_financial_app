@@ -248,3 +248,117 @@ def test_validate_llm_output_detects_hallucination():
     validated = _validate_llm_output(result, context)
     assert "number_warnings" in validated
     assert len(validated["number_warnings"]) > 0
+
+
+def test_profile_to_dict_roundtrip():
+    from app.services.analytics_service import _profile_to_dict
+
+    class FakeForecast:
+        method = "ewma"
+        value = 150.0
+        mae = 12.5
+
+    class FakeProfile:
+        level = 100.0
+        trend = 0.05
+        seasonality_strength = 0.3
+        seasonality_reliable = True
+        volatility = 15.0
+        anomaly_score = 0.1
+        change_points = (5, 10)
+        drift_score = 0.2
+        confidence = 0.8
+        forecast = FakeForecast()
+
+    d = _profile_to_dict(FakeProfile())
+    assert d["level"] == 100.0
+    assert d["trend"] == 0.05
+    assert d["forecast"]["method"] == "ewma"
+    assert d["forecast"]["mae"] == 12.5
+    assert d["change_points"] == (5, 10)
+
+
+def test_snapshot_to_category_read():
+    from decimal import Decimal
+
+    from app.models import (
+        CategoryAnalytics,
+        ConfidenceLevel,
+        DriftSignal,
+        TrendDirection,
+    )
+    from app.services.analytics_service import _snapshot_to_category_read
+
+    row = CategoryAnalytics(
+        category_id="00000000-0000-0000-0000-000000000001",
+        user_id="00000000-0000-0000-0000-000000000002",
+        period="2026-08",
+        baseline=Decimal("150.00"),
+        trend=Decimal("0.050000"),
+        volatility=Decimal("0.150000"),
+        deviation=Decimal("20.000000"),
+        frequency=0,
+        seasonality=Decimal("0.300000"),
+        confidence=ConfidenceLevel.HIGH,
+        trend_direction=TrendDirection.INCREASING,
+        drift_signal=DriftSignal.NORMAL,
+        current_amount=Decimal("170.00"),
+        estimated_saving=Decimal("20.00"),
+        profile_data={
+            "level": 150.0,
+            "trend": 0.05,
+            "seasonality_strength": 0.3,
+            "seasonality_reliable": True,
+            "volatility": 0.15,
+            "anomaly_score": 0.1,
+            "change_points": [5],
+            "drift_score": 0.2,
+            "confidence": 0.8,
+            "forecast": {
+                "method": "ewma",
+                "value": 160.0,
+                "mae": 10.0,
+            },
+        },
+    )
+
+    read = _snapshot_to_category_read(row)
+    assert read.current_amount == 170.0
+    assert read.potential_saving == 20.0
+    assert read.profile.drift_score == 0.2
+    assert read.profile.forecast.method == "ewma"
+    assert read.profile.forecast.mae == 10.0
+
+
+def test_snapshot_to_category_read_missing_profile():
+    from decimal import Decimal
+
+    from app.models import (
+        CategoryAnalytics,
+        ConfidenceLevel,
+        DriftSignal,
+        TrendDirection,
+    )
+    from app.services.analytics_service import _snapshot_to_category_read
+
+    row = CategoryAnalytics(
+        category_id="00000000-0000-0000-0000-000000000001",
+        user_id="00000000-0000-0000-0000-000000000002",
+        period="2026-08",
+        baseline=None,
+        trend=Decimal("0.000000"),
+        volatility=Decimal("0.000000"),
+        deviation=Decimal("0.000000"),
+        frequency=0,
+        seasonality=None,
+        confidence=ConfidenceLevel.LOW,
+        trend_direction=TrendDirection.STABLE,
+        drift_signal=DriftSignal.NORMAL,
+        current_amount=Decimal("0.00"),
+        estimated_saving=Decimal("0.00"),
+        profile_data=None,
+    )
+
+    read = _snapshot_to_category_read(row)
+    assert read.profile.drift_score == 0.0
+    assert read.profile.forecast.method == "ewma"

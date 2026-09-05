@@ -1,157 +1,153 @@
 # Graph Report - pilotage_finances_backend  (2026-08-26)
 
 ## Corpus Check
-- 102 files · ~138,327 words
+- 103 files · ~138,981 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 811 nodes · 1511 edges · 71 communities (45 shown, 26 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 58 edges (avg confidence: 0.93)
+- 839 nodes · 1699 edges · 64 communities (48 shown, 16 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 86 edges (avg confidence: 0.95)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3271ced4`
+- Built from commit: `70d94da3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - types/index.ts
 - test_analytics.py
-- common.py
+- expense_service.py
 - entities.py
 - dependencies
-- savings_service.py
+- common.py
 - deps.py
 - theme.ts
 - analytics_service.py
-- routers/budget.py
+- budget_service.py
 - stats-detail.tsx
-- Expense
+- Décisions d'implémentation
 - expo
 - api-client.test.cjs
 - tsconfig.json
 - graphify.js
 - utils/__init__.py
 - pilotage-finances-backend
-- category_service.py
+- Pilotage Finances Personnelles — Backend FastAPI
 - Pilotage Finances - API Design Reference
 - opencode.json
 - AGENTS.md
-- RecommendationStatus
-- RecommendationStatus
-- Category
-- paginate
-- SavingsGoal
-- BaseModel
-- CategoryCreate
-- CategoryUpdate
-- put
-- SavingsGoalCreate
+- index.tsx
+- Finance mobile
+- services/ai.py
+- expo-linking
+- expo-router
+- @react-native-async-storage/async-storage
+- @react-native-community/slider
+- react-native-vector-icons
 - analyse.tsx
 - budget.tsx
 - dashboard.tsx
 - components.tsx
-- list_incomes
+- paginate
 - analyse-detail.tsx
 - add-goal.tsx
 - devDependencies
 - scripts
-- savings.tsx
 - l_quilibre_financier_2/DESIGN.md
 - package.json
 - l_quilibre_financier_1/DESIGN.md
-- axios
 - expo-constants
 - expo-status-bar
 - react
-- react-native
 - react-native-paper
-- react-native-safe-area-context
 - react-native-screens
 - react-native-svg
-- @react-navigation/native
 - zustand
 - add-expense.tsx
 - budget-details.tsx
 - simulation.tsx
-- get
 
 ## God Nodes (most connected - your core abstractions)
-1. `paginate()` - 20 edges
-2. `buildPath()` - 18 edges
-3. `money()` - 18 edges
-4. `Base` - 17 edges
-5. `Pilotage Finances - API Design Reference` - 16 edges
-6. `colors` - 16 edges
-7. `FinancialAnalyticsEngine` - 15 edges
-8. `compute_category_analytics()` - 15 edges
-9. `Expense` - 13 edges
-10. `mad()` - 12 edges
+1. `money()` - 22 edges
+2. `Category` - 21 edges
+3. `paginate()` - 20 edges
+4. `Expense` - 18 edges
+5. `buildPath()` - 18 edges
+6. `Base` - 17 edges
+7. `expo-router` - 17 edges
+8. `colors` - 16 edges
+9. `Pilotage Finances - API Design Reference` - 16 edges
+10. `FinancialAnalyticsEngine` - 15 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `test_all_tables_build_on_sqlite_metadata()` --uses--> `Base`  [INFERRED]
   tests/test_schema.py → app/db/base.py
-- `create()` --calls--> `Category`  [EXTRACTED]
-  app/services/category_service.py → finance_mobile/src/shared/types/index.ts
-- `create()` --calls--> `Expense`  [EXTRACTED]
-  app/services/expense_service.py → finance_mobile/src/shared/types/index.ts
-- `test_engine_analyze_sorts_by_opportunity_score()` --uses--> `CategoryType`  [INFERRED]
-  tests/test_analytics.py → app/services/analytics/models.py
-- `test_engine_skips_empty_categories()` --uses--> `CategoryType`  [INFERRED]
-  tests/test_analytics.py → app/services/analytics/models.py
+- `test_build_prompt_contains_key_data()` --calls--> `_build_prompt()`  [EXTRACTED]
+  tests/test_ai.py → app/services/ai.py
+- `test_parse_response_invalid_json()` --calls--> `_parse_response()`  [EXTRACTED]
+  tests/test_ai.py → app/services/ai.py
+- `test_parse_response_markdown_wrapped()` --calls--> `_parse_response()`  [EXTRACTED]
+  tests/test_ai.py → app/services/ai.py
+- `test_parse_response_valid_json()` --calls--> `_parse_response()`  [EXTRACTED]
+  tests/test_ai.py → app/services/ai.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (71 total, 26 thin omitted)
+## Communities (64 total, 16 thin omitted)
 
 ### Community 0 - "types/index.ts"
 Cohesion: 0.07
-Nodes (52): ai, path(), analytics, path(), budget, path(), categories, path() (+44 more)
+Nodes (53): ai, path(), analytics, path(), budget, path(), categories, path() (+45 more)
 
 ### Community 1 - "test_analytics.py"
-Cohesion: 0.08
-Nodes (61): _extract_known_numbers(), Extract all known numeric values from the input context., Extract numeric leaves from the compact savings context., Post-validation : extract all numbers from the LLM text and verify they exist…, _validate_llm_output(), _walk_numbers(), FinancialAnalyticsEngine, Category (+53 more)
-
-### Community 2 - "common.py"
 Cohesion: 0.11
-Nodes (38): create_expense(), delete_expense(), list_expenses(), date, DbSession, ExpenseCreate, get, post (+30 more)
+Nodes (51): FinancialAnalyticsEngine, Category, Expense, forecast(), predict(), score(), Category, CategoryAnalysis (+43 more)
+
+### Community 2 - "expense_service.py"
+Cohesion: 0.19
+Nodes (25): create_expense(), delete_expense(), list_expenses(), date, DbSession, ExpenseCreate, get, post (+17 more)
 
 ### Community 3 - "entities.py"
-Cohesion: 0.14
-Nodes (25): Base, AIAnalysis, Budget, Category, CategoryAnalytics, CategoryType, ConfidenceLevel, DriftSignal (+17 more)
+Cohesion: 0.07
+Nodes (54): create_category(), list_categories(), CategoryCreate, CategoryUpdate, DbSession, ge, get, le (+46 more)
 
 ### Community 4 - "dependencies"
 Cohesion: 0.15
-Nodes (13): expo, expo-linking, dependencies, expo, expo-linking, @react-native-async-storage/async-storage, @react-native-community/datetimepicker, @react-native-community/slider (+5 more)
+Nodes (13): axios, expo, dependencies, axios, expo, react-native, @react-native-community/datetimepicker, react-native-safe-area-context (+5 more)
 
-### Community 5 - "savings_service.py"
-Cohesion: 0.08
-Nodes (44): contribute(), create_goal(), list_goals(), DbSession, ge, get, le, post (+36 more)
+### Community 5 - "common.py"
+Cohesion: 0.05
+Nodes (76): contribute(), create_goal(), list_goals(), DbSession, ge, get, le, post (+68 more)
 
 ### Community 6 - "deps.py"
-Cohesion: 0.08
-Nodes (31): get_user(), AsyncSession, User, UUID, create_user(), get_users(), AsyncSession, DbSession (+23 more)
+Cohesion: 0.14
+Nodes (16): get_user(), AsyncSession, User, UUID, Settings, get_db(), get_engine(), get_session_factory() (+8 more)
 
 ### Community 7 - "theme.ts"
-Cohesion: 0.21
-Nodes (5): QUICK_WINS, styles, icons, colors, paperTheme
+Cohesion: 0.15
+Nodes (9): QUICK_WINS, styles, icons, cpStyles, GOALS, styles, colors, paperTheme (+1 more)
 
 ### Community 8 - "analytics_service.py"
 Cohesion: 0.09
-Nodes (44): category_analytics(), dashboard(), DbSession, get, post, UserDep, refresh_analytics(), DbSession (+36 more)
+Nodes (49): category_analytics(), dashboard(), DbSession, get, post, UserDep, refresh_analytics(), DbSession (+41 more)
 
-### Community 9 - "routers/budget.py"
+### Community 9 - "budget_service.py"
 Cohesion: 0.15
-Nodes (30): decide_budget(), get_budget(), list_recommendations(), DbSession, get, post, put, UserDep (+22 more)
+Nodes (31): decide_budget(), get_budget(), list_recommendations(), DbSession, get, post, put, RecommendationStatus (+23 more)
 
 ### Community 10 - "stats-detail.tsx"
 Cohesion: 0.06
 Nodes (25): acStyles, CATEGORIES, CategoryBars(), cbStyles, dnStyles, DonutChart(), EXPENSES, fcStyles (+17 more)
 
+### Community 11 - "Décisions d'implémentation"
+Cohesion: 0.20
+Nodes (9): Analyse IA (Ollama / Gemma), Baseline, Budget, Décisions d'implémentation, Déviation, Exceptions, Potentiel d'optimisation, Tendance (+1 more)
+
 ### Community 12 - "expo"
-Cohesion: 0.07
-Nodes (29): expo-router, backgroundColor, backgroundImage, foregroundImage, monochromeImage, adaptiveIcon, package, predictiveBackGestureEnabled (+21 more)
+Cohesion: 0.08
+Nodes (23): backgroundColor, backgroundImage, foregroundImage, monochromeImage, adaptiveIcon, package, predictiveBackGestureEnabled, expo (+15 more)
 
 ### Community 13 - "api-client.test.cjs"
 Cohesion: 0.22
@@ -161,9 +157,9 @@ Nodes (7): assert, { buildPath }, fs, Module, path, test, ts
 Cohesion: 0.40
 Nodes (4): compilerOptions, strict, extends, expo/tsconfig.base
 
-### Community 29 - "category_service.py"
-Cohesion: 0.12
-Nodes (26): create_category(), list_categories(), DbSession, ge, get, le, post, Query (+18 more)
+### Community 29 - "Pilotage Finances Personnelles — Backend FastAPI"
+Cohesion: 0.25
+Nodes (7): Architecture, Docker complet, Démarrage rapide, Pilotage Finances Personnelles — Backend FastAPI, Point de sécurité important, Périmètre implémenté, Tests
 
 ### Community 30 - "Pilotage Finances - API Design Reference"
 Cohesion: 0.12
@@ -173,9 +169,17 @@ Nodes (16): 10. Épargne, 11. Analyse IA, 1. Profil Utilisateur, 2. Données de 
 Cohesion: 0.50
 Nodes (3): plugin, $schema, .opencode/plugins/graphify.js
 
-### Community 36 - "paginate"
-Cohesion: 0.07
-Nodes (42): Any, ai_health(), AIAnalysisResponse, AIAnalysisStoredRead, analyze_period(), get_ai_provider(), list_analyses(), DbSession (+34 more)
+### Community 33 - "index.tsx"
+Cohesion: 0.53
+Nodes (4): Index(), AppState, currentMonth(), useAppStore
+
+### Community 34 - "Finance mobile"
+Cohesion: 0.50
+Nodes (3): Configuration locale, Finance mobile, Vérification
+
+### Community 36 - "services/ai.py"
+Cohesion: 0.11
+Nodes (27): AIAnalysisProvider, _build_prompt(), _extract_known_numbers(), _fallback_analysis(), OllamaProvider, _parse_response(), Any, Extract all known numeric values from the input context. (+19 more)
 
 ### Community 43 - "analyse.tsx"
 Cohesion: 0.09
@@ -193,9 +197,9 @@ Nodes (12): AlertItem, ALERTS, alertStyles, chartStyles, DONUT, donutStyles, leg
 Cohesion: 0.15
 Nodes (9): FILTERS, styles, TRANSACTIONS, styles, BrandMark(), Card(), Pill(), SectionTitle() (+1 more)
 
-### Community 47 - "list_incomes"
-Cohesion: 0.14
-Nodes (18): create_income(), list_incomes(), date, DbSession, ge, get, IncomeCreate, le (+10 more)
+### Community 47 - "paginate"
+Cohesion: 0.07
+Nodes (42): ai_health(), AIAnalysisResponse, AIAnalysisStoredRead, analyze_period(), get_ai_provider(), list_analyses(), BaseModel, DbSession (+34 more)
 
 ### Community 48 - "analyse-detail.tsx"
 Cohesion: 0.18
@@ -212,10 +216,6 @@ Nodes (7): devDependencies, @types/react, @types/react-native-vector-icons, type
 ### Community 51 - "scripts"
 Cohesion: 0.29
 Nodes (7): scripts, android, ios, start, test, typecheck, web
-
-### Community 52 - "savings.tsx"
-Cohesion: 0.33
-Nodes (3): cpStyles, GOALS, styles
 
 ### Community 53 - "l_quilibre_financier_2/DESIGN.md"
 Cohesion: 0.18
@@ -242,24 +242,24 @@ Cohesion: 0.40
 Nodes (5): formatEuro(), Scenario, SCENARIOS, Simulation(), styles
 
 ## Knowledge Gaps
-- **180 isolated node(s):** `PathParameters`, `BudgetCategoryLine`, `Essentiality`, `Forecast`, `OptimizationPotential` (+175 more)
+- **197 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `name`, `slug`, `version` (+192 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **16 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `expo-router` connect `expo` to `theme.ts`?**
-  _High betweenness centrality (0.046) - this node is a cross-community bridge._
-- **Why does `SavingsGoal` connect `savings_service.py` to `types/index.ts`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Are the 6 inferred relationships involving `money()` (e.g. with `decide_budget()` and `_available_for_user()`) actually correct?**
-  _`money()` has 6 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `PathParameters`, `BudgetCategoryLine`, `Essentiality` to the rest of the system?**
-  _180 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `expo-router` connect `theme.ts` to `index.tsx`, `add-expense.tsx`, `budget-details.tsx`, `simulation.tsx`, `stats-detail.tsx`, `analyse.tsx`, `expo`, `budget.tsx`, `components.tsx`, `dashboard.tsx`, `analyse-detail.tsx`, `add-goal.tsx`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `money()` connect `analytics_service.py` to `test_analytics.py`, `common.py`, `budget_service.py`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `PaginatedResponse` connect `common.py` to `budget_service.py`, `expense_service.py`, `entities.py`, `paginate`?**
+  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+- **Are the 12 inferred relationships involving `Category` (e.g. with `FinancialAnalyticsEngine` and `compute_category_analytics()`) actually correct?**
+  _`Category` has 12 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `$schema`, `.opencode/plugins/graphify.js`, `name` to the rest of the system?**
+  _197 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `types/index.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06845238095238096 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07019230769230769 - nodes in this community are weakly interconnected._
 - **Should `test_analytics.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.08295281582952815 - nodes in this community are weakly interconnected._
-- **Should `common.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.1091753774680604 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10546448087431694 - nodes in this community are weakly interconnected._
