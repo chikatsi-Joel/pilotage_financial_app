@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type DimensionValue,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -360,7 +361,7 @@ function ProfileMetric({ icon, color, label, value }: { icon: IconName; color: s
   );
 }
 
-function ProfileBar({ icon, color, label, value, width }: { icon: IconName; color: string; label: string; value: string; width: string }) {
+function ProfileBar({ icon, color, label, value, width }: { icon: IconName; color: string; label: string; value: string; width: DimensionValue }) {
   return (
     <View style={pbStyles.row}>
       <View style={pbStyles.left}>
@@ -556,7 +557,7 @@ const dnStyles = StyleSheet.create({
   sub: { color: colors.textMuted, fontSize: 12, fontWeight: "500", marginTop: 2 },
   body: { alignItems: "center", flexDirection: "row", gap: 24 },
   wrap: { alignItems: "center", justifyContent: "center" },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   total: { color: colors.text, fontSize: 22, fontWeight: "700" },
   unit: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
   legend: { flex: 1, gap: 10 },

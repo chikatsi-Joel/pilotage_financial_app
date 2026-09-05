@@ -132,6 +132,7 @@ const ScalePress = ({
   style,
   accessibilityLabel,
   accessibilityRole,
+  accessibilityState,
   activeOpacity = 0.97,
 }: {
   children: React.ReactNode;
@@ -139,6 +140,7 @@ const ScalePress = ({
   style?: any;
   accessibilityLabel?: string;
   accessibilityRole?: string;
+  accessibilityState?: any;
   activeOpacity?: number;
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -166,6 +168,7 @@ const ScalePress = ({
       onPressOut={onPressOut}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole as any}
+      accessibilityState={accessibilityState}
     >
       <Animated.View style={[{ transform: [{ scale }] }, style]}>
         {children}

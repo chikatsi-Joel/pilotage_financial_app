@@ -198,9 +198,9 @@
     "semantic_hash": "87862525a9f8f05fc97e3d797e31cc1f"
   },
   "app/services/analytics_service.py": {
-    "mtime": 1787762983.6757724,
-    "seen": 1787763088.8641508,
-    "ast_hash": "b13be1feeea3fb2765eb6a1020431e29",
+    "mtime": 1787763680.7417433,
+    "seen": 1788638180.5422764,
+    "ast_hash": "a79be65ad42d246454c22af7005c5a8a",
     "semantic_hash": ""
   },
   "app/services/budget.py": {
@@ -234,15 +234,15 @@
     "semantic_hash": "51eead64d5f8ed36459351b7b143444a"
   },
   "app/services/expense_service.py": {
-    "mtime": 1787762534.0563583,
-    "seen": 1787763088.8641508,
-    "ast_hash": "449abb2ed9e917c7b02101e7ddb3341d",
+    "mtime": 1787763772.540607,
+    "seen": 1788638180.5422764,
+    "ast_hash": "cceeacc2f098fb59b8bc02eac74497ba",
     "semantic_hash": ""
   },
   "app/services/income_service.py": {
-    "mtime": 1787762551.335526,
-    "seen": 1787763088.8641508,
-    "ast_hash": "46e8c5c2fb1011e07829008d7765e2a4",
+    "mtime": 1787763790.920562,
+    "seen": 1788638180.5422764,
+    "ast_hash": "1a877e11cfb7b15432317a4ba913238e",
     "semantic_hash": ""
   },
   "app/services/savings_service.py": {
@@ -330,9 +330,9 @@
     "semantic_hash": "5ac0374e6466712e3287506a121fa01b"
   },
   "finance_mobile/package.json": {
-    "mtime": 1787306498.3866472,
-    "seen": 1787309984.4936256,
-    "ast_hash": "6721e48c8d176438f5b24eba9cb57bde",
+    "mtime": 1788638150.6447332,
+    "seen": 1788638180.5422764,
+    "ast_hash": "13268bb008c55dac0a6712ec64e629d0",
     "semantic_hash": ""
   },
   "finance_mobile/src/shared/api/ai.ts": {
