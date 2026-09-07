@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "../../src/ui/theme";
@@ -98,46 +98,106 @@ const FadeIn = ({
 };
 
 /* ------------------------------------------------------------------ */
-//  Sous-composants
+//  Barre "wavy" — Material 3 Expressive, animée à l'apparition
 /* ------------------------------------------------------------------ */
 
-const AnimatedBar = ({
+let waveGradIdCounter = 0;
+
+const AnimatedWaveBar = ({
   pct,
   color,
   delay = 0,
+  height = 16,
 }: {
   pct: number;
   color: string;
   delay?: number;
+  height?: number;
 }) => {
-  const widthAnim = useRef(new Animated.Value(0)).current;
+  const gradId = useRef(`wave-grad-${waveGradIdCounter++}`).current;
+  const anim = useRef(new Animated.Value(0)).current;
+  const [progress, setProgress] = useState(0); // 0 → pct (en %)
 
   React.useEffect(() => {
-    Animated.timing(widthAnim, {
+    anim.stopAnimation();
+    const id = anim.addListener(({ value }) => setProgress(value));
+    Animated.timing(anim, {
       toValue: pct,
       duration: 900,
       delay,
       useNativeDriver: false,
     }).start();
-  }, [pct, delay, widthAnim]);
+    return () => anim.removeListener(id);
+  }, [pct, delay, anim]);
+
+  const width = 300; // unités du viewBox, s'étire sur 100% de la largeur réelle
+  const amplitude = 3.5;
+  const wavelength = 16;
+  const midY = height / 2;
+  const clamped = Math.min(Math.max(progress / 100, 0), 1);
+  const splitX = clamped * width;
+
+  const step = 3;
+  const activePoints: string[] = [];
+  for (let x = 0; x <= splitX; x += step) {
+    const y = midY + amplitude * Math.sin((x / wavelength) * Math.PI * 2);
+    activePoints.push(`${x.toFixed(1)},${y.toFixed(2)}`);
+  }
+  if (splitX > 0) {
+    const y = midY + amplitude * Math.sin((splitX / wavelength) * Math.PI * 2);
+    activePoints.push(`${splitX.toFixed(1)},${y.toFixed(2)}`);
+  }
+  const activePath = activePoints.length ? `M ${activePoints.join(" L ")}` : "";
+
+  const restStartX = Math.min(splitX + 7, width - 4);
+  const restPath = clamped < 1 ? `M ${restStartX},${midY} L ${width - 4},${midY}` : "";
 
   return (
-    <View style={styles.barTrack}>
-      <Animated.View
-        style={[
-          styles.barFill,
-          {
-            backgroundColor: color,
-            width: widthAnim.interpolate({
-              inputRange: [0, 100],
-              outputRange: ["0%", "100%"],
-            }),
-          },
-        ]}
-      />
+    <View style={{ width: "100%", height, marginTop: 14 }}>
+      <Svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+      >
+        <Defs>
+          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={`${color}88`} />
+            <Stop offset="1" stopColor={color} />
+          </LinearGradient>
+        </Defs>
+
+        {restPath !== "" && (
+          <Path
+            d={restPath}
+            stroke={`${color}22`}
+            strokeWidth={3}
+            strokeLinecap="round"
+            fill="none"
+          />
+        )}
+
+        {activePath !== "" && (
+          <Path
+            d={activePath}
+            stroke={`url(#${gradId})`}
+            strokeWidth={3}
+            strokeLinecap="round"
+            fill="none"
+          />
+        )}
+
+        {clamped < 1 && clamped > 0 && (
+          <Circle cx={width - 3} cy={midY} r={2.5} fill={`${color}33`} />
+        )}
+      </Svg>
     </View>
   );
 };
+
+/* ------------------------------------------------------------------ */
+//  Sous-composants
+/* ------------------------------------------------------------------ */
 
 const CategoryCard = ({
   cat,
@@ -227,7 +287,7 @@ const CategoryCard = ({
           </View>
 
           {!disabled && (
-            <AnimatedBar pct={pct} color={cat.tint} delay={200 + index * 100} />
+            <AnimatedWaveBar pct={pct} color={cat.tint} delay={200 + index * 100} />
           )}
         </View>
       </Pressable>
@@ -983,18 +1043,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 2,
     width: 20,
-  },
-
-  /* Barre */
-  barTrack: {
-    backgroundColor: `${colors.text}08`,
-    borderRadius: 99,
-    height: 5,
-    marginTop: 14,
-    overflow: "hidden",
-  },
-  barFill: {
-    borderRadius: 99,
-    height: "100%",
   },
 });

@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {Link, router} from "expo-router";
-import Svg, { Circle } from "react-native-svg";
+import { Link, router } from "expo-router";
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
 
@@ -75,6 +75,88 @@ function DonutProgress({ pct }: { pct: number }) {
   );
 }
 
+/**
+ * Indicateur de progression "wavy" — Material 3 Expressive.
+ * La portion active ondule (sinusoïde), la portion restante
+ * est une ligne plate fine. Terminaison par un point discret.
+ */
+function WaveProgressBar({
+  pct,
+  gradId,
+  height = 18,
+}: {
+  pct: number;
+  gradId: string;
+  height?: number;
+}) {
+  const width = 300; // unités du viewBox, s'étire à 100% de la largeur réelle
+  const amplitude = 4;
+  const wavelength = 16;
+  const midY = height / 2;
+  const clamped = Math.min(Math.max(pct, 0), 1);
+  const splitX = clamped * width;
+
+  const step = 2;
+  const activePoints: string[] = [];
+  for (let x = 0; x <= splitX; x += step) {
+    const y = midY + amplitude * Math.sin((x / wavelength) * Math.PI * 2);
+    activePoints.push(`${x.toFixed(1)},${y.toFixed(2)}`);
+  }
+  if (splitX > 0) {
+    const y = midY + amplitude * Math.sin((splitX / wavelength) * Math.PI * 2);
+    activePoints.push(`${splitX.toFixed(1)},${y.toFixed(2)}`);
+  }
+  const activePath = activePoints.length
+    ? `M ${activePoints.join(" L ")}`
+    : "";
+
+  const restStartX = Math.min(splitX + 8, width - 4);
+  const restPath =
+    clamped < 1 ? `M ${restStartX},${midY} L ${width - 4},${midY}` : "";
+
+  return (
+    <View style={{ width: "100%", height }}>
+      <Svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+      >
+        <Defs>
+          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={`${colors.primary}99`} />
+            <Stop offset="1" stopColor={colors.primary} />
+          </LinearGradient>
+        </Defs>
+
+        {restPath !== "" && (
+          <Path
+            d={restPath}
+            stroke={`${colors.primary}26`}
+            strokeWidth={3}
+            strokeLinecap="round"
+            fill="none"
+          />
+        )}
+
+        {activePath !== "" && (
+          <Path
+            d={activePath}
+            stroke={`url(#${gradId})`}
+            strokeWidth={3}
+            strokeLinecap="round"
+            fill="none"
+          />
+        )}
+
+        {clamped < 1 && (
+          <Circle cx={width - 3} cy={midY} r={2.5} fill={`${colors.primary}40`} />
+        )}
+      </Svg>
+    </View>
+  );
+}
+
 export default function Savings() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -108,44 +190,37 @@ export default function Savings() {
         {/* ── Goals ── */}
         <Text style={styles.goalsTitle}>Vos objectifs</Text>
         <View style={styles.goalsList}>
-          {GOALS.map((g) => (
+          {GOALS.map((g, i) => (
             <Link key={g.name} href="/savings-detail" asChild>
-            <Pressable>
-            <View style={styles.goalCard}>
-              <View style={styles.goalTop}>
-                <View style={styles.goalLeft}>
-                  <View style={styles.goalIcon}>
-                    <MaterialIcons
-                      color={colors.primary}
-                      name={g.icon as any}
-                      size={20}
-                    />
+              <Pressable>
+                <View style={styles.goalCard}>
+                  <View style={styles.goalTop}>
+                    <View style={styles.goalLeft}>
+                      <View style={styles.goalIcon}>
+                        <MaterialIcons
+                          color={colors.primary}
+                          name={g.icon as any}
+                          size={20}
+                        />
+                      </View>
+                      <View>
+                        <Text style={styles.goalName}>{g.name}</Text>
+                        <Text style={styles.goalSub}>{g.sub}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.goalPctBadge}>
+                      <Text style={styles.goalPctText}>{g.pct}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.goalName}>{g.name}</Text>
-                    <Text style={styles.goalSub}>{g.sub}</Text>
+                  <View style={styles.goalBottom}>
+                    <WaveProgressBar pct={g.pctNum} gradId={`wave-grad-${i}`} />
+                    <View style={styles.goalAmounts}>
+                      <Text style={styles.goalCurrent}>{g.current}</Text>
+                      <Text style={styles.goalTarget}>{g.target}</Text>
+                    </View>
                   </View>
                 </View>
-                <View style={styles.goalPctBadge}>
-                  <Text style={styles.goalPctText}>{g.pct}</Text>
-                </View>
-              </View>
-              <View style={styles.goalBottom}>
-                <View style={styles.goalBarTrack}>
-                  <View
-                    style={[
-                      styles.goalBarFill,
-                      { width: g.pct },
-                    ]}
-                  />
-                </View>
-                <View style={styles.goalAmounts}>
-                  <Text style={styles.goalCurrent}>{g.current}</Text>
-                  <Text style={styles.goalTarget}>{g.target}</Text>
-                </View>
-              </View>
-            </View>
-            </Pressable>
+              </Pressable>
             </Link>
           ))}
         </View>
@@ -162,8 +237,7 @@ export default function Savings() {
           </View>
           <View style={styles.insightContent}>
             <Text style={styles.insightLabel}>
-              Astuce IA{" "}
-              <Text style={styles.insightDot}>●</Text>
+              Astuce IA <Text style={styles.insightDot}>●</Text>
             </Text>
             <Text style={styles.insightText}>
               Transférez 50€ automatiquement chaque mois pour finir "Vacances
@@ -311,19 +385,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   goalBottom: { gap: 8 },
-  goalBarTrack: {
-    backgroundColor: "#EFF4FF",
-    borderRadius: 99,
-    height: 6,
-    overflow: "hidden",
-  },
-  goalBarFill: {
-    borderRadius: 99,
-    height: "100%",
-    width: "0%",
-    // gradient from primary/60 to primary simulated with solid primary
-    backgroundColor: colors.primary,
-  },
   goalAmounts: {
     flexDirection: "row",
     justifyContent: "space-between",
