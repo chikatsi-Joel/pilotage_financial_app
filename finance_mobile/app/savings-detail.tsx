@@ -41,7 +41,7 @@ type Contribution = { id: string; amount: number; created_at: string };
 const MOCK = {
   goal: {
     name: "Achat Appartement",
-    icon: "apartment",
+    icon: "office-building",
     current: 18500,
     target: 40000,
     deadline: "2026-05-31",
@@ -193,6 +193,7 @@ const TrajectoryChart = () => {
 
 export default function SavingsDetail() {
   const [refreshing, setRefreshing] = React.useState(false);
+  const [showAll, setShowAll] = React.useState(false);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -206,6 +207,8 @@ export default function SavingsDetail() {
   const remainder = goal.target - goal.current;
   const deadlineLabel = monthLabel(goal.deadline);
   const contributionCount = contributions.length;
+
+  const MAX_VISIBLE = 6;
 
   const monthGroups = useMemo(() => {
     const map = new Map<string, { month: string; items: typeof contributions }>();
@@ -222,6 +225,26 @@ export default function SavingsDetail() {
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([, g]) => g);
   }, [contributions]);
+
+  const visibleGroups = useMemo(() => {
+    if (showAll) return monthGroups.map((g) => ({ ...g, complete: true }));
+    const out: { month: string; items: typeof contributions; complete: boolean }[] = [];
+    let n = 0;
+    for (const g of monthGroups) {
+      if (n >= MAX_VISIBLE) break;
+      const room = MAX_VISIBLE - n;
+      if (g.items.length <= room) {
+        out.push({ ...g, complete: true });
+        n += g.items.length;
+      } else {
+        out.push({ ...g, items: g.items.slice(0, room), complete: false });
+        n = MAX_VISIBLE;
+      }
+    }
+    return out;
+  }, [monthGroups, showAll]);
+
+  const hiddenCount = contributionCount - visibleGroups.reduce((s, g) => s + g.items.length, 0);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -334,36 +357,53 @@ export default function SavingsDetail() {
 
         {/* ── Historique des cotisations ── */}
         <FadeIn delay={500}>
-          <Text style={styles.sectionEyebrow}>Historique des cotisations</Text>
-          {monthGroups.map((g) => (
-            <View key={g.month} style={styles.dayGroup}>
-              <View style={styles.dayHeader}>
-                <Text style={styles.dayLabel}>{g.month}</Text>
-                <Text style={styles.dayTotal}>
-                  +{eur(g.items.reduce((s, c) => s + c.amount, 0))}
-                </Text>
-              </View>
-              <View style={styles.txList}>
-                {g.items.map((c) => (
-                  <View key={c.id} style={styles.txCard}>
-                    <View style={[styles.txIcon, { backgroundColor: `${colors.primary}18` }]}>
-                      <MaterialCommunityIcons color={colors.primary} name="bank-transfer-in" size={20} />
-                    </View>
-                    <View style={styles.txContent}>
-                      <Text style={styles.txTitle} numberOfLines={1}>Versement</Text>
-                      <Text style={styles.txCategory} numberOfLines={1}>{goal.name}</Text>
-                    </View>
-                    <View style={styles.txRight}>
-                      <Text style={[styles.txAmount, { color: colors.primary }]}>+{eur(c.amount)}</Text>
-                      <View style={[styles.txPill, { backgroundColor: "#DCE9FF" }]}>
-                        <Text style={[styles.txPillText, { color: colors.text }]}>Cotisation</Text>
+          <View style={styles.historyHeaderRow}>
+            <Text style={styles.sectionEyebrow}>Historique des cotisations</Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{contributionCount} versements</Text>
+            </View>
+          </View>
+          <View style={styles.historyBox}>
+            {visibleGroups.map((g) => (
+              <View key={g.month} style={styles.dayGroup}>
+                <View style={styles.dayHeader}>
+                  <Text style={styles.dayLabel}>{g.month}</Text>
+                  {g.complete && (
+                    <Text style={styles.dayTotal}>
+                      +{eur(g.items.reduce((s, c) => s + c.amount, 0))}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.txList}>
+                  {g.items.map((c) => (
+                    <View key={c.id} style={styles.txCard}>
+                      <View style={[styles.txIcon, { backgroundColor: `${colors.primary}18` }]}>
+                        <MaterialCommunityIcons color={colors.primary} name="bank-transfer-in" size={20} />
+                      </View>
+                      <View style={styles.txContent}>
+                        <Text style={styles.txTitle} numberOfLines={1}>Versement</Text>
+                        <Text style={styles.txCategory} numberOfLines={1}>{goal.name}</Text>
+                      </View>
+                      <View style={styles.txRight}>
+                        <Text style={[styles.txAmount, { color: colors.primary }]}>+{eur(c.amount)}</Text>
+                        <View style={[styles.txPill, { backgroundColor: "#DCE9FF" }]}>
+                          <Text style={[styles.txPillText, { color: colors.text }]}>Cotisation</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))}
+                  ))}
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
+            {hiddenCount > 0 && (
+              <Pressable style={styles.seeMoreBtn} onPress={() => setShowAll(true)}>
+                <MaterialCommunityIcons name="chevron-down" size={16} color={colors.primary} />
+                <Text style={styles.seeMoreText}>
+                  Voir les {hiddenCount} versements précédents
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </FadeIn>
 
         {/* ── Bloc IA Gemma ── */}
@@ -516,6 +556,23 @@ const styles = StyleSheet.create({
   perspectiveBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
 
   /* Historique des cotisations */
+  historyHeaderRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  countBadge: { backgroundColor: `${colors.primary}0D`, borderRadius: 99, marginTop: 24, paddingHorizontal: 10, paddingVertical: 4 },
+  countBadgeText: { color: colors.primary, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
+  historyBox: { gap: 16 },
+  seeMoreBtn: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 99,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  seeMoreText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   dayGroup: { gap: 10 },
   dayHeader: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between" },
   dayLabel: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },

@@ -29,6 +29,7 @@ type DetailParams = {
   category?: string;
   amount?: string;
   tint?: string;
+  opt?: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -44,6 +45,28 @@ const MOCK = {
   optimizationPotential: 21000,
   rationale:
     "Vos dépenses de logement affichent une dérive persistante par rapport à votre niveau habituel. Une renégociation de vos contrats énergétiques pourrait libérer un fort potentiel d'optimisation.",
+};
+
+/* ------------------------------------------------------------------ */
+//  Coefficient d'optimisation (miroir de OptimizationPotential backend)
+/* ------------------------------------------------------------------ */
+
+const OPT_LEVELS = ["low", "medium", "high"] as const;
+type OptLevel = (typeof OPT_LEVELS)[number];
+
+const OPT_META: Record<
+  OptLevel,
+  { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; bg: string; fg: string }
+> = {
+  low: { label: "Optimisation faible", icon: "shield-outline", bg: colors.surfaceMuted, fg: colors.textMuted },
+  medium: { label: "Optimisation modérée", icon: "chart-line", bg: `${colors.warning}12`, fg: colors.warning },
+  high: { label: "Optimisation élevée", icon: "lightning-bolt", bg: `${colors.success}12`, fg: colors.success },
+};
+
+const OPT_COEFFICIENT: Record<OptLevel, string> = {
+  low: "0,25",
+  medium: "0,60",
+  high: "1,00",
 };
 
 /* ------------------------------------------------------------------ */
@@ -185,6 +208,11 @@ export default function BudgetDetail() {
   const category = params.category ?? "Logement & Charges";
   const amount = Number(params.amount ?? 87000);
   const tint = params.tint ?? colors.primary;
+  const optLevel: OptLevel =
+    params.opt === "low" || params.opt === "medium" || params.opt === "high"
+      ? params.opt
+      : "medium";
+  const optMeta = OPT_META[optLevel];
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -234,15 +262,21 @@ export default function BudgetDetail() {
                 {new Intl.NumberFormat("fr-FR").format(amount)}{" "}
                 <Text style={styles.headerCurrency}>XAF</Text>
               </Text>
-              <View style={[styles.trendBadge, { backgroundColor: `${colors.danger}12` }]}>
-                <MaterialCommunityIcons
-                  name="trending-up"
-                  size={14}
-                  color={colors.danger}
-                />
-                <Text style={[styles.trendText, { color: colors.danger }]}>
-                  +{pctVsHabitual}% vs habituel
-                </Text>
+              <View style={styles.headerBadges}>
+                <View style={[styles.trendBadge, { backgroundColor: `${colors.danger}12` }]}>
+                  <MaterialCommunityIcons
+                    name="trending-up"
+                    size={14}
+                    color={colors.danger}
+                  />
+                  <Text style={[styles.trendText, { color: colors.danger }]}>
+                    +{pctVsHabitual}% vs habituel
+                  </Text>
+                </View>
+                <View style={[styles.optBadge, { backgroundColor: optMeta.bg }]}>
+                  <MaterialCommunityIcons name={optMeta.icon} size={14} color={optMeta.fg} />
+                  <Text style={[styles.optText, { color: optMeta.fg }]}>{optMeta.label}</Text>
+                </View>
               </View>
             </View>
             <View style={{ width: 24 }} />
@@ -336,8 +370,11 @@ export default function BudgetDetail() {
               <Text style={[styles.perspectiveValue, { color: colors.primary }]}>
                 ≈ {new Intl.NumberFormat("fr-FR").format(MOCK.optimizationPotential)} XAF
               </Text>
-              <View style={styles.perspectiveBadge}>
-                <Text style={styles.perspectiveBadgeText}>Élevé</Text>
+              <Text style={styles.perspectiveCoeff}>
+                Coefficient d'optimisation : {OPT_COEFFICIENT[optLevel]}
+              </Text>
+              <View style={[styles.perspectiveBadge, { backgroundColor: optMeta.fg }]}>
+                <Text style={styles.perspectiveBadgeText}>{optMeta.label}</Text>
               </View>
             </View>
           </View>
@@ -431,16 +468,35 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
   },
+  headerBadges: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    justifyContent: "center",
+    marginTop: 2,
+  },
   trendBadge: {
     alignItems: "center",
     borderRadius: 99,
     flexDirection: "row",
     gap: 4,
-    marginTop: 2,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   trendText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  optBadge: {
+    alignItems: "center",
+    borderRadius: 99,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  optText: {
     fontSize: 12,
     fontWeight: "700",
   },
@@ -610,6 +666,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 20,
     fontWeight: "800",
+    marginTop: 4,
+  },
+  perspectiveCoeff: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
     marginTop: 4,
   },
   perspectiveBadge: {

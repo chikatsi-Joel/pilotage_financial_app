@@ -1,14 +1,19 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
-  Animated,
-  RefreshControl,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import Svg, { Circle } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "../../src/ui/theme";
@@ -20,11 +25,15 @@ import {router} from "expo-router";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
+type OptLevel = "low" | "medium" | "high";
+
 type Category = {
   name: string;
   amount: number;
   icon: IconName;
   tint: string;
+  opt: OptLevel;
+  active?: boolean;
 };
 
 /* ------------------------------------------------------------------ */
@@ -34,12 +43,11 @@ type Category = {
 const INCOME = 3200;
 
 const CATEGORIES: Category[] = [
-  { name: "Logement & Charges", amount: 1150, icon: "home", tint: colors.primary },
-  { name: "Alimentation", amount: 480, icon: "food-variant", tint: "#7C3AED" },
-  { name: "Transports", amount: 220, icon: "car", tint: "#0891B2" },
-  { name: "Loisirs & Sorties", amount: 350, icon: "gamepad-variant", tint: "#E11D48" },
-  { name: "Santé", amount: 90, icon: "medical-bag", tint: "#059669" },
-  { name: "Épargne", amount: 400, icon: "piggy-bank", tint: "#D97706" },
+  { name: "Logement & Charges", amount: 1150, icon: "home", tint: colors.primary, opt: "medium" },
+  { name: "Alimentation", amount: 480, icon: "food-variant", tint: "#7C3AED", opt: "low" },
+  { name: "Transports", amount: 220, icon: "car", tint: "#0891B2", opt: "medium" },
+  { name: "Loisirs & Sorties", amount: 350, icon: "gamepad-variant", tint: "#E11D48", opt: "high" },
+  { name: "Santé", amount: 90, icon: "medical-bag", tint: "#059669", opt: "low" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -135,17 +143,18 @@ const CategoryCard = ({
   cat,
   index,
   totalIncome,
-  onPress,
+  onToggle,
 }: {
   cat: Category;
   index: number;
   totalIncome: number;
-  onPress?: () => void;
+  onToggle?: () => void;
 }) => {
   const pct = useMemo(
     () => Math.min((cat.amount / totalIncome) * 100, 100),
     [cat.amount, totalIncome]
   );
+  const disabled = cat.active === false;
 
   return (
     <FadeIn delay={index * 90}>
@@ -157,6 +166,7 @@ const CategoryCard = ({
             category: cat.name,
             amount: cat.amount.toString(),
             tint: cat.tint,
+            opt: cat.opt,
           },
         });
 }}
@@ -166,43 +176,143 @@ const CategoryCard = ({
         accessibilityRole="button"
         accessibilityHint="Appuyez pour voir le détail"
       >
-        <View style={styles.card}>
+        <View style={[styles.card, disabled && styles.cardDisabled]}>
           <View style={styles.cardTop}>
             <View
-              style={[styles.iconCircle, { backgroundColor: `${cat.tint}12` }]}
+              style={[
+                styles.iconCircle,
+                {
+                  backgroundColor: disabled
+                    ? `${colors.textMuted}14`
+                    : `${cat.tint}12`,
+                },
+              ]}
             >
               <MaterialCommunityIcons
-                name={cat.icon}
+                name={disabled ? "eye-off-outline" : cat.icon}
                 size={20}
-                color={cat.tint}
+                color={disabled ? colors.textMuted : cat.tint}
               />
             </View>
 
             <View style={styles.cardMeta}>
-              <Text style={styles.cardName}>{cat.name}</Text>
-              <Text style={styles.cardPct}>
-                {Math.round(pct)} % du revenu
+              <Text style={[styles.cardName, disabled && styles.cardTextMuted]}>
+                {cat.name}
+              </Text>
+              <Text
+                style={[
+                  styles.cardPct,
+                  disabled && { color: colors.textMuted },
+                ]}
+              >
+                {disabled ? "Catégorie désactivée" : `${Math.round(pct)} % du revenu`}
               </Text>
             </View>
 
             <View style={styles.cardRight}>
-              <Text style={styles.cardAmount}>
+              <Text
+                style={[
+                  styles.cardAmount,
+                  disabled && styles.cardAmountDisabled,
+                ]}
+              >
                 {formatCurrency(cat.amount)}
               </Text>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={18}
-                color={colors.textMuted}
+              <Toggle
+                value={!disabled}
+                onToggle={onToggle}
+                label={`${disabled ? "Activer" : "Désactiver"} ${cat.name}`}
               />
             </View>
           </View>
 
-          <AnimatedBar pct={pct} color={cat.tint} delay={200 + index * 100} />
+          {!disabled && (
+            <AnimatedBar pct={pct} color={cat.tint} delay={200 + index * 100} />
+          )}
         </View>
       </Pressable>
     </FadeIn>
   );
 };
+
+function Toggle({
+  value,
+  onToggle,
+  label,
+}: {
+  value: boolean;
+  onToggle?: () => void;
+  label: string;
+}) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      hitSlop={8}
+      style={[styles.toggle, value ? styles.toggleOn : styles.toggleOff]}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={label}
+    >
+      <View style={styles.toggleDot} />
+    </Pressable>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+//  Anneau budgétaire (cercle complet, SVG)
+/* ------------------------------------------------------------------ */
+
+const RING = { size: 88, stroke: 6 };
+
+function BudgetRing({ pct }: { pct: number }) {
+  const radius = (RING.size - RING.stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const [dash, setDash] = useState(0);
+  const anim = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    anim.stopAnimation();
+    const id = anim.addListener(({ value }) => setDash(value * circumference));
+    Animated.timing(anim, {
+      toValue: Math.min(pct, 100) / 100,
+      duration: 1100,
+      useNativeDriver: false,
+    }).start();
+    return () => anim.removeListener(id);
+  }, [anim, pct, circumference]);
+
+  return (
+    <View style={styles.ringWrap}>
+      <Svg height={RING.size} width={RING.size}>
+        <Circle
+          cx={RING.size / 2}
+          cy={RING.size / 2}
+          fill="none"
+          r={radius}
+          stroke={`${colors.text}12`}
+          strokeWidth={RING.stroke}
+        />
+        <Circle
+          cx={RING.size / 2}
+          cy={RING.size / 2}
+          fill="none"
+          origin={`${RING.size / 2}, ${RING.size / 2}`}
+          r={radius}
+          rotation={-90}
+          stroke={colors.primary}
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={circumference - dash}
+          strokeLinecap="round"
+          strokeWidth={RING.stroke}
+        />
+      </Svg>
+      <View style={styles.ringCenter}>
+        <Text style={styles.ringPct}>{Math.round(pct)}%</Text>
+        <Text style={styles.ringLabel}>utilisé</Text>
+      </View>
+    </View>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 //  Page principale
@@ -210,11 +320,24 @@ const CategoryCard = ({
 
 export default function Budget() {
   const [refreshing, setRefreshing] = useState(false);
-  const [categories] = useState<Category[]>(CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(CATEGORIES);
+  const [addModalVisible, setAddModalVisible] = useState(false);
 
-  const totalBudget = useMemo(
-    () => categories.reduce((s, c) => s + c.amount, 0),
+  const toggleCategory = React.useCallback((name: string) => {
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.name === name ? { ...c, active: c.active === false } : c
+      )
+    );
+  }, []);
+
+  const activeCategories = useMemo(
+    () => categories.filter((c) => c.active !== false),
     [categories]
+  );
+  const totalBudget = useMemo(
+    () => activeCategories.reduce((s, c) => s + c.amount, 0),
+    [activeCategories]
   );
   const remaining = INCOME - totalBudget;
   const usedPct = Math.min((totalBudget / INCOME) * 100, 100);
@@ -223,15 +346,6 @@ export default function Budget() {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1200);
   }, []);
-
-  const circleAnim = useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
-    Animated.timing(circleAnim, {
-      toValue: usedPct,
-      duration: 1200,
-      useNativeDriver: false,
-    }).start();
-  }, [circleAnim, usedPct]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -296,31 +410,7 @@ export default function Budget() {
                 </View>
               </View>
 
-              <View style={styles.ringWrap}>
-                <View style={styles.ringBg}>
-                  <Animated.View
-                    style={[
-                      styles.ringFill,
-                      {
-                        borderBottomColor: colors.primary,
-                        borderRightColor: colors.primary,
-                        transform: [
-                          {
-                            rotate: circleAnim.interpolate({
-                              inputRange: [0, 100],
-                              outputRange: ["-135deg", "45deg"],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                </View>
-                <View style={styles.ringCenter}>
-                  <Text style={styles.ringPct}>{Math.round(usedPct)}%</Text>
-                  <Text style={styles.ringLabel}>utilisé</Text>
-                </View>
-              </View>
+              <BudgetRing pct={usedPct} />
             </View>
           </View>
         </FadeIn>
@@ -334,6 +424,16 @@ export default function Budget() {
                 {categories.length} catégories
               </Text>
             </View>
+            <Pressable
+              style={styles.addCatBtn}
+              onPress={() => setAddModalVisible(true)}
+              accessibilityLabel="Ajouter une catégorie"
+              accessibilityRole="button"
+              accessibilityHint="Ouvre le formulaire de création d'une catégorie"
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={colors.primary} />
+              <Text style={styles.addCatText}>Ajouter</Text>
+            </Pressable>
           </View>
         </FadeIn>
 
@@ -345,16 +445,176 @@ export default function Budget() {
               cat={cat}
               index={i}
               totalIncome={INCOME}
-              onPress={() => {
-                // TODO: Navigation détail catégorie
-              }}
+              onToggle={() => toggleCategory(cat.name)}
             />
           ))}
         </View>
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <AddCategoryModal
+        visible={addModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onAdd={(cat) => setCategories((prev) => [...prev, cat])}
+      />
     </SafeAreaView>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+//  Modal Ajouter une catégorie
+/* ------------------------------------------------------------------ */
+
+const ICON_CHOICES: IconName[] = [
+  "silverware-fork-knife",
+  "car",
+  "gamepad-variant",
+  "shopping",
+  "receipt",
+  "home",
+  "medical-bag",
+  "briefcase",
+  "tshirt-crew",
+  "paw",
+];
+
+const TINT_CHOICES = [
+  colors.primary,
+  "#7C3AED",
+  "#0891B2",
+  "#E11D48",
+  "#059669",
+  "#D97706",
+];
+
+type AddCategoryModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onAdd: (cat: Category) => void;
+};
+
+function AddCategoryModal({ visible, onClose, onAdd }: AddCategoryModalProps) {
+  const [name, setName] = useState("");
+  const [amountText, setAmountText] = useState("");
+  const [icon, setIcon] = useState<IconName>(ICON_CHOICES[0]);
+  const [tint, setTint] = useState(TINT_CHOICES[0]);
+
+  const amount = parseFloat(amountText.replace(",", "."));
+  const canSave = name.trim().length > 0 && Number.isFinite(amount) && amount > 0;
+
+  function handleSave() {
+    if (!canSave) return;
+    onAdd({
+      name: name.trim(),
+      amount: Math.round(amount * 100) / 100,
+      icon,
+      tint,
+      opt: "medium",
+    });
+    onClose();
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      onShow={() => {
+        setName("");
+        setAmountText("");
+        setIcon(ICON_CHOICES[0]);
+        setTint(TINT_CHOICES[0]);
+      }}
+    >
+      <View style={styles.modalBackdrop}>
+        <Pressable style={styles.modalDismiss} onPress={onClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalKeyboard}
+        >
+          <View style={styles.modalCard}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>Nouvelle catégorie</Text>
+
+          <Text style={styles.fieldLabel}>Nom de la catégorie</Text>
+          <TextInput
+            style={styles.fieldInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="Ex : Abonnements"
+            placeholderTextColor={`${colors.textMuted}80`}
+          />
+
+          <Text style={styles.fieldLabel}>Budget mensuel (€)</Text>
+          <TextInput
+            style={styles.fieldInput}
+            value={amountText}
+            onChangeText={(t) => setAmountText(t.replace(/[^0-9,]/g, ""))}
+            placeholder="Ex : 150"
+            placeholderTextColor={`${colors.textMuted}80`}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.fieldLabel}>Icône</Text>
+          <View style={styles.iconRow}>
+            {ICON_CHOICES.map((ic) => {
+              const active = ic === icon;
+              return (
+                <Pressable
+                  key={ic}
+                  onPress={() => setIcon(ic)}
+                  style={[
+                    styles.iconChoice,
+                    active && styles.iconChoiceActive,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={ic}
+                    size={20}
+                    color={active ? colors.primary : colors.textMuted}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.fieldLabel}>Couleur</Text>
+          <View style={styles.swatchRow}>
+            {TINT_CHOICES.map((c) => {
+              const active = c === tint;
+              return (
+                <Pressable
+                  key={c}
+                  onPress={() => setTint(c)}
+                  style={[styles.swatch, { backgroundColor: c }]}
+                  accessibilityLabel={`Couleur ${c}`}
+                >
+                  {active && (
+                    <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.modalActions}>
+            <Pressable style={styles.modalCancel} onPress={onClose}>
+              <Text style={styles.modalCancelText}>Annuler</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.modalSave, { opacity: canSave ? 1 : 0.5 }]}
+              onPress={handleSave}
+              disabled={!canSave}
+            >
+              <Text style={styles.modalSaveText}>Ajouter</Text>
+            </Pressable>
+          </View>
+        </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 }
 
@@ -482,35 +742,18 @@ const styles = StyleSheet.create({
 
   /* Ring */
   ringWrap: {
-    alignItems: "center",
-    height: 88,
-    justifyContent: "center",
-    width: 88,
-  },
-  ringBg: {
-    borderColor: `${colors.text}12`,
-    borderRadius: 999,
-    borderWidth: 6,
-    height: 88,
-    position: "absolute",
-    width: 88,
-  },
-  ringFill: {
-    borderBottomColor: "transparent",
-    borderBottomWidth: 6,
-    borderLeftColor: "transparent",
-    borderLeftWidth: 6,
-    borderRadius: 999,
-    borderRightColor: "transparent",
-    borderRightWidth: 6,
-    borderTopColor: "transparent",
-    borderTopWidth: 6,
-    height: 88,
-    position: "absolute",
-    width: 88,
+    height: RING.size,
+    position: "relative",
+    width: RING.size,
   },
   ringCenter: {
     alignItems: "center",
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   ringPct: {
     color: colors.text,
@@ -548,6 +791,113 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  addCatBtn: {
+    alignItems: "center",
+    backgroundColor: `${colors.primary}12`,
+    borderRadius: 99,
+    flexDirection: "row",
+    gap: 4,
+    marginLeft: "auto",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addCatText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+
+  /* Modal */
+  modalBackdrop: {
+    backgroundColor: "rgba(11,28,48,0.45)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalKeyboard: { flex: 1, justifyContent: "flex-end" },
+  modalDismiss: {
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  modalCard: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  modalHandle: {
+    alignSelf: "center",
+    backgroundColor: colors.border,
+    borderRadius: 99,
+    height: 4,
+    marginBottom: 16,
+    width: 44,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 14,
+    textTransform: "uppercase",
+  },
+  fieldInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  iconRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  iconChoice: {
+    alignItems: "center",
+    borderColor: "transparent",
+    borderRadius: 99,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  iconChoiceActive: {
+    backgroundColor: `${colors.primary}18`,
+    borderColor: colors.primary,
+  },
+  swatchRow: { flexDirection: "row", gap: 10 },
+  swatch: {
+    alignItems: "center",
+    borderRadius: 99,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  modalActions: { flexDirection: "row", gap: 12, marginTop: 24 },
+  modalCancel: {
+    alignItems: "center",
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  modalCancelText: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  modalSave: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  modalSaveText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 
   /* Liste */
   list: {
@@ -566,6 +916,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 1,
+  },
+  cardDisabled: { opacity: 0.6 },
+  cardTextMuted: { color: colors.textMuted },
+  cardAmountDisabled: {
+    color: colors.textMuted,
+    textDecorationLine: "line-through",
   },
   cardTop: {
     alignItems: "center",
@@ -594,14 +950,39 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   cardRight: {
-    alignItems: "flex-end",
+    alignItems: "center",
     flexDirection: "row",
-    gap: 2,
+    gap: 10,
   },
   cardAmount: {
     color: colors.text,
     fontSize: 15,
     fontWeight: "700",
+  },
+
+  /* Toggle */
+  toggle: {
+    alignItems: "center",
+    borderRadius: 99,
+    flexDirection: "row",
+    height: 26,
+    padding: 3,
+    width: 46,
+  },
+  toggleOff: { backgroundColor: "#C8CFE3" },
+  toggleOn: {
+    backgroundColor: colors.primary,
+    justifyContent: "flex-end",
+  },
+  toggleDot: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 99,
+    height: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    width: 20,
   },
 
   /* Barre */

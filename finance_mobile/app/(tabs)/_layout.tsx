@@ -19,7 +19,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: "#777888",
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
         tabBarStyle: {
-          backgroundColor: "rgba(255,255,255,0.85)",
+          backgroundColor: colors.surface,
           borderTopColor: "transparent",
           borderRadius: 28,
           height: 64,

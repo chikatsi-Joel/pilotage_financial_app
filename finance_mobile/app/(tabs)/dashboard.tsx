@@ -428,12 +428,26 @@ export default function Dashboard() {
         {/* ── Header ── */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Tableau de bord</Text>
-          <View style={styles.avatar}>
-            <MaterialCommunityIcons
-              color="#FFFFFF"
-              name="account"
-              size={18}
-            />
+          <View style={styles.headerActions}>
+            <Link href="/add-expense" asChild>
+              <Pressable
+                style={styles.quickAdd}
+                hitSlop={8}
+                accessibilityLabel="Ajouter une dépense"
+                accessibilityRole="button"
+                accessibilityHint="Ouvre le formulaire de saisie d'une dépense"
+              >
+                <MaterialCommunityIcons name="plus" size={15} color={colors.primary} />
+                <Text style={styles.quickAddText}>Ajouter</Text>
+              </Pressable>
+            </Link>
+            <View style={styles.avatar}>
+              <MaterialCommunityIcons
+                color="#FFFFFF"
+                name="account"
+                size={18}
+              />
+            </View>
           </View>
         </View>
 
@@ -519,14 +533,7 @@ export default function Dashboard() {
             <DonutProgress pct={0.9} />
           </View>
         </View>
-
-        <View style={{ height: 100 }} />
       </ScrollView>
-
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => router.push("/add-expense")}>
-        <MaterialCommunityIcons color="#FFFFFF" name="plus" size={24} />
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -547,6 +554,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
+  headerActions: { alignItems: "center", flexDirection: "row", gap: 10 },
+  quickAdd: {
+    alignItems: "center",
+    backgroundColor: "#E4DFFF30",
+    borderRadius: 99,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  quickAddText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
   avatar: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -784,23 +802,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
-  },
-
-  /* FAB */
-  fab: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 99,
-    bottom: 24,
-    elevation: 6,
-    height: 56,
-    justifyContent: "center",
-    position: "absolute",
-    right: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    width: 56,
   },
 });
