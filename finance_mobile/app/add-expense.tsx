@@ -9,8 +9,8 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 
+import { ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 interface Category {
@@ -56,16 +56,14 @@ export default function AddExpense() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialCommunityIcons color={colors.text} name="arrow-left" size={22} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Tableau De Bord</Text>
-        <View style={styles.headerAvatar}>
-          <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Tableau De Bord"
+        right={
+          <View style={styles.headerAvatar}>
+            <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
+          </View>
+        }
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -169,19 +167,6 @@ const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scroll: { gap: 16, padding: 16, paddingBottom: 32 },
 
-  /* Header */
-  header: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.80)",
-    borderBottomColor: "rgba(0,0,0,0.04)",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backBtn: { padding: 6 },
-  headerTitle: { color: colors.text, flex: 1, fontSize: 20, fontWeight: "600" },
   headerAvatar: {
     alignItems: "center",
     backgroundColor: colors.primary,

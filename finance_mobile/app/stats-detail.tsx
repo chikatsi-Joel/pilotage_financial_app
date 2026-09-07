@@ -21,6 +21,7 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import { ProgressBar, ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 // ═══════════════════════════════════════════════════════════
@@ -127,9 +128,13 @@ function HeroCard() {
         </View>
         <Text style={hStyles.burnValue}>{fmt(burnRate)} €/jour</Text>
       </View>
-      <View style={hStyles.burnBar}>
-        <View style={[hStyles.burnFill, { width: `${Math.min((burnRate / 150) * 100, 100)}%` }]} />
-      </View>
+        <ProgressBar
+          progress={(burnRate / 150) * 100}
+          height={4}
+          color={colors.primary}
+          trackColor="#F0F0F5"
+          style={{ marginTop: 6 }}
+        />
     </View>
   );
 }
@@ -672,13 +677,7 @@ export default function StatsDetail() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialCommunityIcons color={colors.text} name="arrow-left" size={22} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Statistiques</Text>
-        <View style={{ width: 34 }} />
-      </View>
+      <ScreenHeader title="Statistiques" />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
