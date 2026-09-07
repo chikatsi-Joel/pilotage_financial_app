@@ -9,8 +9,8 @@ import {
 import Slider from "@react-native-community/slider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 
+import { ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 interface Scenario {
@@ -48,12 +48,7 @@ export default function Simulation() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialCommunityIcons color={colors.text} name="arrow-left" size={22} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Budget</Text>
-      </View>
+      <ScreenHeader title="Budget" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hero card */}
@@ -150,19 +145,6 @@ export default function Simulation() {
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scroll: { paddingBottom: 32 },
-
-  header: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.80)",
-    borderBottomColor: "rgba(0,0,0,0.04)",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backBtn: { padding: 6 },
-  headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
 
   hero: {
     backgroundColor: colors.primary,

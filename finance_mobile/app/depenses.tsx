@@ -4,14 +4,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
-import { Card } from "../src/ui/components";
+import {
+  FilterTabs,
+  ProgressBar,
+  SearchBar,
+  ScreenHeader,
+} from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 const FILTERS = ["Tout", "Aujourd'hui", "Cette semaine", "Ce mois"] as const;
@@ -81,79 +85,38 @@ const TRANSACTIONS = [
 
 export default function Depenses() {
   const [activeFilter, setActiveFilter] = useState<string>("Tout");
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       {/* ── Header ── */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialCommunityIcons
-              color={colors.text}
-              name="arrow-left"
-              size={22}
-            />
-          </Pressable>
-          <Text style={styles.headerTitle}>Tableau De Bord</Text>
-        </View>
-        <View style={styles.avatar}>
-          <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
-        </View>
-      </View>
+      <ScreenHeader
+        title="Tableau De Bord"
+        right={
+          <View style={styles.avatar}>
+            <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
+          </View>
+        }
+      />
 
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Search bar ── */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchInput}>
-            <MaterialCommunityIcons
-              color={colors.textMuted}
-              name="magnify"
-              size={20}
-            />
-            <TextInput
-              placeholder="Rechercher une transaction..."
-              placeholderTextColor={`${colors.textMuted}80`}
-              style={styles.searchTextInput}
-            />
-          </View>
-          <Pressable style={styles.filterBtn}>
-            <MaterialCommunityIcons
-              color={colors.textMuted}
-              name="tune"
-              size={20}
-            />
-          </Pressable>
-        </View>
+        <SearchBar
+          placeholder="Rechercher une transaction..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onFilterPress={() => {}}
+        />
 
         {/* ── Filter pills ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filters}
-        >
-          {FILTERS.map((f) => {
-            const active = f === activeFilter;
-            return (
-              <Pressable
-                key={f}
-                onPress={() => setActiveFilter(f)}
-                style={[styles.filterPill, active && styles.filterPillActive]}
-              >
-                <Text
-                  style={[
-                    styles.filterLabel,
-                    active && styles.filterLabelActive,
-                  ]}
-                >
-                  {f}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <FilterTabs
+          options={FILTERS}
+          activeOption={activeFilter}
+          onSelect={setActiveFilter}
+        />
 
         {/* ── Résumé du mois ── */}
         <Text style={styles.sectionTitle}>Résumé du mois</Text>
@@ -169,9 +132,13 @@ export default function Depenses() {
               <Text style={styles.summaryLabel}>Essentielles</Text>
             </View>
             <Text style={styles.summaryValue}>1 240 €</Text>
-            <View style={styles.progressRail}>
-              <View style={[styles.progressFill, { width: "75%" }]} />
-            </View>
+            <ProgressBar
+              progress={75}
+              height={4}
+              color={colors.primary}
+              trackColor="#D3E4FE"
+              style={{ marginTop: 4 }}
+            />
           </View>
           <View style={[styles.summaryCard, styles.summaryCardTertiary]}>
             <View style={styles.summaryDecorTertiary} />
@@ -186,14 +153,13 @@ export default function Depenses() {
               </Text>
             </View>
             <Text style={styles.summaryValue}>450 €</Text>
-            <View style={[styles.progressRail, styles.progressRailTertiary]}>
-              <View
-                style={[
-                  styles.progressFillTertiary,
-                  { width: "40%" },
-                ]}
-              />
-            </View>
+            <ProgressBar
+              progress={40}
+              height={4}
+              color={colors.accent}
+              trackColor="#D3BBFF40"
+              style={{ marginTop: 4 }}
+            />
           </View>
         </View>
 
@@ -299,20 +265,6 @@ export default function Depenses() {
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
 
-  /* Header */
-  header: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.80)",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerLeft: { alignItems: "center", flexDirection: "row", gap: 10 },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
   avatar: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -323,54 +275,6 @@ const styles = StyleSheet.create({
   },
 
   content: { gap: 16, padding: 16 },
-
-  /* Search */
-  searchRow: { flexDirection: "row", gap: 8 },
-  searchInput: {
-    alignItems: "center",
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 12,
-    flex: 1,
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  searchTextInput: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 15,
-  },
-  filterBtn: {
-    alignItems: "center",
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 10,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-
-  /* Filters */
-  filters: { gap: 8 },
-  filterPill: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 99,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  filterPillActive: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  filterLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  filterLabelActive: { color: "#FFFFFF" },
 
   /* Summary */
   sectionTitle: {
@@ -414,20 +318,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "600",
     lineHeight: 28,
-  },
-  progressRail: {
-    backgroundColor: "#D3E4FE",
-    borderRadius: 99,
-    height: 4,
-    marginTop: 4,
-    overflow: "hidden",
-  },
-  progressRailTertiary: { backgroundColor: "#D3BBFF40" },
-  progressFill: { backgroundColor: colors.primary, borderRadius: 99, height: "100%" },
-  progressFillTertiary: {
-    backgroundColor: colors.accent,
-    borderRadius: 99,
-    height: "100%",
   },
 
   /* Day groups */

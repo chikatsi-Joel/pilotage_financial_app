@@ -12,8 +12,8 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 
+import { ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 const MONTH_NAMES = [
@@ -72,12 +72,7 @@ export default function AddGoal() {
         style={styles.flex}
       >
         {/* ── Header ── */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialCommunityIcons color={colors.text} name="arrow-left" size={22} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Ajouter Un Objectif</Text>
-        </View>
+        <ScreenHeader title="Ajouter Un Objectif" />
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -192,20 +187,6 @@ const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   flex: { flex: 1 },
   scrollContent: { paddingBottom: 120 },
-
-  /* Header */
-  header: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.80)",
-    borderBottomColor: "rgba(0,0,0,0.04)",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backBtn: { padding: 6 },
-  headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
 
   /* Icon selector */
   iconSection: { alignItems: "center", gap: 8, marginTop: 24 },

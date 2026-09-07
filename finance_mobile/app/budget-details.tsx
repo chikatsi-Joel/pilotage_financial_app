@@ -19,6 +19,7 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import { BackButton } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
@@ -236,17 +237,7 @@ export default function BudgetDetail() {
         {/* ── Header ── */}
         <FadeIn delay={0}>
           <View style={styles.header}>
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityLabel="Retour"
-              accessibilityRole="button"
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={colors.text}
-              />
-            </Pressable>
+            <BackButton size={24} />
             <View style={styles.headerMeta}>
               <View style={styles.headerCategoryRow}>
                 <MaterialCommunityIcons
