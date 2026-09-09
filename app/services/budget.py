@@ -55,7 +55,7 @@ def generate_budget(
         potential += reduction
 
     recommended_expenses = money(
-        sum((x.recommended for x in lines), Decimal("0"))
+        sum((Decimal(str(x.recommended)) for x in lines), Decimal("0"))
     )
     available_after_expenses = max(
         Decimal("0"),

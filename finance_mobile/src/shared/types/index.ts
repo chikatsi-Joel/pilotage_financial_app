@@ -70,6 +70,14 @@ export interface ExpenseCreate {
   note?: string | null;
 }
 
+export interface ReceiptScan {
+  amount: number | null;
+  category: string | null;
+  expense_date: string | null;
+  merchant: string | null;
+  description: string | null;
+}
+
 export interface SavingsContribution {
   id: string;
   amount: number;
@@ -141,6 +149,19 @@ export interface CategoryAnalytics {
   profile: TimeSeriesProfile;
 }
 
+export interface WeeklyExpense {
+  label: string;
+  prevu: number;
+  reel: number;
+}
+
+export interface SavingsGoalSummary {
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  progress_percentage: number;
+}
+
 export interface Dashboard {
   period: string;
   income: number;
@@ -150,6 +171,10 @@ export interface Dashboard {
   categories_in_drift: number;
   potential_savings: number;
   top_drift_categories: CategoryAnalytics[];
+  weekly: WeeklyExpense[];
+  sparkline: number[];
+  monthly_variation: number | null;
+  savings_goal: SavingsGoalSummary | null;
 }
 
 export interface BudgetCategoryLine {

@@ -1,25 +1,30 @@
 from __future__ import annotations
 
 from calendar import monthrange
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    Budget,
     Category,
     CategoryAnalytics,
     Expense,
     Income,
     MonthlySnapshot,
+    SavingsContribution,
+    SavingsGoal,
 )
 from app.schemas.common import (
     CategoryAnalyticsRead,
     DashboardRead,
     ForecastRead,
+    SavingsGoalSummary,
     TimeSeriesProfileRead,
+    WeeklyExpenseRead,
 )
 from app.services.analytics import FinancialAnalyticsEngine, money
 from app.services.analytics.models import Category as DomainCategory
@@ -111,6 +116,174 @@ async def _sum_amount(
     return sum(result.scalars().all(), Decimal("0"))
 
 
+def _shift_period(period: str) -> str:
+    year, month = map(int, period.split("-"))
+    if month == 1:
+        return f"{year - 1}-12"
+    return f"{year}-{month - 1:02d}"
+
+
+def _weekly_bands(
+    year: int, month: int, end_day: int
+) -> list[tuple[str, date, date]]:
+    return [
+        ("S1", date(year, month, 1), date(year, month, 7)),
+        ("S2", date(year, month, 8), date(year, month, 14)),
+        ("S3", date(year, month, 15), date(year, month, 21)),
+        ("S4", date(year, month, 22), date(year, month, end_day)),
+    ]
+
+
+async def _dashboard_extra(
+    user_id: UUID,
+    period: str,
+    db: AsyncSession,
+    current_savings: Decimal,
+) -> tuple[
+    list[WeeklyExpenseRead],
+    list[float],
+    Decimal | None,
+    SavingsGoalSummary | None,
+]:
+    start, end = month_bounds(period)
+    year, month = map(int, period.split("-"))
+    bands = _weekly_bands(year, month, end.day)
+
+    # Agrégation côté DB (GROUP BY jour) au lieu de rapatrier chaque dépense
+    expense_rows = (
+        await db.execute(
+            select(Expense.expense_date, func.sum(Expense.amount))
+            .where(
+                Expense.user_id == user_id,
+                Expense.expense_date.between(start, end),
+            )
+            .group_by(Expense.expense_date)
+        )
+    ).all()
+
+    # Précalcul jour -> bande, une seule fois (au lieu d'un scan des bandes
+    # par dépense : O(n * bands) -> O(jours_du_mois))
+    day_to_band: dict[int, str] = {}
+    for label, w_start, w_end in bands:
+        d = w_start
+        while d <= w_end:
+            day_to_band[d.day] = label
+            d += timedelta(days=1)
+
+    daily: list[Decimal] = [Decimal("0")] * end.day
+    weekly_reel: dict[str, Decimal] = {label: Decimal("0") for label, _, _ in bands}
+    for expense_date, total in expense_rows:
+        daily[expense_date.day - 1] = total
+        label = day_to_band.get(expense_date.day)
+        if label:
+            weekly_reel[label] += total
+
+    budget_row = (
+        await db.execute(
+            select(Budget).where(
+                Budget.user_id == user_id,
+                Budget.period == period,
+            )
+        )
+    ).scalar_one_or_none()
+    prevu_total = (
+        (budget_row.accepted_total or budget_row.recommended_total)
+        if budget_row is not None
+        else Decimal("0")
+    )
+
+    # Généralisé au nombre réel de bandes (bug : l'original supposait
+    # toujours 4 bandes, ce qui plante en index si un mois a 5 semaines)
+    n_bands = len(bands)
+    base = (prevu_total / Decimal(n_bands)).quantize(Decimal("0.01"))
+    weekly_prevu = [base] * (n_bands - 1) + [prevu_total - base * (n_bands - 1)]
+
+    weekly = [
+        WeeklyExpenseRead(
+            label=label,
+            prevu=weekly_prevu[i],
+            reel=money(weekly_reel[label]),
+        )
+        for i, (label, _, _) in enumerate(bands)
+    ]
+
+    # income + expense du mois précédent en un seul aller-retour (UNION ALL)
+    prev_start, prev_end = month_bounds(_shift_period(period))
+    prev_result = await db.execute(
+        select(
+            literal("income").label("kind"),
+            func.coalesce(func.sum(Income.amount), Decimal("0")),
+        )
+        .where(
+            Income.user_id == user_id,
+            Income.income_date.between(prev_start, prev_end),
+        )
+        .union_all(
+            select(
+                literal("expense"),
+                func.coalesce(func.sum(Expense.amount), Decimal("0")),
+            ).where(
+                Expense.user_id == user_id,
+                Expense.expense_date.between(prev_start, prev_end),
+            )
+        )
+    )
+    prev_totals = dict(prev_result.all())
+    prev_income = prev_totals.get("income", Decimal("0"))
+    prev_expense = prev_totals.get("expense", Decimal("0"))
+    prev_savings = prev_income - prev_expense
+
+    monthly_variation = (
+        (
+            (current_savings - prev_savings)
+            / abs(prev_savings)
+            * Decimal("100")
+        ).quantize(Decimal("0.00001"))
+        if prev_savings != 0
+        else None
+    )
+
+    # Goals + total des contributions en une seule requête (LEFT JOIN + GROUP BY)
+    # au lieu de : SELECT goals, puis SELECT SUM(...) IN (goal_ids)
+    goal_rows = (
+        await db.execute(
+            select(
+                SavingsGoal,
+                func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")),
+            )
+            .outerjoin(
+                SavingsContribution,
+                SavingsContribution.savings_goal_id == SavingsGoal.id,
+            )
+            .where(
+                SavingsGoal.user_id == user_id,
+                SavingsGoal.active.is_(True),
+            )
+            .group_by(SavingsGoal.id)
+        )
+    ).all()
+
+    savings_goal = None
+    if goal_rows:
+        best_goal, current_amount = max(goal_rows, key=lambda r: r[1])
+        savings_goal = SavingsGoalSummary(
+            name=best_goal.name,
+            target_amount=best_goal.target_amount,
+            current_amount=money(current_amount),
+            progress_percentage=(
+                float(current_amount / best_goal.target_amount)
+                if best_goal.target_amount
+                else 0.0
+            ),
+        )
+
+    return (
+        weekly,
+        [float(x) for x in daily],
+        monthly_variation,
+        savings_goal,
+    )
+
 async def compute_category_analytics(
     user_id: UUID, period: str, db: AsyncSession
 ) -> list[CategoryAnalyticsRead]:
@@ -194,6 +367,12 @@ async def get_dashboard(
         key=lambda x: x.profile.drift_score, reverse=True
     )
 
+    weekly, sparkline, monthly_variation, savings_goal = (
+        await _dashboard_extra(
+            user_id, period, db, money(savings)
+        )
+    )
+
     return DashboardRead(
         period=period,
         income=money(income_total),
@@ -208,6 +387,10 @@ async def get_dashboard(
             )
         ),
         top_drift_categories=drifts[:5],
+        weekly=weekly,
+        sparkline=sparkline,
+        monthly_variation=monthly_variation,
+        savings_goal=savings_goal,
     )
 
 
@@ -478,6 +661,12 @@ async def get_dashboard_snapshot(
                 key=lambda x: x.profile.drift_score, reverse=True
             )
 
+            weekly, sparkline, monthly_variation, savings_goal = (
+                await _dashboard_extra(
+                    user_id, period, db, money(snapshot.savings)
+                )
+            )
+
             return DashboardRead(
                 period=period,
                 income=snapshot.income,
@@ -492,6 +681,10 @@ async def get_dashboard_snapshot(
                     )
                 ),
                 top_drift_categories=drifts[:5],
+                weekly=weekly,
+                sparkline=sparkline,
+                monthly_variation=monthly_variation,
+                savings_goal=savings_goal,
             )
 
     await refresh_analytics(user_id, period, db)

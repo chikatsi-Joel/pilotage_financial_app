@@ -6,7 +6,12 @@ import { paperTheme } from "../src/ui/theme";
 export default function RootLayout() {
   return (
     <PaperProvider theme={paperTheme}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "fade",
+        }}
+      />
     </PaperProvider>
   );
 }

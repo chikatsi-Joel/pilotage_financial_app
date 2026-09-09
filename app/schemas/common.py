@@ -42,7 +42,7 @@ class IncomeCreate(BaseModel):
 
 class IncomeRead(ORMModel):
     id: UUID
-    amount: Decimal
+    amount: float
     income_date: date
     source: str
     recurring: bool
@@ -80,7 +80,7 @@ class ExpenseCreate(BaseModel):
 class ExpenseRead(ORMModel):
     id: UUID
     category_id: UUID
-    amount: Decimal
+    amount: float
     expense_date: date
     note: str | None
 
@@ -94,7 +94,7 @@ class SavingsGoalCreate(BaseModel):
 
 class SavingsContributionRead(ORMModel):
     id: UUID
-    amount: Decimal
+    amount: float
     created_at: datetime
 
 
@@ -102,10 +102,10 @@ class SavingsGoalRead(ORMModel):
     id: UUID
     name: str
     description: str | None
-    target_amount: Decimal
+    target_amount: float
     deadline: date
     active: bool
-    current_amount: Decimal
+    current_amount: float
     contributions: list[SavingsContributionRead]
 
 
@@ -116,9 +116,9 @@ class SavingsGoalContribute(BaseModel):
 class SavingsGoalContributeRead(BaseModel):
     goal_id: UUID
     goal_name: str
-    amount: Decimal
-    new_total: Decimal
-    target_amount: Decimal
+    amount: float
+    new_total: float
+    target_amount: float
     completed: bool
 
 
@@ -161,7 +161,7 @@ class RecommendationRead(BaseModel):
     category_id: UUID
     category_name: str
     period: str
-    impact_estimated: Decimal
+    impact_estimated: float
     justification: str
     status: str
 
@@ -169,11 +169,11 @@ class RecommendationRead(BaseModel):
 class BudgetCategoryLine(BaseModel):
     category_id: UUID
     category_name: str
-    current: Decimal
+    current: float
     baseline: float
-    recommended: Decimal
+    recommended: float
     essential: bool
-    reduction: Decimal
+    reduction: float
     reason: str
 
 
@@ -184,14 +184,14 @@ class BudgetDecision(BaseModel):
 
 class BudgetRead(BaseModel):
     period: str
-    projected_income: Decimal
-    current_expenses: Decimal
-    recommended_expenses: Decimal
-    current_savings: Decimal
-    recommended_savings: Decimal
-    target_savings: Decimal | None
-    potential_savings: Decimal
-    target_gap: Decimal
+    projected_income: float
+    current_expenses: float
+    recommended_expenses: float
+    current_savings: float
+    recommended_savings: float
+    target_savings: float | None
+    potential_savings: float
+    target_gap: float
     categories: list[BudgetCategoryLine]
     rationale: str
 
@@ -204,23 +204,40 @@ class WhatIfRequest(BaseModel):
 class WhatIfRead(BaseModel):
     period: str
     category_name: str
-    current_amount: Decimal
-    reduction_percent: Decimal
-    new_target: Decimal
-    monthly_saving: Decimal
-    annual_saving: Decimal
-    projected_savings_rate: Decimal | None
+    current_amount: float
+    reduction_percent: float
+    new_target: float
+    monthly_saving: float
+    annual_saving: float
+    projected_savings_rate: float | None
+
+
+class WeeklyExpenseRead(BaseModel):
+    label: str
+    prevu: float
+    reel: float
+
+
+class SavingsGoalSummary(BaseModel):
+    name: str
+    target_amount: float
+    current_amount: float
+    progress_percentage: float
 
 
 class DashboardRead(BaseModel):
     period: str
-    income: Decimal
-    expenses: Decimal
-    savings: Decimal
-    savings_rate: Decimal
+    income: float
+    expenses: float
+    savings: float
+    savings_rate: float
     categories_in_drift: int
-    potential_savings: Decimal
+    potential_savings: float
     top_drift_categories: list[CategoryAnalyticsRead]
+    weekly: list[WeeklyExpenseRead]
+    sparkline: list[float]
+    monthly_variation: float | None
+    savings_goal: SavingsGoalSummary | None
 
 
 class SavingsGoalAnalysis(BaseModel):
@@ -228,18 +245,18 @@ class SavingsGoalAnalysis(BaseModel):
     name: str
     description: str | None
 
-    target_amount: Decimal
+    target_amount: float
     target_date: date
 
-    current_amount: Decimal
-    remaining_amount: Decimal
+    current_amount: float
+    remaining_amount: float
     progress_percentage: float
 
     contribution_count: int
 
-    average_monthly_contribution: Decimal | None
-    recent_monthly_contribution: Decimal | None
+    average_monthly_contribution: float | None
+    recent_monthly_contribution: float | None
     contribution_trend: SavingsContributionTrend
     contribution_regularity: float | None
 
-    required_monthly_contribution: Decimal | None
+    required_monthly_contribution: float | None

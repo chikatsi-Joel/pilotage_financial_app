@@ -1,13 +1,29 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, router } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
+import { analytics } from "../../src/shared/api/analytics";
+import { useAppStore } from "../../src/shared/store";
+import type {
+  CategoryAnalytics,
+  Dashboard,
+  WeeklyExpense,
+} from "../../src/shared/types";
+import { formatMoney } from "../../src/shared/utils/money";
 
 // ═══════════════════════════════════════════════════════════
-//  TYPES & DONNÉES
+//  TYPES & AIDES
 // ═══════════════════════════════════════════════════════════
 
 interface AlertItem {
@@ -21,63 +37,34 @@ interface AlertItem {
   pillColor: string;
 }
 
-const ALERTS: AlertItem[] = [
-  {
-    icon: "silverware-fork-knife",
-    iconBg: "#FFDAD6",
-    iconColor: "#93000A",
-    label: "Restaurants",
-    subtitle: "Budget dépassé",
-    pill: "+58%",
-    pillBg: "#EBDCFF",
-    pillColor: "#260059",
-  },
-  {
-    icon: "car",
-    iconBg: "#D3E4FE",
-    iconColor: "#474552",
-    label: "Transport",
-    subtitle: "À surveiller",
-    pill: "+15%",
-    pillBg: "#D3BBFF",
-    pillColor: "#260059",
-  },
-  {
-    icon: "shopping",
-    iconBg: "#FFDAD6",
-    iconColor: "#93000A",
-    label: "Shopping",
-    subtitle: "Habitude en hausse",
-    pill: "+22%",
-    pillBg: "#EBDCFF",
-    pillColor: "#260059",
-  },
-  {
-    icon: "wifi",
-    iconBg: "#D3E4FE",
-    iconColor: "#474552",
-    label: "Abonnements",
-    subtitle: "Inutilisés",
-    pill: "3 actifs",
-    pillBg: "#EBDCFF",
-    pillColor: "#260059",
-  },
-];
+const CATEGORY_ICON: Record<
+  string,
+  React.ComponentProps<typeof MaterialCommunityIcons>["name"]
+> = {
+  Restaurants: "silverware-fork-knife",
+  Alimentation: "cart",
+  Transport: "car",
+  Shopping: "shopping",
+  Logement: "home",
+  Abonnements: "wifi",
+  "Sorties & Loisirs": "ticket-confirmation-outline",
+  "Santé": "medical-bag",
+  Épargne: "piggy-bank",
+};
 
-interface WeekData {
-  label: string;
-  prevu: number;
-  reel: number;
+function categoryIcon(name: string) {
+  return CATEGORY_ICON[name] ?? "tag-outline";
 }
 
-const WEEKS: WeekData[] = [
-  { label: "S1", prevu: 60, reel: 45 },
-  { label: "S2", prevu: 80, reel: 90 },
-  { label: "S3", prevu: 50, reel: 30 },
-  { label: "S4", prevu: 70, reel: 20 },
+const MONTHS_FR = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ];
 
-const SPARKLINE_DATA = [30, 35, 25, 20, 10, 15, 5];
+function formatPct(value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${Math.round(Math.abs(value))}%`;
+}
 
 // ═══════════════════════════════════════════════════════════
 //  CONSTANTES GRAPHIQUES
@@ -157,14 +144,15 @@ const donutStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-function Sparkline() {
-  const max = Math.max(...SPARKLINE_DATA);
+function Sparkline({ data }: { data: number[] }) {
+  const values = data.length ? data : [0];
+  const max = Math.max(...values, 1);
 
   return (
     <View style={sparkStyles.container}>
       <View style={sparkStyles.track}>
-        {SPARKLINE_DATA.map((h, i) => {
-          const isLast = i === SPARKLINE_DATA.length - 1;
+        {values.map((h, i) => {
+          const isLast = i === values.length - 1;
           const heightPct = (h / max) * 100;
 
           return (
@@ -282,7 +270,14 @@ const alertStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-function BudgetBarChart() {
+function BudgetBarChart({ weekly }: { weekly: WeeklyExpense[] }) {
+  const maxVal = Math.max(
+    1,
+    ...weekly.map((w) => Math.max(w.prevu, w.reel))
+  );
+  const heightOf = (value: number) =>
+    Math.max((value / maxVal) * 100, 2);
+
   return (
     <View style={chartStyles.card}>
       <View style={chartStyles.area}>
@@ -292,14 +287,14 @@ function BudgetBarChart() {
         <View style={[chartStyles.yLineSolid, { bottom: 0 }]} />
 
         <View style={chartStyles.barsRow}>
-          {WEEKS.map((w) => (
+          {weekly.map((w) => (
             <View key={w.label} style={chartStyles.barGroup}>
               <View style={chartStyles.barPair}>
                 <View
                   style={[
                     chartStyles.bar,
                     {
-                      height: `${w.prevu}%`,
+                      height: `${heightOf(w.prevu)}%`,
                       backgroundColor: "#C7C5D1",
                     },
                   ]}
@@ -308,7 +303,7 @@ function BudgetBarChart() {
                   style={[
                     chartStyles.bar,
                     {
-                      height: `${w.reel}%`,
+                      height: `${heightOf(w.reel)}%`,
                       backgroundColor: colors.primary,
                     },
                   ]}
@@ -419,6 +414,90 @@ const chartStyles = StyleSheet.create({
 // ═══════════════════════════════════════════════════════════
 
 export default function Dashboard() {
+  const userId = useAppStore((s) => s.userId);
+  const currency = useAppStore((s) => s.currency);
+  const period = useAppStore((s) => s.currentPeriod);
+
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!userId) throw new Error("no-session");
+      const result = await analytics.dashboard(userId, period);
+      setData(result);
+    } catch {
+      setData(null);
+      setError(
+        userId
+          ? "Serveur injoignable. Vérifiez que le backend est démarré."
+          : "Session non initialisée. Passez par l'onboarding."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, period]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const solde = data ? data.income - data.expenses : 0;
+
+  const alerts: AlertItem[] =
+    data?.top_drift_categories.slice(0, 4).map(
+      (c: CategoryAnalytics): AlertItem => ({
+        icon: categoryIcon(c.name),
+        iconBg: c.essential ? "#D3E4FE" : "#FFDAD6",
+        iconColor: c.essential ? "#474552" : "#93000A",
+        label: c.name,
+        subtitle: "À surveiller",
+        pill: formatPct(c.variation_percentage),
+        pillBg: "#EBDCFF",
+        pillColor: "#260059",
+      })
+    ) ?? [];
+
+  const [year, month] = period.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  const projectedDate = `${lastDay} ${MONTHS_FR[month - 1]} ${year}`;
+
+  const goal = data?.savings_goal ?? null;
+  const trackMax = Math.max(goal?.target_amount ?? 0, solde, 1);
+
+  if (loading && !data) {
+    return (
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <View style={styles.centered}>
+          <MaterialCommunityIcons
+            color={colors.textMuted}
+            name="cloud-off-outline"
+            size={40}
+          />
+          <Text style={styles.errorTitle}>{error}</Text>
+          <Pressable style={styles.retryBtn} onPress={load}>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <ScrollView
@@ -456,83 +535,132 @@ export default function Dashboard() {
           <View style={styles.soldeDecorTop} />
           <View style={styles.soldeDecorBottom} />
           <Text style={styles.soldeLabel}>Solde Restant</Text>
-          <Text style={styles.soldeAmount}>2 450,00 €</Text>
-          <Sparkline />
-          <Pressable style={styles.soldeTrend} hitSlop={12} onPress={() => router.push("/stats-detail")}>
-            <MaterialCommunityIcons
-              color={colors.accent}
-              name="trending-up"
-              size={16}
-            />
-            <Text style={styles.soldeTrendText}>+12% vs mois dernier</Text>
-          </Pressable>
+          <Text style={styles.soldeAmount}>
+            {formatMoney(solde, currency)}
+          </Text>
+          <Sparkline data={data?.sparkline ?? []} />
+          {data?.monthly_variation != null && (
+            <Pressable
+              style={styles.soldeTrend}
+              hitSlop={12}
+              onPress={() => router.push("/stats-detail")}
+            >
+              <MaterialCommunityIcons
+                color={colors.accent}
+                name={
+                  data.monthly_variation >= 0
+                    ? "trending-up"
+                    : "trending-down"
+                }
+                size={16}
+              />
+              <Text style={styles.soldeTrendText}>
+                {formatPct(data.monthly_variation)} vs mois dernier
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         {/* ── Vigilance Budgétaire ── */}
-        <Text style={styles.sectionTitle}>Vigilance Budgétaire</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.alertsScroll}
-        >
-          {ALERTS.map((alert) => (
-            <AlertCard key={alert.label} alert={alert} />
-          ))}
-        </ScrollView>
+        {alerts.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Vigilance Budgétaire</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.alertsScroll}
+            >
+              {alerts.map((alert) => (
+                <AlertCard key={alert.label} alert={alert} />
+              ))}
+            </ScrollView>
+          </>
+        )}
 
         {/* ── Réel vs Prévu ── */}
         <View style={styles.chartHeader}>
           <Text style={styles.sectionTitle}>Réel vs Prévu</Text>
-          <Link href="/depenses" asChild>
+          <Link href="/analyse" asChild>
             <Pressable style={styles.chartFilter}>
               <Text style={styles.chartFilterText}>Ce mois</Text>
             </Pressable>
           </Link>
         </View>
-        <BudgetBarChart />
+        <BudgetBarChart weekly={data?.weekly ?? []} />
 
         {/* ── Épargne Projetée ── */}
         <View style={styles.projectedCard}>
           <View style={styles.projectedDecor} />
           <View style={styles.projectedTop}>
             <Text style={styles.projectedLabel}>Épargne Projetée</Text>
-            <Text style={styles.projectedDate}>31 août 2026</Text>
+            <Text style={styles.projectedDate}>{projectedDate}</Text>
           </View>
-          <Text style={styles.projectedAmount}>3 120 €</Text>
-          <View style={styles.projectedCompare}>
-            <Text style={styles.projectedCompareLabel}>vs mois dernier</Text>
-            <Text style={styles.projectedCompareValue}>2 890 €</Text>
-            <View style={styles.projectedDelta}>
-              <MaterialCommunityIcons
-                color="#FFFFFF"
-                name="arrow-top-right"
-                size={14}
-              />
-              <Text style={styles.projectedDeltaText}>+230 € (+8%)</Text>
+          <Text style={styles.projectedAmount}>
+            {formatMoney(data?.savings ?? 0, currency)}
+          </Text>
+          {data?.monthly_variation != null && (
+            <View style={styles.projectedCompare}>
+              <Text style={styles.projectedCompareLabel}>
+                vs mois dernier
+              </Text>
+              <View style={styles.projectedDelta}>
+                <MaterialCommunityIcons
+                  color="#FFFFFF"
+                  name={
+                    data.monthly_variation >= 0
+                      ? "arrow-top-right"
+                      : "arrow-bottom-right"
+                  }
+                  size={14}
+                />
+                <Text style={styles.projectedDeltaText}>
+                  {formatPct(data.monthly_variation)}
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
           <View style={styles.projectedBarRow}>
-            <Text style={styles.projectedBarMarker}>0 €</Text>
+            <Text style={styles.projectedBarMarker}>
+              {formatMoney(0, currency)}
+            </Text>
             <View style={styles.projectedBarTrack}>
-              <View style={[styles.projectedBarFill, { width: "78%" }]} />
+              <View
+                style={[
+                  styles.projectedBarFill,
+                  {
+                    width: `${Math.min(
+                      (solde / trackMax) * 100,
+                      100
+                    )}%`,
+                  },
+                ]}
+              />
             </View>
-            <Text style={styles.projectedBarMarker}>4 000 €</Text>
+            <Text style={styles.projectedBarMarker}>
+              {formatMoney(trackMax, currency)}
+            </Text>
           </View>
         </View>
 
         {/* ── Épargne Réalisée ── */}
-        <View style={styles.savingsCard}>
-          <View style={styles.savingsDecorTop} />
-          <View style={styles.savingsDecorBottom} />
-          <View style={styles.savingsContent}>
-            <View style={styles.savingsLeft}>
-              <Text style={styles.savingsLabel}>Épargne Réalisée</Text>
-              <Text style={styles.savingsAmount}>450,00 €</Text>
-              <Text style={styles.savingsGoal}>Objectif : 500 €</Text>
+        {goal && (
+          <View style={styles.savingsCard}>
+            <View style={styles.savingsDecorTop} />
+            <View style={styles.savingsDecorBottom} />
+            <View style={styles.savingsContent}>
+              <View style={styles.savingsLeft}>
+                <Text style={styles.savingsLabel}>Épargne Réalisée</Text>
+                <Text style={styles.savingsAmount}>
+                  {formatMoney(goal.current_amount, currency)}
+                </Text>
+                <Text style={styles.savingsGoal}>
+                  Objectif : {formatMoney(goal.target_amount, currency)}
+                </Text>
+              </View>
+              <DonutProgress pct={goal.progress_percentage} />
             </View>
-            <DonutProgress pct={0.9} />
           </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -545,6 +673,28 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scrollContent: { gap: 20, padding: 16 },
+
+  centered: {
+    alignItems: "center",
+    flex: 1,
+    gap: 14,
+    justifyContent: "center",
+    padding: 24,
+  },
+  errorTitle: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 99,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  retryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 
   /* Header */
   header: {
@@ -652,12 +802,12 @@ const styles = StyleSheet.create({
 
   /* ═══ Épargne Projetée ═══ */
   projectedCard: {
-    backgroundColor: "#E0E7FF", // indigo très pâle — distinct du Solde (#E5EEFF)
+    backgroundColor: "#E0E7FF",
     borderRadius: 24,
     gap: 10,
     overflow: "hidden",
     padding: 24,
-    position: "relative", // ← CRUCIAL pour caler le décor
+    position: "relative",
   },
   projectedDecor: {
     backgroundColor: `${colors.primary}10`,
@@ -687,7 +837,7 @@ const styles = StyleSheet.create({
   },
   projectedAmount: {
     color: colors.primary,
-    fontSize: 48, // ← harmonisé avec le Solde
+    fontSize: 48,
     fontWeight: "700",
     letterSpacing: -2,
     lineHeight: 56,
@@ -702,12 +852,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: "500",
-  },
-  projectedCompareValue: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
-    // ← plus de line-through ici
   },
   projectedDelta: {
     alignItems: "center",
@@ -727,7 +871,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
-    marginTop: 14, // ← plus d'air
+    marginTop: 14,
   },
   projectedBarTrack: {
     backgroundColor: `${colors.primary}20`,

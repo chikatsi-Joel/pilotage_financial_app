@@ -589,19 +589,6 @@
       "source_location": "L73"
     },
     {
-      "id": "app_schemas_common_incomecreate",
-      "label": "IncomeCreate",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "incomecreate",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L36"
-    },
-    {
       "id": "app_services_expense_service_notfound",
       "label": "NotFound",
       "_callable": true,
@@ -979,6 +966,45 @@
       "source_location": "L77"
     },
     {
+      "id": "app_schemas_common_categoryanalyticsread",
+      "label": "CategoryAnalyticsRead",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "categoryanalyticsread",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L144"
+    },
+    {
+      "id": "app_schemas_common_dashboardread",
+      "label": "DashboardRead",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "dashboardread",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L215"
+    },
+    {
+      "id": "app_services_analytics_service_invalidperiod",
+      "label": "InvalidPeriod",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "invalidperiod",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L35"
+    },
+    {
       "id": "finance_mobile_app_savings_detail_contribution",
       "label": "Contribution",
       "_callable": true,
@@ -1044,6 +1070,19 @@
       "source_location": "L21"
     },
     {
+      "id": "finance_mobile_app_tabs_budget_addcategorymodalprops",
+      "label": "AddCategoryModalProps",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "addcategorymodalprops",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L551"
+    },
+    {
       "id": "finance_mobile_app_tabs_budget_category",
       "label": "Category",
       "_callable": true,
@@ -1054,7 +1093,7 @@
       "file_type": "code",
       "norm_label": "category",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L23"
+      "source_location": "L30"
     },
     {
       "id": "finance_mobile_app_tabs_budget_iconname",
@@ -1067,7 +1106,20 @@
       "file_type": "code",
       "norm_label": "iconname",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L21"
+      "source_location": "L26"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_optlevel",
+      "label": "OptLevel",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "optlevel",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L28"
     },
     {
       "id": "finance_mobile_app_tabs_dashboard_alertitem",
@@ -1122,6 +1174,19 @@
       "source_location": "L24"
     },
     {
+      "id": "app_schemas_common_budgetdecision",
+      "label": "BudgetDecision",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 5,
+      "community_name": "common.py",
+      "file_type": "code",
+      "norm_label": "budgetdecision",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L180"
+    },
+    {
       "id": "app_schemas_common_categoryread",
       "label": "CategoryRead",
       "_callable": true,
@@ -1159,6 +1224,32 @@
       "norm_label": "expenseread",
       "source_file": "app/schemas/common.py",
       "source_location": "L80"
+    },
+    {
+      "id": "app_schemas_common_forecastread",
+      "label": "ForecastRead",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 5,
+      "community_name": "common.py",
+      "file_type": "code",
+      "norm_label": "forecastread",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L125"
+    },
+    {
+      "id": "app_schemas_common_incomecreate",
+      "label": "IncomeCreate",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 5,
+      "community_name": "common.py",
+      "file_type": "code",
+      "norm_label": "incomecreate",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L36"
     },
     {
       "id": "app_schemas_common_incomeread",
@@ -1239,32 +1330,6 @@
       "source_location": "L112"
     },
     {
-      "id": "app_schemas_common_savingsgoalcontributeread",
-      "label": "SavingsGoalContributeRead",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoalcontributeread",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L116"
-    },
-    {
-      "id": "app_schemas_common_savingsgoalcreate",
-      "label": "SavingsGoalCreate",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoalcreate",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L88"
-    },
-    {
       "id": "app_schemas_common_savingsgoalread",
       "label": "SavingsGoalRead",
       "_callable": true,
@@ -1276,6 +1341,19 @@
       "norm_label": "savingsgoalread",
       "source_file": "app/schemas/common.py",
       "source_location": "L101"
+    },
+    {
+      "id": "app_schemas_common_timeseriesprofileread",
+      "label": "TimeSeriesProfileRead",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 5,
+      "community_name": "common.py",
+      "file_type": "code",
+      "norm_label": "timeseriesprofileread",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L131"
     },
     {
       "id": "app_schemas_common_usercreate",
@@ -1304,43 +1382,17 @@
       "source_location": "L30"
     },
     {
-      "id": "app_services_savings_service_businessrule",
-      "label": "BusinessRule",
+      "id": "app_schemas_common_whatifrequest",
+      "label": "WhatIfRequest",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "businessrule",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L29"
-    },
-    {
-      "id": "app_services_savings_service_notfound",
-      "label": "NotFound",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "notfound",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L25"
-    },
-    {
-      "id": "app_utils_savings_goal_savingscontributiontrend",
-      "label": "SavingsContributionTrend",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingscontributiontrend",
-      "source_file": "app/utils/savings_goal.py",
-      "source_location": "L5"
+      "norm_label": "whatifrequest",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L199"
     },
     {
       "id": "app_core_config_settings",
@@ -1349,11 +1401,37 @@
       "_callable_class": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "settings",
       "source_file": "app/core/config.py",
       "source_location": "L5"
+    },
+    {
+      "id": "app_schemas_common_whatifread",
+      "label": "WhatIfRead",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "whatifread",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L204"
+    },
+    {
+      "id": "app_services_what_if_service_notfound",
+      "label": "NotFound",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "notfound",
+      "source_file": "app/services/what_if_service.py",
+      "source_location": "L16"
     },
     {
       "id": "finance_mobile_app_add_expense_category",
@@ -1382,6 +1460,19 @@
       "source_location": "L28"
     },
     {
+      "id": "finance_mobile_app_budget_details_optlevel",
+      "label": "OptLevel",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 68,
+      "community_name": "budget-details.tsx",
+      "file_type": "code",
+      "norm_label": "optlevel",
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L55"
+    },
+    {
       "id": "finance_mobile_app_simulation_scenario",
       "label": "Scenario",
       "_callable": true,
@@ -1395,116 +1486,12 @@
       "source_location": "L16"
     },
     {
-      "id": "app_schemas_common_categoryanalyticsread",
-      "label": "CategoryAnalyticsRead",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "categoryanalyticsread",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L144"
-    },
-    {
-      "id": "app_schemas_common_dashboardread",
-      "label": "DashboardRead",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "dashboardread",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L215"
-    },
-    {
-      "id": "app_schemas_common_forecastread",
-      "label": "ForecastRead",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "forecastread",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L125"
-    },
-    {
-      "id": "app_schemas_common_timeseriesprofileread",
-      "label": "TimeSeriesProfileRead",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "timeseriesprofileread",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L131"
-    },
-    {
-      "id": "app_schemas_common_whatifread",
-      "label": "WhatIfRead",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "whatifread",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L204"
-    },
-    {
-      "id": "app_schemas_common_whatifrequest",
-      "label": "WhatIfRequest",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "whatifrequest",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L199"
-    },
-    {
-      "id": "app_services_analytics_service_invalidperiod",
-      "label": "InvalidPeriod",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "invalidperiod",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L35"
-    },
-    {
-      "id": "app_services_what_if_service_notfound",
-      "label": "NotFound",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "notfound",
-      "source_file": "app/services/what_if_service.py",
-      "source_location": "L16"
-    },
-    {
       "id": "app_schemas_common_budgetcategoryline",
       "label": "BudgetCategoryLine",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "budgetcategoryline",
@@ -1512,25 +1499,12 @@
       "source_location": "L169"
     },
     {
-      "id": "app_schemas_common_budgetdecision",
-      "label": "BudgetDecision",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "budgetdecision",
-      "source_file": "app/schemas/common.py",
-      "source_location": "L180"
-    },
-    {
       "id": "app_schemas_common_budgetread",
       "label": "BudgetRead",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "budgetread",
@@ -1543,7 +1517,7 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "recommendationread",
@@ -1556,7 +1530,7 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "businessrule",
@@ -1569,7 +1543,7 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "conflict",
@@ -1582,12 +1556,77 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "notfound",
       "source_file": "app/services/budget_service.py",
       "source_location": "L25"
+    },
+    {
+      "id": "app_schemas_common_savingsgoalcontributeread",
+      "label": "SavingsGoalContributeRead",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingsgoalcontributeread",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L116"
+    },
+    {
+      "id": "app_schemas_common_savingsgoalcreate",
+      "label": "SavingsGoalCreate",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingsgoalcreate",
+      "source_file": "app/schemas/common.py",
+      "source_location": "L88"
+    },
+    {
+      "id": "app_services_savings_service_businessrule",
+      "label": "BusinessRule",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "businessrule",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L29"
+    },
+    {
+      "id": "app_services_savings_service_notfound",
+      "label": "NotFound",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "notfound",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L25"
+    },
+    {
+      "id": "app_utils_savings_goal_savingscontributiontrend",
+      "label": "SavingsContributionTrend",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingscontributiontrend",
+      "source_file": "app/utils/savings_goal.py",
+      "source_location": "L5"
     },
     {
       "id": "finance_mobile_src_shared_api_ai_path",
@@ -2478,30 +2517,6 @@
       "source_location": "L63"
     },
     {
-      "id": "app_api_routers_incomes_create_income",
-      "label": "create_income()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "create_income()",
-      "source_file": "app/api/routers/incomes.py",
-      "source_location": "L23"
-    },
-    {
-      "id": "app_api_routers_incomes_list_incomes",
-      "label": "list_incomes()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "list_incomes()",
-      "source_file": "app/api/routers/incomes.py",
-      "source_location": "L33"
-    },
-    {
       "id": "app_services_analytics_service_invalidate_snapshots",
       "label": "invalidate_snapshots()",
       "_callable": true,
@@ -2560,30 +2575,6 @@
       "norm_label": "update()",
       "source_file": "app/services/expense_service.py",
       "source_location": "L52"
-    },
-    {
-      "id": "app_services_income_service_create",
-      "label": "create()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "create()",
-      "source_file": "app/services/income_service.py",
-      "source_location": "L15"
-    },
-    {
-      "id": "app_services_income_service_list_by_user",
-      "label": "list_by_user()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "list_by_user()",
-      "source_file": "app/services/income_service.py",
-      "source_location": "L27"
     },
     {
       "id": "app_services_pagination_decode_cursor",
@@ -2728,6 +2719,30 @@
       "norm_label": "run_migrations_online()",
       "source_file": "migrations/env.py",
       "source_location": "L26"
+    },
+    {
+      "id": "tests_test_analytics_test_snapshot_to_category_read",
+      "label": "test_snapshot_to_category_read()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "entities.py",
+      "file_type": "code",
+      "norm_label": "test_snapshot_to_category_read()",
+      "source_file": "tests/test_analytics.py",
+      "source_location": "L281"
+    },
+    {
+      "id": "tests_test_analytics_test_snapshot_to_category_read_missing_profile",
+      "label": "test_snapshot_to_category_read_missing_profile()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "entities.py",
+      "file_type": "code",
+      "norm_label": "test_snapshot_to_category_read_missing_profile()",
+      "source_file": "tests/test_analytics.py",
+      "source_location": "L333"
     },
     {
       "id": "tests_test_schema_test_alembic_migration_0001_initial",
@@ -3102,6 +3117,186 @@
       "source_location": "L237"
     },
     {
+      "id": "app_api_routers_analytics_category_analytics",
+      "label": "category_analytics()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "category_analytics()",
+      "source_file": "app/api/routers/analytics.py",
+      "source_location": "L21"
+    },
+    {
+      "id": "app_api_routers_analytics_dashboard",
+      "label": "dashboard()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "dashboard()",
+      "source_file": "app/api/routers/analytics.py",
+      "source_location": "L38"
+    },
+    {
+      "id": "app_api_routers_analytics_refresh_analytics",
+      "label": "refresh_analytics()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "refresh_analytics()",
+      "source_file": "app/api/routers/analytics.py",
+      "source_location": "L54"
+    },
+    {
+      "id": "app_services_analytics_service_compute_category_analytics",
+      "label": "compute_category_analytics()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "compute_category_analytics()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L114"
+    },
+    {
+      "id": "app_services_analytics_service_get_category_analytics_snapshot",
+      "label": "get_category_analytics_snapshot()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "get_category_analytics_snapshot()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L409"
+    },
+    {
+      "id": "app_services_analytics_service_get_dashboard",
+      "label": "get_dashboard()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "get_dashboard()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L164"
+    },
+    {
+      "id": "app_services_analytics_service_get_dashboard_snapshot",
+      "label": "get_dashboard_snapshot()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "get_dashboard_snapshot()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L439"
+    },
+    {
+      "id": "app_services_analytics_service_get_period_totals",
+      "label": "get_period_totals()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "get_period_totals()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L334"
+    },
+    {
+      "id": "app_services_analytics_service_month_bounds",
+      "label": "month_bounds()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "month_bounds()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L39"
+    },
+    {
+      "id": "app_services_analytics_service_profile_to_dict",
+      "label": "_profile_to_dict()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "_profile_to_dict()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L78"
+    },
+    {
+      "id": "app_services_analytics_service_refresh_analytics",
+      "label": "refresh_analytics()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "refresh_analytics()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L214"
+    },
+    {
+      "id": "app_services_analytics_service_snapshot_to_category_read",
+      "label": "_snapshot_to_category_read()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "_snapshot_to_category_read()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L368"
+    },
+    {
+      "id": "app_services_analytics_service_sum_amount",
+      "label": "_sum_amount()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "_sum_amount()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L97"
+    },
+    {
+      "id": "app_services_analytics_service_to_domain_expenses",
+      "label": "_to_domain_expenses()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "_to_domain_expenses()",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L65"
+    },
+    {
+      "id": "tests_test_analytics_test_profile_to_dict_roundtrip",
+      "label": "test_profile_to_dict_roundtrip()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "test_profile_to_dict_roundtrip()",
+      "source_file": "tests/test_analytics.py",
+      "source_location": "L253"
+    },
+    {
       "id": "finance_mobile_app_savings_detail_cap",
       "label": "cap()",
       "_callable": true,
@@ -3258,16 +3453,40 @@
       "source_location": "L291"
     },
     {
-      "id": "finance_mobile_app_tabs_budget_animatedbar",
-      "label": "AnimatedBar()",
+      "id": "finance_mobile_app_tabs_budget_addcategorymodal",
+      "label": "AddCategoryModal()",
       "_callable": true,
       "_origin": "ast",
       "community": 44,
       "community_name": "budget.tsx",
       "file_type": "code",
-      "norm_label": "animatedbar()",
+      "norm_label": "addcategorymodal()",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L96"
+      "source_location": "L557"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_addcategorymodal_handlesave",
+      "label": "handleSave()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "handlesave()",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L566"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_animatedwavebar",
+      "label": "AnimatedWaveBar()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "animatedwavebar()",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L106"
     },
     {
       "id": "finance_mobile_app_tabs_budget_budget",
@@ -3279,7 +3498,19 @@
       "file_type": "code",
       "norm_label": "budget()",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L211"
+      "source_location": "L381"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_budgetring",
+      "label": "BudgetRing()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "budgetring()",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L327"
     },
     {
       "id": "finance_mobile_app_tabs_budget_categorycard",
@@ -3291,7 +3522,7 @@
       "file_type": "code",
       "norm_label": "categorycard()",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L134"
+      "source_location": "L202"
     },
     {
       "id": "finance_mobile_app_tabs_budget_fadein",
@@ -3303,7 +3534,7 @@
       "file_type": "code",
       "norm_label": "fadein()",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L56"
+      "source_location": "L64"
     },
     {
       "id": "finance_mobile_app_tabs_budget_formatcurrency",
@@ -3315,7 +3546,19 @@
       "file_type": "code",
       "norm_label": "formatcurrency()",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L49"
+      "source_location": "L57"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_toggle",
+      "label": "Toggle()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "toggle()",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L298"
     },
     {
       "id": "finance_mobile_app_tabs_dashboard_alertcard",
@@ -3582,40 +3825,28 @@
       "source_location": "L44"
     },
     {
-      "id": "app_api_routers_savings_contribute",
-      "label": "contribute()",
+      "id": "app_api_routers_incomes_create_income",
+      "label": "create_income()",
       "_callable": true,
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "contribute()",
-      "source_file": "app/api/routers/savings.py",
-      "source_location": "L60"
+      "norm_label": "create_income()",
+      "source_file": "app/api/routers/incomes.py",
+      "source_location": "L23"
     },
     {
-      "id": "app_api_routers_savings_create_goal",
-      "label": "create_goal()",
+      "id": "app_api_routers_incomes_list_incomes",
+      "label": "list_incomes()",
       "_callable": true,
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "create_goal()",
-      "source_file": "app/api/routers/savings.py",
-      "source_location": "L30"
-    },
-    {
-      "id": "app_api_routers_savings_list_goals",
-      "label": "list_goals()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "list_goals()",
-      "source_file": "app/api/routers/savings.py",
-      "source_location": "L41"
+      "norm_label": "list_incomes()",
+      "source_file": "app/api/routers/incomes.py",
+      "source_location": "L33"
     },
     {
       "id": "app_api_routers_users_create_user",
@@ -3654,124 +3885,28 @@
       "source_location": "L30"
     },
     {
-      "id": "app_services_savings_service_available_for_user",
-      "label": "_available_for_user()",
+      "id": "app_services_income_service_create",
+      "label": "create()",
       "_callable": true,
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "_available_for_user()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L198"
+      "norm_label": "create()",
+      "source_file": "app/services/income_service.py",
+      "source_location": "L15"
     },
     {
-      "id": "app_services_savings_service_build_goal_analyses",
-      "label": "build_goal_analyses()",
+      "id": "app_services_income_service_list_by_user",
+      "label": "list_by_user()",
       "_callable": true,
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "build_goal_analyses()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L99"
-    },
-    {
-      "id": "app_services_savings_service_contribute",
-      "label": "contribute()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "contribute()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L218"
-    },
-    {
-      "id": "app_services_savings_service_contribution_regularity",
-      "label": "_contribution_regularity()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "_contribution_regularity()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L82"
-    },
-    {
-      "id": "app_services_savings_service_create_goal",
-      "label": "create_goal()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "create_goal()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L33"
-    },
-    {
-      "id": "app_services_savings_service_get_total_contributions_for_period",
-      "label": "get_total_contributions_for_period()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "get_total_contributions_for_period()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L182"
-    },
-    {
-      "id": "app_services_savings_service_list_goals",
-      "label": "list_goals()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "list_goals()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L45"
-    },
-    {
-      "id": "app_services_savings_service_monthly_periods",
-      "label": "_monthly_periods()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "_monthly_periods()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L73"
-    },
-    {
-      "id": "app_services_savings_service_months_until",
-      "label": "_months_until()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "_months_until()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L94"
-    },
-    {
-      "id": "app_services_savings_service_previous_month",
-      "label": "_previous_month()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "_previous_month()",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L69"
+      "norm_label": "list_by_user()",
+      "source_file": "app/services/income_service.py",
+      "source_location": "L27"
     },
     {
       "id": "app_services_user_service_create_user",
@@ -3798,64 +3933,28 @@
       "source_location": "L22"
     },
     {
-      "id": "app_utils_savings_goal_get_contribution_trend",
-      "label": "get_contribution_trend()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "get_contribution_trend()",
-      "source_file": "app/utils/savings_goal.py",
-      "source_location": "L12"
-    },
-    {
-      "id": "tests_test_savings_goal_analysis_test_goal_analysis_uses_six_calendar_months",
-      "label": "test_goal_analysis_uses_six_calendar_months()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "test_goal_analysis_uses_six_calendar_months()",
-      "source_file": "tests/test_savings_goal_analysis.py",
-      "source_location": "L10"
-    },
-    {
-      "id": "tests_test_savings_goal_analysis_test_goal_contribution_indicators_are_unknown_without_contributions",
-      "label": "test_goal_contribution_indicators_are_unknown_without_contributions()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "test_goal_contribution_indicators_are_unknown_without_contributions()",
-      "source_file": "tests/test_savings_goal_analysis.py",
-      "source_location": "L35"
-    },
-    {
-      "id": "tests_test_savings_goal_analysis_test_goal_contribution_indicators_detect_growth_and_regularity",
-      "label": "test_goal_contribution_indicators_detect_growth_and_regularity()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "test_goal_contribution_indicators_detect_growth_and_regularity()",
-      "source_file": "tests/test_savings_goal_analysis.py",
-      "source_location": "L21"
-    },
-    {
       "id": "app_api_deps_get_user",
       "label": "get_user()",
       "_callable": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "get_user()",
       "source_file": "app/api/deps.py",
       "source_location": "L11"
+    },
+    {
+      "id": "app_api_routers_what_if_what_if",
+      "label": "what_if()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "what_if()",
+      "source_file": "app/api/routers/what_if.py",
+      "source_location": "L20"
     },
     {
       "id": "app_core_config_settings_parse_origins",
@@ -3863,7 +3962,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": ".parse_origins()",
       "source_file": "app/core/config.py",
@@ -3875,7 +3974,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "get_db()",
       "source_file": "app/db/session.py",
@@ -3887,7 +3986,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "get_engine()",
       "source_file": "app/db/session.py",
@@ -3899,7 +3998,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "get_session_factory()",
       "source_file": "app/db/session.py",
@@ -3911,11 +4010,47 @@
       "_callable": true,
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "health()",
       "source_file": "app/main.py",
       "source_location": "L45"
+    },
+    {
+      "id": "app_services_what_if_service_simulate",
+      "label": "simulate()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "simulate()",
+      "source_file": "app/services/what_if_service.py",
+      "source_location": "L20"
+    },
+    {
+      "id": "app_services_what_if_simulate_what_if",
+      "label": "simulate_what_if()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "simulate_what_if()",
+      "source_file": "app/services/what_if.py",
+      "source_location": "L5"
+    },
+    {
+      "id": "tests_test_what_if_test_what_if_matches_spec_example",
+      "label": "test_what_if_matches_spec_example()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "test_what_if_matches_spec_example()",
+      "source_file": "tests/test_what_if.py",
+      "source_location": "L6"
     },
     {
       "id": "finance_mobile_app_add_expense_addexpense",
@@ -3951,7 +4086,7 @@
       "file_type": "code",
       "norm_label": "budgetdetail()",
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L181"
+      "source_location": "L204"
     },
     {
       "id": "finance_mobile_app_budget_details_fadein",
@@ -3963,7 +4098,7 @@
       "file_type": "code",
       "norm_label": "fadein()",
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L53"
+      "source_location": "L76"
     },
     {
       "id": "finance_mobile_app_budget_details_spendingchart",
@@ -3975,7 +4110,7 @@
       "file_type": "code",
       "norm_label": "spendingchart()",
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L93"
+      "source_location": "L116"
     },
     {
       "id": "finance_mobile_app_simulation_formateuro",
@@ -4047,290 +4182,26 @@
       "file_type": "code",
       "norm_label": "savings()",
       "source_file": "finance_mobile/app/(tabs)/savings.tsx",
-      "source_location": "L78"
+      "source_location": "L160"
     },
     {
-      "id": "app_api_routers_analytics_category_analytics",
-      "label": "category_analytics()",
+      "id": "finance_mobile_app_tabs_savings_waveprogressbar",
+      "label": "WaveProgressBar()",
       "_callable": true,
       "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
+      "community": 7,
+      "community_name": "theme.ts",
       "file_type": "code",
-      "norm_label": "category_analytics()",
-      "source_file": "app/api/routers/analytics.py",
-      "source_location": "L21"
-    },
-    {
-      "id": "app_api_routers_analytics_dashboard",
-      "label": "dashboard()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "dashboard()",
-      "source_file": "app/api/routers/analytics.py",
-      "source_location": "L38"
-    },
-    {
-      "id": "app_api_routers_analytics_refresh_analytics",
-      "label": "refresh_analytics()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "refresh_analytics()",
-      "source_file": "app/api/routers/analytics.py",
-      "source_location": "L54"
-    },
-    {
-      "id": "app_api_routers_what_if_what_if",
-      "label": "what_if()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "what_if()",
-      "source_file": "app/api/routers/what_if.py",
-      "source_location": "L20"
-    },
-    {
-      "id": "app_services_analytics_engine_money",
-      "label": "money()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "money()",
-      "source_file": "app/services/analytics/engine.py",
-      "source_location": "L32"
-    },
-    {
-      "id": "app_services_analytics_service_compute_category_analytics",
-      "label": "compute_category_analytics()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "compute_category_analytics()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L114"
-    },
-    {
-      "id": "app_services_analytics_service_get_category_analytics_snapshot",
-      "label": "get_category_analytics_snapshot()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "get_category_analytics_snapshot()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L409"
-    },
-    {
-      "id": "app_services_analytics_service_get_dashboard",
-      "label": "get_dashboard()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "get_dashboard()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L164"
-    },
-    {
-      "id": "app_services_analytics_service_get_dashboard_snapshot",
-      "label": "get_dashboard_snapshot()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "get_dashboard_snapshot()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L439"
-    },
-    {
-      "id": "app_services_analytics_service_get_period_totals",
-      "label": "get_period_totals()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "get_period_totals()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L334"
-    },
-    {
-      "id": "app_services_analytics_service_month_bounds",
-      "label": "month_bounds()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "month_bounds()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L39"
-    },
-    {
-      "id": "app_services_analytics_service_profile_to_dict",
-      "label": "_profile_to_dict()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "_profile_to_dict()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L78"
-    },
-    {
-      "id": "app_services_analytics_service_refresh_analytics",
-      "label": "refresh_analytics()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "refresh_analytics()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L214"
-    },
-    {
-      "id": "app_services_analytics_service_snapshot_to_category_read",
-      "label": "_snapshot_to_category_read()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "_snapshot_to_category_read()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L368"
-    },
-    {
-      "id": "app_services_analytics_service_sum_amount",
-      "label": "_sum_amount()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "_sum_amount()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L97"
-    },
-    {
-      "id": "app_services_analytics_service_to_domain_expenses",
-      "label": "_to_domain_expenses()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "_to_domain_expenses()",
-      "source_file": "app/services/analytics_service.py",
-      "source_location": "L65"
-    },
-    {
-      "id": "app_services_what_if_service_simulate",
-      "label": "simulate()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "simulate()",
-      "source_file": "app/services/what_if_service.py",
-      "source_location": "L20"
-    },
-    {
-      "id": "app_services_what_if_simulate_what_if",
-      "label": "simulate_what_if()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "simulate_what_if()",
-      "source_file": "app/services/what_if.py",
-      "source_location": "L5"
-    },
-    {
-      "id": "tests_test_analytics_test_money_rounds",
-      "label": "test_money_rounds()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "test_money_rounds()",
-      "source_file": "tests/test_analytics.py",
-      "source_location": "L133"
-    },
-    {
-      "id": "tests_test_analytics_test_profile_to_dict_roundtrip",
-      "label": "test_profile_to_dict_roundtrip()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "test_profile_to_dict_roundtrip()",
-      "source_file": "tests/test_analytics.py",
-      "source_location": "L253"
-    },
-    {
-      "id": "tests_test_analytics_test_snapshot_to_category_read",
-      "label": "test_snapshot_to_category_read()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "test_snapshot_to_category_read()",
-      "source_file": "tests/test_analytics.py",
-      "source_location": "L281"
-    },
-    {
-      "id": "tests_test_analytics_test_snapshot_to_category_read_missing_profile",
-      "label": "test_snapshot_to_category_read_missing_profile()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "test_snapshot_to_category_read_missing_profile()",
-      "source_file": "tests/test_analytics.py",
-      "source_location": "L333"
-    },
-    {
-      "id": "tests_test_what_if_test_what_if_matches_spec_example",
-      "label": "test_what_if_matches_spec_example()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "test_what_if_matches_spec_example()",
-      "source_file": "tests/test_what_if.py",
-      "source_location": "L6"
+      "norm_label": "waveprogressbar()",
+      "source_file": "finance_mobile/app/(tabs)/savings.tsx",
+      "source_location": "L83"
     },
     {
       "id": "app_api_routers_budget_decide_budget",
       "label": "decide_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "decide_budget()",
@@ -4342,7 +4213,7 @@
       "label": "get_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "get_budget()",
@@ -4354,7 +4225,7 @@
       "label": "list_recommendations()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "list_recommendations()",
@@ -4366,7 +4237,7 @@
       "label": "recommend_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "recommend_budget()",
@@ -4378,7 +4249,7 @@
       "label": "update_recommendation_status()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "update_recommendation_status()",
@@ -4390,7 +4261,7 @@
       "label": "generate_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "generate_budget()",
@@ -4402,7 +4273,7 @@
       "label": "decide_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "decide_budget()",
@@ -4414,7 +4285,7 @@
       "label": "get_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "get_budget()",
@@ -4426,7 +4297,7 @@
       "label": "list_recommendations()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "list_recommendations()",
@@ -4438,7 +4309,7 @@
       "label": "recommend_budget()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "recommend_budget()",
@@ -4450,7 +4321,7 @@
       "label": "update_recommendation_status()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "update_recommendation_status()",
@@ -4462,12 +4333,240 @@
       "label": "test_budget_does_not_reduce_essentials_and_exposes_savings()",
       "_callable": true,
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "test_budget_does_not_reduce_essentials_and_exposes_savings()",
       "source_file": "tests/test_budget.py",
       "source_location": "L7"
+    },
+    {
+      "id": "app_api_routers_savings_contribute",
+      "label": "contribute()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "contribute()",
+      "source_file": "app/api/routers/savings.py",
+      "source_location": "L60"
+    },
+    {
+      "id": "app_api_routers_savings_create_goal",
+      "label": "create_goal()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "create_goal()",
+      "source_file": "app/api/routers/savings.py",
+      "source_location": "L30"
+    },
+    {
+      "id": "app_api_routers_savings_list_goals",
+      "label": "list_goals()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "list_goals()",
+      "source_file": "app/api/routers/savings.py",
+      "source_location": "L41"
+    },
+    {
+      "id": "app_services_analytics_engine_money",
+      "label": "money()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "money()",
+      "source_file": "app/services/analytics/engine.py",
+      "source_location": "L32"
+    },
+    {
+      "id": "app_services_savings_service_available_for_user",
+      "label": "_available_for_user()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "_available_for_user()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L198"
+    },
+    {
+      "id": "app_services_savings_service_build_goal_analyses",
+      "label": "build_goal_analyses()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "build_goal_analyses()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L99"
+    },
+    {
+      "id": "app_services_savings_service_contribute",
+      "label": "contribute()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "contribute()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L218"
+    },
+    {
+      "id": "app_services_savings_service_contribution_regularity",
+      "label": "_contribution_regularity()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "_contribution_regularity()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L82"
+    },
+    {
+      "id": "app_services_savings_service_create_goal",
+      "label": "create_goal()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "create_goal()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L33"
+    },
+    {
+      "id": "app_services_savings_service_get_total_contributions_for_period",
+      "label": "get_total_contributions_for_period()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "get_total_contributions_for_period()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L182"
+    },
+    {
+      "id": "app_services_savings_service_list_goals",
+      "label": "list_goals()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "list_goals()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L45"
+    },
+    {
+      "id": "app_services_savings_service_monthly_periods",
+      "label": "_monthly_periods()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "_monthly_periods()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L73"
+    },
+    {
+      "id": "app_services_savings_service_months_until",
+      "label": "_months_until()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "_months_until()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L94"
+    },
+    {
+      "id": "app_services_savings_service_previous_month",
+      "label": "_previous_month()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "_previous_month()",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L69"
+    },
+    {
+      "id": "app_utils_savings_goal_get_contribution_trend",
+      "label": "get_contribution_trend()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "get_contribution_trend()",
+      "source_file": "app/utils/savings_goal.py",
+      "source_location": "L12"
+    },
+    {
+      "id": "tests_test_analytics_test_money_rounds",
+      "label": "test_money_rounds()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "test_money_rounds()",
+      "source_file": "tests/test_analytics.py",
+      "source_location": "L133"
+    },
+    {
+      "id": "tests_test_savings_goal_analysis_test_goal_analysis_uses_six_calendar_months",
+      "label": "test_goal_analysis_uses_six_calendar_months()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "test_goal_analysis_uses_six_calendar_months()",
+      "source_file": "tests/test_savings_goal_analysis.py",
+      "source_location": "L10"
+    },
+    {
+      "id": "tests_test_savings_goal_analysis_test_goal_contribution_indicators_are_unknown_without_contributions",
+      "label": "test_goal_contribution_indicators_are_unknown_without_contributions()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "test_goal_contribution_indicators_are_unknown_without_contributions()",
+      "source_file": "tests/test_savings_goal_analysis.py",
+      "source_location": "L35"
+    },
+    {
+      "id": "tests_test_savings_goal_analysis_test_goal_contribution_indicators_detect_growth_and_regularity",
+      "label": "test_goal_contribution_indicators_detect_growth_and_regularity()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "test_goal_contribution_indicators_detect_growth_and_regularity()",
+      "source_file": "tests/test_savings_goal_analysis.py",
+      "source_location": "L21"
     },
     {
       "id": "finance_mobile_src_shared_api_ai",
@@ -5767,116 +5866,6 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_incomes",
-      "label": "incomes.py",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "incomes.py",
-      "source_file": "app/api/routers/incomes.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_api_routers_incomes_py_date",
-      "label": "date",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "date",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_dbsession",
-      "label": "DbSession",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "dbsession",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_ge",
-      "label": "ge",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "ge",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_get",
-      "label": "get",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "get",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_incomecreate",
-      "label": "IncomeCreate",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "incomecreate",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_le",
-      "label": "le",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "le",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_post",
-      "label": "post",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "post",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_query",
-      "label": "Query",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "query",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_incomes_py_userdep",
-      "label": "UserDep",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "userdep",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
       "id": "app_services_expense_service",
       "label": "expense_service.py",
       "_origin": "ast",
@@ -5954,61 +5943,6 @@
       "source_location": ""
     },
     {
-      "id": "app_services_income_service",
-      "label": "income_service.py",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "income_service.py",
-      "source_file": "app/services/income_service.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_services_income_service_py_asyncsession",
-      "label": "AsyncSession",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "asyncsession",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_income_service_py_date",
-      "label": "date",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "date",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_income_service_py_incomecreate",
-      "label": "IncomeCreate",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "incomecreate",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_income_service_py_uuid",
-      "label": "UUID",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "uuid",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
       "id": "app_services_pagination",
       "label": "pagination.py",
       "_origin": "ast",
@@ -6038,17 +5972,6 @@
       "community_name": "paginate",
       "file_type": "code",
       "norm_label": "asyncsession",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "income",
-      "label": "Income",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "paginate",
-      "file_type": "code",
-      "norm_label": "income",
       "source_file": "",
       "source_location": ""
     },
@@ -7275,17 +7198,6 @@
       "source_location": "L11"
     },
     {
-      "id": "finance_mobile_package_dependencies_expo_linking",
-      "label": "expo-linking",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "dependencies",
-      "file_type": "code",
-      "norm_label": "expo-linking",
-      "source_file": "finance_mobile/package.json",
-      "source_location": "L14"
-    },
-    {
       "id": "finance_mobile_package_dependencies_react_dom",
       "label": "react-dom",
       "_origin": "ast",
@@ -7306,6 +7218,17 @@
       "norm_label": "react-native",
       "source_file": "finance_mobile/package.json",
       "source_location": "L19"
+    },
+    {
+      "id": "finance_mobile_package_dependencies_react_native_community_slider",
+      "label": "@react-native-community/slider",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "dependencies",
+      "file_type": "code",
+      "norm_label": "@react-native-community/slider",
+      "source_file": "finance_mobile/package.json",
+      "source_location": "L10"
     },
     {
       "id": "finance_mobile_package_dependencies_react_native_screens",
@@ -7341,17 +7264,6 @@
       "source_location": "L11"
     },
     {
-      "id": "expo_linking",
-      "label": "expo-linking",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "dependencies",
-      "file_type": "concept",
-      "norm_label": "expo-linking",
-      "source_file": "finance_mobile/package.json",
-      "source_location": "L14"
-    },
-    {
       "id": "react_dom",
       "label": "react-dom",
       "_origin": "ast",
@@ -7374,6 +7286,17 @@
       "source_location": "L19"
     },
     {
+      "id": "react_native_community_slider",
+      "label": "@react-native-community/slider",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "dependencies",
+      "file_type": "concept",
+      "norm_label": "@react-native-community/slider",
+      "source_file": "finance_mobile/package.json",
+      "source_location": "L10"
+    },
+    {
       "id": "react_native_screens",
       "label": "react-native-screens",
       "_origin": "ast",
@@ -7394,6 +7317,182 @@
       "norm_label": "react-native-vector-icons",
       "source_file": "finance_mobile/package.json",
       "source_location": "L24"
+    },
+    {
+      "id": "finance_mobile_package_dependencies_expo_linking",
+      "label": "expo-linking",
+      "_origin": "ast",
+      "community": 40,
+      "community_name": "expo-linking",
+      "file_type": "code",
+      "norm_label": "expo-linking",
+      "source_file": "finance_mobile/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "expo_linking",
+      "label": "expo-linking",
+      "_origin": "ast",
+      "community": 40,
+      "community_name": "expo-linking",
+      "file_type": "concept",
+      "norm_label": "expo-linking",
+      "source_file": "finance_mobile/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "app_api_routers_analytics",
+      "label": "analytics.py",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "analytics.py",
+      "source_file": "app/api/routers/analytics.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_api_routers_analytics_py_dbsession",
+      "label": "DbSession",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "dbsession",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_analytics_py_get",
+      "label": "get",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "get",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_analytics_py_post",
+      "label": "post",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "post",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_analytics_py_userdep",
+      "label": "UserDep",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "userdep",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_analytics_service",
+      "label": "analytics_service.py",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "analytics_service.py",
+      "source_file": "app/services/analytics_service.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_services_analytics_service_py_asyncsession",
+      "label": "AsyncSession",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "asyncsession",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_analytics_service_py_date",
+      "label": "date",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "date",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_analytics_service_py_decimal",
+      "label": "Decimal",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "decimal",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_analytics_service_py_exception",
+      "label": "Exception",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "exception",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_analytics_service_py_expense",
+      "label": "Expense",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "expense",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_analytics_service_py_uuid",
+      "label": "UUID",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "uuid",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "categoryanalytics",
+      "label": "CategoryAnalytics",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "categoryanalytics",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "domainexpense",
+      "label": "DomainExpense",
+      "_origin": "ast",
+      "community": 41,
+      "community_name": "analytics_service.py",
+      "file_type": "code",
+      "norm_label": "domainexpense",
+      "source_file": "",
+      "source_location": ""
     },
     {
       "id": "finance_mobile_app_savings_detail",
@@ -7426,7 +7525,7 @@
       "file_type": "code",
       "norm_label": "styles",
       "source_file": "finance_mobile/app/savings-detail.tsx",
-      "source_location": "L400"
+      "source_location": "L440"
     },
     {
       "id": "finance_mobile_app_tabs_analyse",
@@ -7569,7 +7668,29 @@
       "file_type": "code",
       "norm_label": "categories",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L36"
+      "source_location": "L45"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_icon_choices",
+      "label": "ICON_CHOICES",
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "icon_choices",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L529"
+    },
+    {
+      "id": "finance_mobile_app_tabs_budget_ring",
+      "label": "RING",
+      "_origin": "ast",
+      "community": 44,
+      "community_name": "budget.tsx",
+      "file_type": "code",
+      "norm_label": "ring",
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L325"
     },
     {
       "id": "finance_mobile_app_tabs_budget_styles",
@@ -7580,18 +7701,18 @@
       "file_type": "code",
       "norm_label": "styles",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L365"
+      "source_location": "L685"
     },
     {
-      "id": "finance_mobile_app_tabs_budget_rationale_349",
-      "label": "TODO: Navigation d\u00e9tail cat\u00e9gorie",
+      "id": "finance_mobile_app_tabs_budget_tint_choices",
+      "label": "TINT_CHOICES",
       "_origin": "ast",
       "community": 44,
       "community_name": "budget.tsx",
-      "file_type": "rationale",
-      "norm_label": "todo: navigation detail categorie",
+      "file_type": "code",
+      "norm_label": "tint_choices",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L349"
+      "source_location": "L542"
     },
     {
       "id": "finance_mobile_app_tabs_dashboard",
@@ -7701,7 +7822,7 @@
       "file_type": "code",
       "norm_label": "styles",
       "source_file": "finance_mobile/app/(tabs)/dashboard.tsx",
-      "source_location": "L538"
+      "source_location": "L545"
     },
     {
       "id": "finance_mobile_app_tabs_dashboard_weeks",
@@ -7801,28 +7922,6 @@
       "norm_label": "styles",
       "source_file": "finance_mobile/src/ui/components.tsx",
       "source_location": "L65"
-    },
-    {
-      "id": "finance_mobile_package_dependencies_react_native_community_slider",
-      "label": "@react-native-community/slider",
-      "_origin": "ast",
-      "community": 47,
-      "community_name": "@react-native-community/slider",
-      "file_type": "code",
-      "norm_label": "@react-native-community/slider",
-      "source_file": "finance_mobile/package.json",
-      "source_location": "L10"
-    },
-    {
-      "id": "react_native_community_slider",
-      "label": "@react-native-community/slider",
-      "_origin": "ast",
-      "community": 47,
-      "community_name": "@react-native-community/slider",
-      "file_type": "concept",
-      "norm_label": "@react-native-community/slider",
-      "source_file": "finance_mobile/package.json",
-      "source_location": "L10"
     },
     {
       "id": "finance_mobile_app_analyse_detail",
@@ -7935,18 +8034,29 @@
       "source_location": "L28"
     },
     {
-      "id": "app_api_routers_savings",
-      "label": "savings.py",
+      "id": "app_api_routers_incomes",
+      "label": "incomes.py",
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "savings.py",
-      "source_file": "app/api/routers/savings.py",
+      "norm_label": "incomes.py",
+      "source_file": "app/api/routers/incomes.py",
       "source_location": "L1"
     },
     {
-      "id": "app_api_routers_savings_py_dbsession",
+      "id": "app_api_routers_incomes_py_date",
+      "label": "date",
+      "_origin": "ast",
+      "community": 5,
+      "community_name": "common.py",
+      "file_type": "code",
+      "norm_label": "date",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_incomes_py_dbsession",
       "label": "DbSession",
       "_origin": "ast",
       "community": 5,
@@ -7957,7 +8067,7 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_savings_py_ge",
+      "id": "app_api_routers_incomes_py_ge",
       "label": "ge",
       "_origin": "ast",
       "community": 5,
@@ -7968,7 +8078,7 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_savings_py_get",
+      "id": "app_api_routers_incomes_py_get",
       "label": "get",
       "_origin": "ast",
       "community": 5,
@@ -7979,7 +8089,18 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_savings_py_le",
+      "id": "app_api_routers_incomes_py_incomecreate",
+      "label": "IncomeCreate",
+      "_origin": "ast",
+      "community": 5,
+      "community_name": "common.py",
+      "file_type": "code",
+      "norm_label": "incomecreate",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_incomes_py_le",
       "label": "le",
       "_origin": "ast",
       "community": 5,
@@ -7990,7 +8111,7 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_savings_py_post",
+      "id": "app_api_routers_incomes_py_post",
       "label": "post",
       "_origin": "ast",
       "community": 5,
@@ -8001,7 +8122,7 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_savings_py_query",
+      "id": "app_api_routers_incomes_py_query",
       "label": "Query",
       "_origin": "ast",
       "community": 5,
@@ -8012,35 +8133,13 @@
       "source_location": ""
     },
     {
-      "id": "app_api_routers_savings_py_savingsgoalcreate",
-      "label": "SavingsGoalCreate",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoalcreate",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_savings_py_userdep",
+      "id": "app_api_routers_incomes_py_userdep",
       "label": "UserDep",
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
       "norm_label": "userdep",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_savings_py_uuid",
-      "label": "UUID",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "uuid",
       "source_file": "",
       "source_location": ""
     },
@@ -8155,18 +8254,18 @@
       "source_location": "L1"
     },
     {
-      "id": "app_services_savings_service",
-      "label": "savings_service.py",
+      "id": "app_services_income_service",
+      "label": "income_service.py",
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "savings_service.py",
-      "source_file": "app/services/savings_service.py",
+      "norm_label": "income_service.py",
+      "source_file": "app/services/income_service.py",
       "source_location": "L1"
     },
     {
-      "id": "app_services_savings_service_py_asyncsession",
+      "id": "app_services_income_service_py_asyncsession",
       "label": "AsyncSession",
       "_origin": "ast",
       "community": 5,
@@ -8177,7 +8276,7 @@
       "source_location": ""
     },
     {
-      "id": "app_services_savings_service_py_date",
+      "id": "app_services_income_service_py_date",
       "label": "date",
       "_origin": "ast",
       "community": 5,
@@ -8188,40 +8287,18 @@
       "source_location": ""
     },
     {
-      "id": "app_services_savings_service_py_decimal",
-      "label": "Decimal",
+      "id": "app_services_income_service_py_incomecreate",
+      "label": "IncomeCreate",
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "decimal",
+      "norm_label": "incomecreate",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_savings_service_py_exception",
-      "label": "Exception",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "exception",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_savings_service_py_savingsgoalcreate",
-      "label": "SavingsGoalCreate",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoalcreate",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_savings_service_py_uuid",
+      "id": "app_services_income_service_py_uuid",
       "label": "UUID",
       "_origin": "ast",
       "community": 5,
@@ -8276,103 +8353,15 @@
       "source_location": ""
     },
     {
-      "id": "app_utils_savings_goal",
-      "label": "savings_goal.py",
+      "id": "income",
+      "label": "Income",
       "_origin": "ast",
       "community": 5,
       "community_name": "common.py",
       "file_type": "code",
-      "norm_label": "savings_goal.py",
-      "source_file": "app/utils/savings_goal.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_utils_savings_goal_py_decimal",
-      "label": "Decimal",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "decimal",
+      "norm_label": "income",
       "source_file": "",
       "source_location": ""
-    },
-    {
-      "id": "app_utils_savings_goal_py_strenum",
-      "label": "StrEnum",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "strenum",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "savingsgoal",
-      "label": "SavingsGoal",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoal",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "savingsgoalcontribute",
-      "label": "SavingsGoalContribute",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoalcontribute",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "savingsgoalcontributeread",
-      "label": "SavingsGoalContributeRead",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "savingsgoalcontributeread",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "tests_test_savings_goal_analysis",
-      "label": "test_savings_goal_analysis.py",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "code",
-      "norm_label": "test_savings_goal_analysis.py",
-      "source_file": "tests/test_savings_goal_analysis.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_services_savings_service_rationale_100",
-      "label": "Create compact, derived savings-goal data safe to send to the LLM.",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "rationale",
-      "norm_label": "create compact, derived savings-goal data safe to send to the llm.",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L100"
-    },
-    {
-      "id": "app_services_savings_service_rationale_83",
-      "label": "Return 1 for perfectly regular amounts and 0 for very irregular ones.",
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "common.py",
-      "file_type": "rationale",
-      "norm_label": "return 1 for perfectly regular amounts and 0 for very irregular ones.",
-      "source_file": "app/services/savings_service.py",
-      "source_location": "L83"
     },
     {
       "id": "finance_mobile_package_devdependencies",
@@ -8910,7 +8899,7 @@
       "label": "deps.py",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "deps.py",
       "source_file": "app/api/deps.py",
@@ -8921,7 +8910,7 @@
       "label": "AsyncSession",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "asyncsession",
       "source_file": "",
@@ -8932,7 +8921,7 @@
       "label": "User",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "user",
       "source_file": "",
@@ -8943,9 +8932,53 @@
       "label": "UUID",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "uuid",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_what_if",
+      "label": "routers/what_if.py",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "routers/what_if.py",
+      "source_file": "app/api/routers/what_if.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_api_routers_what_if_py_dbsession",
+      "label": "DbSession",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "dbsession",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_what_if_py_post",
+      "label": "post",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "post",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_what_if_py_userdep",
+      "label": "UserDep",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "userdep",
       "source_file": "",
       "source_location": ""
     },
@@ -8954,7 +8987,7 @@
       "label": "config.py",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "config.py",
       "source_file": "app/core/config.py",
@@ -8965,7 +8998,7 @@
       "label": "session.py",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "session.py",
       "source_file": "app/db/session.py",
@@ -8976,7 +9009,7 @@
       "label": "AsyncSession",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "asyncsession",
       "source_file": "",
@@ -8987,7 +9020,7 @@
       "label": "main.py",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "main.py",
       "source_file": "app/main.py",
@@ -8998,9 +9031,86 @@
       "label": "get",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "get",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_what_if",
+      "label": "services/what_if.py",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "services/what_if.py",
+      "source_file": "app/services/what_if.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_services_what_if_py_decimal",
+      "label": "Decimal",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "decimal",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_what_if_service",
+      "label": "what_if_service.py",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "what_if_service.py",
+      "source_file": "app/services/what_if_service.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_services_what_if_service_py_asyncsession",
+      "label": "AsyncSession",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "asyncsession",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_what_if_service_py_decimal",
+      "label": "Decimal",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "decimal",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_what_if_service_py_exception",
+      "label": "Exception",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "exception",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_what_if_service_py_uuid",
+      "label": "UUID",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "uuid",
       "source_file": "",
       "source_location": ""
     },
@@ -9009,7 +9119,7 @@
       "label": "async_sessionmaker",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "async_sessionmaker",
       "source_file": "",
@@ -9020,7 +9130,7 @@
       "label": "AsyncEngine",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "asyncengine",
       "source_file": "",
@@ -9031,7 +9141,7 @@
       "label": "BaseSettings",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "basesettings",
       "source_file": "",
@@ -9042,7 +9152,7 @@
       "label": "Depends",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "depends",
       "source_file": "",
@@ -9053,9 +9163,31 @@
       "label": "field_validator",
       "_origin": "ast",
       "community": 6,
-      "community_name": "deps.py",
+      "community_name": "what_if_service.py",
       "file_type": "code",
       "norm_label": "field_validator",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "tests_test_what_if",
+      "label": "test_what_if.py",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "test_what_if.py",
+      "source_file": "tests/test_what_if.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "whatifrequest",
+      "label": "WhatIfRequest",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "what_if_service.py",
+      "file_type": "code",
+      "norm_label": "whatifrequest",
       "source_file": "",
       "source_location": ""
     },
@@ -9211,7 +9343,40 @@
       "file_type": "code",
       "norm_label": "mock",
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L38"
+      "source_location": "L39"
+    },
+    {
+      "id": "finance_mobile_app_budget_details_opt_coefficient",
+      "label": "OPT_COEFFICIENT",
+      "_origin": "ast",
+      "community": 68,
+      "community_name": "budget-details.tsx",
+      "file_type": "code",
+      "norm_label": "opt_coefficient",
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L66"
+    },
+    {
+      "id": "finance_mobile_app_budget_details_opt_levels",
+      "label": "OPT_LEVELS",
+      "_origin": "ast",
+      "community": 68,
+      "community_name": "budget-details.tsx",
+      "file_type": "code",
+      "norm_label": "opt_levels",
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L54"
+    },
+    {
+      "id": "finance_mobile_app_budget_details_opt_meta",
+      "label": "OPT_META",
+      "_origin": "ast",
+      "community": 68,
+      "community_name": "budget-details.tsx",
+      "file_type": "code",
+      "norm_label": "opt_meta",
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L57"
     },
     {
       "id": "finance_mobile_app_budget_details_styles",
@@ -9222,7 +9387,7 @@
       "file_type": "code",
       "norm_label": "styles",
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L390"
+      "source_location": "L427"
     },
     {
       "id": "finance_mobile_app_simulation",
@@ -9310,7 +9475,7 @@
       "file_type": "code",
       "norm_label": "cpstyles",
       "source_file": "finance_mobile/app/(tabs)/savings.tsx",
-      "source_location": "L436"
+      "source_location": "L497"
     },
     {
       "id": "finance_mobile_app_tabs_savings_goals",
@@ -9332,7 +9497,7 @@
       "file_type": "code",
       "norm_label": "styles",
       "source_file": "finance_mobile/app/(tabs)/savings.tsx",
-      "source_location": "L193"
+      "source_location": "L267"
     },
     {
       "id": "finance_mobile_src_ui_theme",
@@ -9368,312 +9533,191 @@
       "source_location": "L20"
     },
     {
-      "id": "app_api_routers_analytics",
-      "label": "analytics.py",
+      "id": "app_api_routers_budget",
+      "label": "routers/budget.py",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
-      "norm_label": "analytics.py",
-      "source_file": "app/api/routers/analytics.py",
+      "norm_label": "routers/budget.py",
+      "source_file": "app/api/routers/budget.py",
       "source_location": "L1"
     },
     {
-      "id": "app_api_routers_analytics_py_dbsession",
+      "id": "app_api_routers_budget_py_dbsession",
       "label": "DbSession",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "dbsession",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_analytics_py_get",
+      "id": "app_api_routers_budget_py_get",
       "label": "get",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "get",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_analytics_py_post",
+      "id": "app_api_routers_budget_py_post",
       "label": "post",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "post",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_analytics_py_userdep",
+      "id": "app_api_routers_budget_py_put",
+      "label": "put",
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "budget_service.py",
+      "file_type": "code",
+      "norm_label": "put",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_budget_py_recommendationstatus",
+      "label": "RecommendationStatus",
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "budget_service.py",
+      "file_type": "code",
+      "norm_label": "recommendationstatus",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_budget_py_userdep",
       "label": "UserDep",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "userdep",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_what_if",
-      "label": "routers/what_if.py",
+      "id": "app_services_budget",
+      "label": "services/budget.py",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
-      "norm_label": "routers/what_if.py",
-      "source_file": "app/api/routers/what_if.py",
+      "norm_label": "services/budget.py",
+      "source_file": "app/services/budget.py",
       "source_location": "L1"
     },
     {
-      "id": "app_api_routers_what_if_py_dbsession",
-      "label": "DbSession",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "dbsession",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_what_if_py_post",
-      "label": "post",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "post",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_api_routers_what_if_py_userdep",
-      "label": "UserDep",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "userdep",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_analytics_engine_py_decimal",
+      "id": "app_services_budget_py_decimal",
       "label": "Decimal",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "decimal",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_analytics_service",
-      "label": "analytics_service.py",
+      "id": "app_services_budget_service",
+      "label": "budget_service.py",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
-      "norm_label": "analytics_service.py",
-      "source_file": "app/services/analytics_service.py",
+      "norm_label": "budget_service.py",
+      "source_file": "app/services/budget_service.py",
       "source_location": "L1"
     },
     {
-      "id": "app_services_analytics_service_py_asyncsession",
+      "id": "app_services_budget_service_py_asyncsession",
       "label": "AsyncSession",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "asyncsession",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_analytics_service_py_date",
-      "label": "date",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "date",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_analytics_service_py_decimal",
+      "id": "app_services_budget_service_py_decimal",
       "label": "Decimal",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "decimal",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_analytics_service_py_exception",
+      "id": "app_services_budget_service_py_exception",
       "label": "Exception",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "exception",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_analytics_service_py_expense",
-      "label": "Expense",
+      "id": "app_services_budget_service_py_recommendationstatus",
+      "label": "RecommendationStatus",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
-      "norm_label": "expense",
+      "norm_label": "recommendationstatus",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_analytics_service_py_uuid",
+      "id": "app_services_budget_service_py_uuid",
       "label": "UUID",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
       "norm_label": "uuid",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_what_if",
-      "label": "services/what_if.py",
+      "id": "budgetdecision",
+      "label": "BudgetDecision",
       "_origin": "ast",
       "community": 8,
-      "community_name": "analytics_service.py",
+      "community_name": "budget_service.py",
       "file_type": "code",
-      "norm_label": "services/what_if.py",
-      "source_file": "app/services/what_if.py",
+      "norm_label": "budgetdecision",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "tests_test_budget",
+      "label": "test_budget.py",
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "budget_service.py",
+      "file_type": "code",
+      "norm_label": "test_budget.py",
+      "source_file": "tests/test_budget.py",
       "source_location": "L1"
-    },
-    {
-      "id": "app_services_what_if_py_decimal",
-      "label": "Decimal",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "decimal",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_what_if_service",
-      "label": "what_if_service.py",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "what_if_service.py",
-      "source_file": "app/services/what_if_service.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_services_what_if_service_py_asyncsession",
-      "label": "AsyncSession",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "asyncsession",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_what_if_service_py_decimal",
-      "label": "Decimal",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "decimal",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_what_if_service_py_exception",
-      "label": "Exception",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "exception",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_what_if_service_py_uuid",
-      "label": "UUID",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "uuid",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "categoryanalytics",
-      "label": "CategoryAnalytics",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "categoryanalytics",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "domainexpense",
-      "label": "DomainExpense",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "domainexpense",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "tests_test_what_if",
-      "label": "test_what_if.py",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "test_what_if.py",
-      "source_file": "tests/test_what_if.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "whatifrequest",
-      "label": "WhatIfRequest",
-      "_origin": "ast",
-      "community": 8,
-      "community_name": "analytics_service.py",
-      "file_type": "code",
-      "norm_label": "whatifrequest",
-      "source_file": "",
-      "source_location": ""
     },
     {
       "id": "finance_mobile_package_dependencies_react_native_safe_area_context",
@@ -9698,191 +9742,301 @@
       "source_location": "L21"
     },
     {
-      "id": "app_api_routers_budget",
-      "label": "routers/budget.py",
+      "id": "app_api_routers_savings",
+      "label": "savings.py",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
-      "norm_label": "routers/budget.py",
-      "source_file": "app/api/routers/budget.py",
+      "norm_label": "savings.py",
+      "source_file": "app/api/routers/savings.py",
       "source_location": "L1"
     },
     {
-      "id": "app_api_routers_budget_py_dbsession",
+      "id": "app_api_routers_savings_py_dbsession",
       "label": "DbSession",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
       "norm_label": "dbsession",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_budget_py_get",
+      "id": "app_api_routers_savings_py_ge",
+      "label": "ge",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "ge",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_savings_py_get",
       "label": "get",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
       "norm_label": "get",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_budget_py_post",
+      "id": "app_api_routers_savings_py_le",
+      "label": "le",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "le",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_api_routers_savings_py_post",
       "label": "post",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
       "norm_label": "post",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_budget_py_put",
-      "label": "put",
+      "id": "app_api_routers_savings_py_query",
+      "label": "Query",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
-      "norm_label": "put",
+      "norm_label": "query",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_budget_py_recommendationstatus",
-      "label": "RecommendationStatus",
+      "id": "app_api_routers_savings_py_savingsgoalcreate",
+      "label": "SavingsGoalCreate",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
-      "norm_label": "recommendationstatus",
+      "norm_label": "savingsgoalcreate",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_api_routers_budget_py_userdep",
+      "id": "app_api_routers_savings_py_userdep",
       "label": "UserDep",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
       "norm_label": "userdep",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "app_services_budget",
-      "label": "services/budget.py",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "services/budget.py",
-      "source_file": "app/services/budget.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_services_budget_py_decimal",
-      "label": "Decimal",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "decimal",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_budget_service",
-      "label": "budget_service.py",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "budget_service.py",
-      "source_file": "app/services/budget_service.py",
-      "source_location": "L1"
-    },
-    {
-      "id": "app_services_budget_service_py_asyncsession",
-      "label": "AsyncSession",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "asyncsession",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_budget_service_py_decimal",
-      "label": "Decimal",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "decimal",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_budget_service_py_exception",
-      "label": "Exception",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "exception",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_budget_service_py_recommendationstatus",
-      "label": "RecommendationStatus",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "budget_service.py",
-      "file_type": "code",
-      "norm_label": "recommendationstatus",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "app_services_budget_service_py_uuid",
+      "id": "app_api_routers_savings_py_uuid",
       "label": "UUID",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
       "norm_label": "uuid",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "budgetdecision",
-      "label": "BudgetDecision",
+      "id": "app_services_analytics_engine_py_decimal",
+      "label": "Decimal",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
-      "norm_label": "budgetdecision",
+      "norm_label": "decimal",
       "source_file": "",
       "source_location": ""
     },
     {
-      "id": "tests_test_budget",
-      "label": "test_budget.py",
+      "id": "app_services_savings_service",
+      "label": "savings_service.py",
       "_origin": "ast",
       "community": 9,
-      "community_name": "budget_service.py",
+      "community_name": "savings_service.py",
       "file_type": "code",
-      "norm_label": "test_budget.py",
-      "source_file": "tests/test_budget.py",
+      "norm_label": "savings_service.py",
+      "source_file": "app/services/savings_service.py",
       "source_location": "L1"
+    },
+    {
+      "id": "app_services_savings_service_py_asyncsession",
+      "label": "AsyncSession",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "asyncsession",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_savings_service_py_date",
+      "label": "date",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "date",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_savings_service_py_decimal",
+      "label": "Decimal",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "decimal",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_savings_service_py_exception",
+      "label": "Exception",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "exception",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_savings_service_py_savingsgoalcreate",
+      "label": "SavingsGoalCreate",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingsgoalcreate",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_services_savings_service_py_uuid",
+      "label": "UUID",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "uuid",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_utils_savings_goal",
+      "label": "savings_goal.py",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savings_goal.py",
+      "source_file": "app/utils/savings_goal.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_utils_savings_goal_py_decimal",
+      "label": "Decimal",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "decimal",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "app_utils_savings_goal_py_strenum",
+      "label": "StrEnum",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "strenum",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "savingsgoal",
+      "label": "SavingsGoal",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingsgoal",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "savingsgoalcontribute",
+      "label": "SavingsGoalContribute",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingsgoalcontribute",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "savingsgoalcontributeread",
+      "label": "SavingsGoalContributeRead",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "savingsgoalcontributeread",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "tests_test_savings_goal_analysis",
+      "label": "test_savings_goal_analysis.py",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "code",
+      "norm_label": "test_savings_goal_analysis.py",
+      "source_file": "tests/test_savings_goal_analysis.py",
+      "source_location": "L1"
+    },
+    {
+      "id": "app_services_savings_service_rationale_100",
+      "label": "Create compact, derived savings-goal data safe to send to the LLM.",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "rationale",
+      "norm_label": "create compact, derived savings-goal data safe to send to the llm.",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L100"
+    },
+    {
+      "id": "app_services_savings_service_rationale_83",
+      "label": "Return 1 for perfectly regular amounts and 0 for very irregular ones.",
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "savings_service.py",
+      "file_type": "rationale",
+      "norm_label": "return 1 for perfectly regular amounts and 0 for very irregular ones.",
+      "source_file": "app/services/savings_service.py",
+      "source_location": "L83"
     }
   ],
   "links": [
@@ -12211,7 +12365,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "finance_mobile/app/savings-detail.tsx",
-      "source_location": "L207",
+      "source_location": "L208",
       "weight": 1.0
     },
     {
@@ -12223,7 +12377,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "finance_mobile/app/savings-detail.tsx",
-      "source_location": "L286",
+      "source_location": "L309",
       "weight": 1.0
     },
     {
@@ -12283,7 +12437,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L272",
+      "source_location": "L446",
       "weight": 1.0
     },
     {
@@ -12295,7 +12449,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L163",
+      "source_location": "L233",
       "weight": 1.0
     },
     {
@@ -16399,7 +16553,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L14",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -19015,7 +19169,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L14",
+      "source_location": "L19",
       "weight": 1.0
     },
     {
@@ -19027,7 +19181,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L15",
+      "source_location": "L20",
       "weight": 1.0
     },
     {
@@ -24242,13 +24396,24 @@
     },
     {
       "source": "finance_mobile_app_budget_details",
+      "target": "finance_mobile_app_budget_details_spendingchart",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L116",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_budget_details",
       "target": "finance_mobile_app_budget_details_budgetdetail",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L181",
+      "source_location": "L204",
       "weight": 1.0
     },
     {
@@ -24270,7 +24435,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1.0
     },
     {
@@ -24281,7 +24446,51 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L390",
+      "source_location": "L427",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_budget_details",
+      "target": "finance_mobile_app_budget_details_opt_levels",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L54",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_budget_details",
+      "target": "finance_mobile_app_budget_details_optlevel",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L55",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_budget_details",
+      "target": "finance_mobile_app_budget_details_opt_meta",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L57",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_budget_details",
+      "target": "finance_mobile_app_budget_details_opt_coefficient",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/budget-details.tsx",
+      "source_location": "L66",
       "weight": 1.0
     },
     {
@@ -24292,18 +24501,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L53",
-      "weight": 1.0
-    },
-    {
-      "source": "finance_mobile_app_budget_details",
-      "target": "finance_mobile_app_budget_details_spendingchart",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "finance_mobile/app/budget-details.tsx",
-      "source_location": "L93",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -24660,17 +24858,6 @@
     },
     {
       "source": "finance_mobile_app_savings_detail",
-      "target": "finance_mobile_app_savings_detail_styles",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "finance_mobile/app/savings-detail.tsx",
-      "source_location": "L400",
-      "weight": 1.0
-    },
-    {
-      "source": "finance_mobile_app_savings_detail",
       "target": "finance_mobile_app_savings_detail_mock",
       "relation": "contains",
       "_origin": "ast",
@@ -24678,6 +24865,17 @@
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/savings-detail.tsx",
       "source_location": "L41",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_savings_detail",
+      "target": "finance_mobile_app_savings_detail_styles",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/savings-detail.tsx",
+      "source_location": "L440",
       "weight": 1.0
     },
     {
@@ -25353,13 +25551,24 @@
     },
     {
       "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_animatedwavebar",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L106",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
       "target": "finance_mobile_app_tabs_budget_categorycard",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L134",
+      "source_location": "L202",
       "weight": 1.0
     },
     {
@@ -25370,18 +25579,29 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L21",
+      "source_location": "L26",
       "weight": 1.0
     },
     {
       "source": "finance_mobile_app_tabs_budget",
-      "target": "finance_mobile_app_tabs_budget_budget",
+      "target": "finance_mobile_app_tabs_budget_optlevel",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L211",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_toggle",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L298",
       "weight": 1.0
     },
     {
@@ -25392,7 +25612,40 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L23",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_ring",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L325",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_budgetring",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L327",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_budget",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L381",
       "weight": 1.0
     },
     {
@@ -25403,18 +25656,51 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L36",
+      "source_location": "L45",
       "weight": 1.0
     },
     {
       "source": "finance_mobile_app_tabs_budget",
-      "target": "finance_mobile_app_tabs_budget_styles",
+      "target": "finance_mobile_app_tabs_budget_icon_choices",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L365",
+      "source_location": "L529",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_tint_choices",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L542",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_addcategorymodalprops",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L551",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget",
+      "target": "finance_mobile_app_tabs_budget_addcategorymodal",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L557",
       "weight": 1.0
     },
     {
@@ -25425,7 +25711,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L49",
+      "source_location": "L57",
       "weight": 1.0
     },
     {
@@ -25436,18 +25722,29 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L56",
+      "source_location": "L64",
       "weight": 1.0
     },
     {
       "source": "finance_mobile_app_tabs_budget",
-      "target": "finance_mobile_app_tabs_budget_animatedbar",
+      "target": "finance_mobile_app_tabs_budget_styles",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L96",
+      "source_location": "L685",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_budget_addcategorymodal",
+      "target": "finance_mobile_app_tabs_budget_addcategorymodal_handlesave",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
+      "source_location": "L566",
       "weight": 1.0
     },
     {
@@ -25601,7 +25898,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/dashboard.tsx",
-      "source_location": "L538",
+      "source_location": "L545",
       "weight": 1.0
     },
     {
@@ -25672,24 +25969,24 @@
     },
     {
       "source": "finance_mobile_app_tabs_savings",
+      "target": "finance_mobile_app_tabs_savings_savings",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/savings.tsx",
+      "source_location": "L160",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_savings",
       "target": "finance_mobile_app_tabs_savings_styles",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/savings.tsx",
-      "source_location": "L193",
-      "weight": 1.0
-    },
-    {
-      "source": "finance_mobile_app_tabs_savings",
-      "target": "finance_mobile_app_tabs_savings_cpstyles",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "finance_mobile/app/(tabs)/savings.tsx",
-      "source_location": "L436",
+      "source_location": "L267",
       "weight": 1.0
     },
     {
@@ -25705,13 +26002,24 @@
     },
     {
       "source": "finance_mobile_app_tabs_savings",
-      "target": "finance_mobile_app_tabs_savings_savings",
+      "target": "finance_mobile_app_tabs_savings_cpstyles",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "finance_mobile/app/(tabs)/savings.tsx",
-      "source_location": "L78",
+      "source_location": "L497",
+      "weight": 1.0
+    },
+    {
+      "source": "finance_mobile_app_tabs_savings",
+      "target": "finance_mobile_app_tabs_savings_waveprogressbar",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "finance_mobile/app/(tabs)/savings.tsx",
+      "source_location": "L83",
       "weight": 1.0
     },
     {
@@ -28751,17 +29059,6 @@
       "weight": 1.0
     },
     {
-      "source": "finance_mobile_app_tabs_budget_rationale_349",
-      "target": "finance_mobile_app_tabs_budget",
-      "relation": "rationale_for",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "finance_mobile/app/(tabs)/budget.tsx",
-      "source_location": "L349",
-      "weight": 1.0
-    },
-    {
       "source": "opencode_plugins_graphify_rationale_4",
       "target": "opencode_plugins_graphify",
       "relation": "rationale_for",
@@ -29724,5 +30021,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "a712bdae28a592f6ba4c8e7ddb86043659b8d7f6"
+  "built_at_commit": "d3f0e78cfc696924582c78d41ab0a33dc1080225"
 }

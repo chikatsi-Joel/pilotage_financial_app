@@ -45,7 +45,7 @@ async def list_categories(
     user: UserDep,
     db: DbSession,
     cursor: Annotated[str | None, Query()] = None,
-    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     items, next_cursor, has_more = await category_service.list_by_user(
         user.id, db, cursor=cursor, limit=limit,

@@ -1,7 +1,13 @@
 import axios from "axios";
+import Constants from "expo-constants";
 
-const baseURL =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const envUrl = process.env.EXPO_PUBLIC_API_URL;
+
+const devHost = Constants.expoConfig?.hostUri?.split(":")[0];
+
+const baseURL = devHost
+  ? `http://${devHost}:8000/api/v1`
+  : envUrl || "http://localhost:8000/api/v1";
 
 const api = axios.create({
   baseURL,

@@ -27,7 +27,20 @@
     },
     "plugins": [
       "expo-router",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "L'accès à vos photos permet de scanner vos factures.",
+          "cameraPermission": "L'accès à la caméra permet de photographier vos factures."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "L'accès à la caméra permet de photographier vos factures."
+        }
+      ]
     ]
   }
 }

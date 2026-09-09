@@ -1,11 +1,42 @@
+import { useState } from "react";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { users } from "../src/shared/api/users";
+import { useAppStore } from "../src/shared/store";
 import { BrandMark } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 export default function Onboarding() {
+  const setAuth = useAppStore((s) => s.setAuth);
+  const [creating, setCreating] = useState(false);
+
+  async function start() {
+    setCreating(true);
+    try {
+      const user = await users.create({
+        name: "Utilisateur",
+        currency: "XAF",
+      });
+      setAuth(user.id, user.name, user.currency);
+      router.replace("/dashboard");
+    } catch {
+      setCreating(false);
+      Alert.alert(
+        "Serveur injoignable",
+        "Démarrez le backend (uvicorn app.main:app) puis réessayez."
+      );
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
@@ -18,8 +49,16 @@ export default function Onboarding() {
         </View>
         <View style={styles.bottom}>
           <View style={styles.dots}><View style={[styles.dot, styles.dotActive]} /><View style={styles.dot} /><View style={styles.dot} /></View>
-          <Pressable onPress={() => router.replace("/dashboard")} style={styles.button}>
-            <Text style={styles.buttonText}>Commencer</Text>
+          <Pressable
+            onPress={start}
+            disabled={creating}
+            style={[styles.button, creating && styles.buttonDisabled]}
+          >
+            {creating ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonText}>Commencer</Text>
+            )}
           </Pressable>
           <Text style={styles.helper}>Une vision plus claire, à votre rythme.</Text>
         </View>
@@ -32,6 +71,7 @@ const styles = StyleSheet.create({
   bottom: { gap: 18 },
   brand: { color: colors.primary },
   button: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, shadowColor: colors.primary, shadowOpacity: 0.22, shadowRadius: 12 },
+  buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
   content: { flex: 1, justifyContent: "space-between", padding: 24 },
   copy: { alignItems: "center", gap: 16 },

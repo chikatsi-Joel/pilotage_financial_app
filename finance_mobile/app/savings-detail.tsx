@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Svg, {
   Circle,
   Defs,
@@ -192,6 +192,13 @@ const TrajectoryChart = () => {
 //  Page principale
 /* ------------------------------------------------------------------ */
 
+type DetailParams = {
+  goal?: string;
+  current?: string;
+  target?: string;
+  deadline?: string;
+};
+
 export default function SavingsDetail() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [showAll, setShowAll] = React.useState(false);
@@ -201,7 +208,14 @@ export default function SavingsDetail() {
     setTimeout(() => setRefreshing(false), 1200);
   }, []);
 
-  const goal = MOCK.goal;
+  const params = useLocalSearchParams<DetailParams>();
+  const goal = {
+    ...MOCK.goal,
+    name: params.goal ?? MOCK.goal.name,
+    current: params.current ? Number(params.current) : MOCK.goal.current,
+    target: params.target ? Number(params.target) : MOCK.goal.target,
+    deadline: params.deadline ?? MOCK.goal.deadline,
+  };
   const contributions = MOCK.contributions;
 
   const pct = Math.round((goal.current / goal.target) * 100);

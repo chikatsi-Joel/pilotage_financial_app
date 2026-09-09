@@ -5,7 +5,7 @@ import { colors } from "../../src/ui/theme";
 
 const icons = {
   dashboard: "view-dashboard-outline",
-  analyse: "chart-timeline-variant-shimmer",
+  analyse: "receipt-text-outline",
   budget: "wallet-outline",
   savings: "piggy-bank-outline",
 } as const;
@@ -42,7 +42,7 @@ export default function TabLayout() {
       })}
     >
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
-      <Tabs.Screen name="analyse" options={{ title: "Analyse" }} />
+      <Tabs.Screen name="analyse" options={{ title: "Dépenses" }} />
       <Tabs.Screen name="budget" options={{ title: "Budget" }} />
       <Tabs.Screen name="savings" options={{ title: "Épargne" }} />
     </Tabs>

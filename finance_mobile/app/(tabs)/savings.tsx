@@ -1,40 +1,93 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router } from "expo-router";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
+import { savings as savingsApi } from "../../src/shared/api/savings";
+import { useAppStore } from "../../src/shared/store";
 
-const GOALS = [
+type Goal = {
+  name: string;
+  sub: string;
+  icon: string;
+  current: number;
+  target: number;
+  deadline: string;
+};
+
+const dateInMonths = (months: number) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + months);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const GOALS: Goal[] = [
   {
     name: "Achat Appartement",
     sub: "Apport personnel",
     icon: "home",
-    pct: "46%",
-    pctNum: 0.46,
-    current: "18 500 €",
-    target: "40 000 €",
+    current: 18500,
+    target: 40000,
+    deadline: dateInMonths(18),
   },
   {
     name: "Vacances Japon",
     sub: "Prévu en Octobre",
     icon: "flight-takeoff",
-    pct: "75%",
-    pctNum: 0.75,
-    current: "2 250 €",
-    target: "3 000 €",
+    current: 2250,
+    target: 3000,
+    deadline: dateInMonths(6),
   },
   {
     name: "Fonds d'urgence",
     sub: "Sécurité",
     icon: "health-and-safety",
-    pct: "34%",
-    pctNum: 0.34,
-    current: "1 700 €",
-    target: "5 000 €",
+    current: 1700,
+    target: 5000,
+    deadline: dateInMonths(12),
   },
+];
+
+const GOAL_ICONS = [
+  "home",
+  "flight-takeoff",
+  "health-and-safety",
+  "savings",
+  "beach-access",
+  "card-giftcard",
+  "school",
+  "directions-car",
 ] as const;
+
+const formatEur = (n: number) =>
+  new Intl.NumberFormat("fr-FR").format(n) + " €";
+
+const goalPct = (g: { current: number; target: number }) => {
+  if (g.target <= 0) return 0;
+  return Math.round((g.current / g.target) * 100);
+};
+
+const goalPctNum = (g: { current: number; target: number }) => {
+  if (g.target <= 0) return 0;
+  return Math.min(g.current / g.target, 1);
+};
 
 const cpSize = 48;
 const cpStroke = 4;
@@ -158,6 +211,82 @@ function WaveProgressBar({
 }
 
 export default function Savings() {
+  const [goals, setGoals] = useState<Goal[]>(GOALS);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState("");
+  const [createVisible, setCreateVisible] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newSub, setNewSub] = useState("");
+  const [newTarget, setNewTarget] = useState("");
+  const [newIcon, setNewIcon] = useState<string>(GOAL_ICONS[0]);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const userId = useAppStore((s) => s.userId);
+
+  const editing = editIndex !== null ? goals[editIndex] : null;
+  const editAmount = parseFloat(editTarget.replace(",", "."));
+  const canSaveEdit =
+    Number.isFinite(editAmount) && editAmount > 0;
+
+  const createAmount = parseFloat(newTarget.replace(",", "."));
+  const canSaveCreate =
+    newName.trim().length > 0 &&
+    Number.isFinite(createAmount) &&
+    createAmount > 0;
+
+  function openEdit(index: number) {
+    setEditIndex(index);
+    setEditTarget(goals[index].target.toString());
+  }
+
+  function saveEdit() {
+    if (editIndex === null || !canSaveEdit) return;
+    setGoals((prev) =>
+      prev.map((g, i) =>
+        i === editIndex
+          ? { ...g, target: Math.round(editAmount * 100) / 100 }
+          : g
+      )
+    );
+    setEditIndex(null);
+  }
+
+  async function createGoal() {
+    if (!canSaveCreate || creating) return;
+    if (!userId) {
+      setCreateError("Session non initialisée. Repassez par l'onboarding.");
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const created = await savingsApi.create(userId, {
+        name: newName.trim(),
+        description: newSub.trim() || undefined,
+        target_amount: Math.round(createAmount * 100) / 100,
+        deadline: dateInMonths(12),
+      });
+      setGoals((prev) => [
+        {
+          name: created.name,
+          sub: created.description || "Nouvel objectif",
+          icon: newIcon,
+          current: Number(created.current_amount) || 0,
+          target: Number(created.target_amount),
+          deadline: created.deadline,
+        },
+        ...prev,
+      ]);
+      setCreateVisible(false);
+    } catch {
+      setCreateError(
+        "Impossible de créer l'objectif. Vérifiez que le serveur est démarré."
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <ScrollView
@@ -188,10 +317,38 @@ export default function Savings() {
         </View>
 
         {/* ── Goals ── */}
-        <Text style={styles.goalsTitle}>Vos objectifs</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.goalsTitle}>Vos objectifs</Text>
+          <Pressable
+            onPress={() => setCreateVisible(true)}
+            hitSlop={6}
+            style={styles.addGoalBtn}
+            accessibilityLabel="Créer un nouvel objectif"
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons
+              name="plus"
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={styles.addGoalText}>Ajouter</Text>
+          </Pressable>
+        </View>
         <View style={styles.goalsList}>
-          {GOALS.map((g, i) => (
-            <Link key={g.name} href="/savings-detail" asChild>
+          {goals.map((g, i) => (
+            <Link
+              key={g.name}
+              asChild
+              href={{
+                pathname: "/savings-detail",
+                params: {
+                  goal: g.name,
+                  current: g.current.toString(),
+                  target: g.target.toString(),
+                  deadline: g.deadline,
+                },
+              }}
+            >
               <Pressable>
                 <View style={styles.goalCard}>
                   <View style={styles.goalTop}>
@@ -208,15 +365,32 @@ export default function Savings() {
                         <Text style={styles.goalSub}>{g.sub}</Text>
                       </View>
                     </View>
-                    <View style={styles.goalPctBadge}>
-                      <Text style={styles.goalPctText}>{g.pct}</Text>
+                    <View style={styles.goalTopActions}>
+                      <View style={styles.goalPctBadge}>
+                        <Text style={styles.goalPctText}>{goalPct(g)}%</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => openEdit(i)}
+                        hitSlop={8}
+                        accessibilityLabel={`Augmenter l'objectif ${g.name}`}
+                        accessibilityRole="button"
+                      >
+                        <MaterialCommunityIcons
+                          name="pencil-outline"
+                          size={18}
+                          color={colors.textMuted}
+                        />
+                      </Pressable>
                     </View>
                   </View>
                   <View style={styles.goalBottom}>
-                    <WaveProgressBar pct={g.pctNum} gradId={`wave-grad-${i}`} />
+                    <WaveProgressBar
+                      pct={goalPctNum(g)}
+                      gradId={`wave-grad-${i}`}
+                    />
                     <View style={styles.goalAmounts}>
-                      <Text style={styles.goalCurrent}>{g.current}</Text>
-                      <Text style={styles.goalTarget}>{g.target}</Text>
+                      <Text style={styles.goalCurrent}>{formatEur(g.current)}</Text>
+                      <Text style={styles.goalTarget}>{formatEur(g.target)}</Text>
                     </View>
                   </View>
                 </View>
@@ -253,6 +427,163 @@ export default function Savings() {
 
         <View style={{ height: 96 }} />
       </ScrollView>
+
+      {/* ── Modal: augmenter l'objectif ── */}
+      <Modal
+        visible={editIndex !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditIndex(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismiss} onPress={() => setEditIndex(null)} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalKeyboard}
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Augmenter l'objectif</Text>
+              {editing && <Text style={styles.modalGoal}>{editing.name}</Text>}
+              <Text style={styles.modalCurrent}>
+                Objectif actuel : {formatEur(editing ? editing.target : 0)} ·{" "}
+                {formatEur(editing ? editing.current : 0)} épargnés
+              </Text>
+
+              <Text style={styles.fieldLabel}>Nouvel objectif (€)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editTarget}
+                onChangeText={(t) => setEditTarget(t.replace(/[^0-9,]/g, ""))}
+                placeholder="Ex : 50 000"
+                placeholderTextColor={`${colors.textMuted}80`}
+                keyboardType="numeric"
+              />
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={styles.modalCancel}
+                  onPress={() => setEditIndex(null)}
+                >
+                  <Text style={styles.modalCancelText}>Annuler</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalSave, { opacity: canSaveEdit ? 1 : 0.5 }]}
+                  onPress={saveEdit}
+                  disabled={!canSaveEdit}
+                >
+                  <Text style={styles.modalSaveText}>Enregistrer</Text>
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* ── Modal: créer un objectif ── */}
+      <Modal
+        visible={createVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCreateVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalDismiss}
+            onPress={() => setCreateVisible(false)}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalKeyboard}
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Nouvel objectif</Text>
+              <Text style={styles.modalGoal}>Créez votre objectif d'épargne</Text>
+
+              <Text style={styles.fieldLabel}>Nom</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="Ex : Nouvelle voiture"
+                placeholderTextColor={`${colors.textMuted}80`}
+              />
+
+              <Text style={styles.fieldLabel}>Libellé (optionnel)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={newSub}
+                onChangeText={setNewSub}
+                placeholder="Ex : Apport personnel"
+                placeholderTextColor={`${colors.textMuted}80`}
+              />
+
+              <Text style={styles.fieldLabel}>Objectif (€)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={newTarget}
+                onChangeText={(t) =>
+                  setNewTarget(t.replace(/[^0-9,]/g, ""))
+                }
+                placeholder="Ex : 12 000"
+                placeholderTextColor={`${colors.textMuted}80`}
+                keyboardType="numeric"
+              />
+
+              <Text style={styles.fieldLabel}>Icône</Text>
+              <View style={styles.iconChoiceRow}>
+                {GOAL_ICONS.map((icon) => (
+                  <Pressable
+                    key={icon}
+                    onPress={() => setNewIcon(icon)}
+                    style={[
+                      styles.iconChoice,
+                      newIcon === icon && styles.iconChoiceActive,
+                    ]}
+                  >
+                    <MaterialIcons
+                      color={
+                        newIcon === icon ? colors.primary : colors.textMuted
+                      }
+                      name={icon as any}
+                      size={20}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+
+              {createError && (
+                <Text style={styles.createErrorText}>{createError}</Text>
+              )}
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={styles.modalCancel}
+                  onPress={() => setCreateVisible(false)}
+                  disabled={creating}
+                >
+                  <Text style={styles.modalCancelText}>Annuler</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.modalSave,
+                    { opacity: canSaveCreate && !creating ? 1 : 0.5 },
+                  ]}
+                  onPress={createGoal}
+                  disabled={!canSaveCreate || creating}
+                >
+                  {creating ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>Créer</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* ── FAB ── */}
       {/* <Pressable style={styles.fab}
@@ -338,6 +669,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
   },
+  sectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  addGoalBtn: {
+    alignItems: "center",
+    backgroundColor: `${colors.primary}1A`,
+    borderRadius: 99,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addGoalText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   goalsList: { gap: 16 },
   goalCard: {
     backgroundColor: colors.surface,
@@ -378,6 +728,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  goalTopActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   goalPctText: {
     color: colors.primary,
@@ -492,6 +847,111 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.5,
   },
+
+  /* Modal */
+  modalBackdrop: {
+    backgroundColor: "rgba(11,28,48,0.45)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalKeyboard: { flex: 1, justifyContent: "flex-end" },
+  modalDismiss: {
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  modalCard: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  modalHandle: {
+    alignSelf: "center",
+    backgroundColor: colors.border,
+    borderRadius: 99,
+    height: 4,
+    marginBottom: 16,
+    width: 44,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalGoal: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  modalCurrent: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  fieldLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 18,
+    textTransform: "uppercase",
+  },
+  fieldInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  iconChoiceRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  iconChoice: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 99,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  iconChoiceActive: {
+    backgroundColor: `${colors.primary}1A`,
+    borderColor: colors.primary,
+  },
+  modalActions: { flexDirection: "row", gap: 12, marginTop: 24 },
+  createErrorText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 14,
+  },
+  modalCancel: {
+    alignItems: "center",
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  modalCancelText: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  modalSave: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  modalSaveText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 });
 
 const cpStyles = StyleSheet.create({

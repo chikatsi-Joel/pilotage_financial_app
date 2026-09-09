@@ -70,6 +70,65 @@ const OPT_COEFFICIENT: Record<OptLevel, string> = {
   high: "1,00",
 };
 
+const formatXaf = (n: number) =>
+  new Intl.NumberFormat("fr-FR").format(n) + " XAF";
+
+/* ------------------------------------------------------------------ */
+//  Dépenses de la catégorie (mock par catégorie)
+/* ------------------------------------------------------------------ */
+
+type CategoryExpense = {
+  id: string;
+  title: string;
+  date: string;
+  amount: number;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconBg: string;
+  iconColor: string;
+  pill?: string;
+  pillBg?: string;
+  pillColor?: string;
+};
+
+const DEFAULT_EXPENSES: CategoryExpense[] = [
+  { id: "d1", title: "Achat en ligne", date: "29 août", amount: 3490, icon: "shopping", iconBg: "#E3E1ED", iconColor: "#64636D", pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
+  { id: "d2", title: "Paiement carte", date: "22 août", amount: 1200, icon: "credit-card", iconBg: "#E3E1ED", iconColor: "#64636D" },
+  { id: "d3", title: "Paiement mobile", date: "16 août", amount: 850, icon: "cellphone", iconBg: "#E3E1ED", iconColor: "#64636D" },
+];
+
+const MOCK_EXPENSES: Record<string, CategoryExpense[]> = {
+  "Logement & Charges": [
+    { id: "l1", title: "Loyer Appartement", date: "30 août", amount: 114000, icon: "home", iconBg: "#DCE9FF", iconColor: colors.primary, pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
+    { id: "l2", title: "EDF - Électricité", date: "22 août", amount: 6200, icon: "lightning-bolt", iconBg: "#FFF0D7", iconColor: colors.warning, pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
+    { id: "l3", title: "Internet - Orange", date: "18 août", amount: 2999, icon: "wifi", iconBg: "#E3E1ED", iconColor: "#64636D", pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
+    { id: "l4", title: "Eau - Société Camerounaise", date: "05 août", amount: 1800, icon: "water", iconBg: "#DCE9FF", iconColor: colors.primary },
+  ],
+  Alimentation: [
+    { id: "a1", title: "Carrefour - Courses", date: "29 août", amount: 9640, icon: "cart", iconBg: "#E3E1ED", iconColor: "#64636D", pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
+    { id: "a2", title: "Marché Central", date: "24 août", amount: 4250, icon: "shopping", iconBg: "#E3E1ED", iconColor: "#64636D" },
+    { id: "a3", title: "Restaurant Le Papaye", date: "12 août", amount: 3500, icon: "silverware-fork-knife", iconBg: "#D3BBFF30", iconColor: colors.accent, pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
+    { id: "a4", title: "Carrefour Market", date: "06 août", amount: 7800, icon: "cart", iconBg: "#E3E1ED", iconColor: "#64636D" },
+  ],
+  Transports: [
+    { id: "t1", title: "TotalEnergies - Essence", date: "27 août", amount: 5500, icon: "gas-station", iconBg: "#E3E1ED", iconColor: "#64636D" },
+    { id: "t2", title: "Course Uber", date: "20 août", amount: 1800, icon: "car", iconBg: "#E3E1ED", iconColor: "#64636D" },
+    { id: "t3", title: "Abonnement transport", date: "02 août", amount: 2500, icon: "bus", iconBg: "#DCE9FF", iconColor: colors.primary, pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
+  ],
+  "Loisirs & Sorties": [
+    { id: "lo1", title: "Cinéma Pathé", date: "28 août", amount: 2200, icon: "movie", iconBg: "#D3BBFF30", iconColor: colors.accent },
+    { id: "lo2", title: "Restaurant La Paillote", date: "19 août", amount: 6000, icon: "silverware-fork-knife", iconBg: "#D3BBFF30", iconColor: colors.accent, pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
+    { id: "lo3", title: "Session Bowling", date: "15 août", amount: 3800, icon: "bowling", iconBg: "#E3E1ED", iconColor: "#64636D" },
+  ],
+  Santé: [
+    { id: "s1", title: "Pharmacie de la Poste", date: "21 août", amount: 4100, icon: "medical-bag", iconBg: "#DCE9FF", iconColor: colors.primary, pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
+    { id: "s2", title: "Consultation Dresseur", date: "10 août", amount: 3000, icon: "hospital-building", iconBg: "#E3E1ED", iconColor: "#64636D" },
+  ],
+  Épargne: [
+    { id: "e1", title: "Virement automatique", date: "28 août", amount: 25000, icon: "piggy-bank", iconBg: "#FFF0D7", iconColor: colors.warning, pill: "Automatique", pillBg: "#FFF0D7", pillColor: colors.warning },
+    { id: "e2", title: "Dépôt Livret A", date: "28 août", amount: 15000, icon: "bank", iconBg: "#DCE9FF", iconColor: colors.primary },
+  ],
+};
+
 /* ------------------------------------------------------------------ */
 //  Animation d'entrée
 /* ------------------------------------------------------------------ */
@@ -214,6 +273,7 @@ export default function BudgetDetail() {
       ? params.opt
       : "medium";
   const optMeta = OPT_META[optLevel];
+  const expenses = MOCK_EXPENSES[category] ?? DEFAULT_EXPENSES;
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -368,6 +428,41 @@ export default function BudgetDetail() {
                 <Text style={styles.perspectiveBadgeText}>{optMeta.label}</Text>
               </View>
             </View>
+          </View>
+        </FadeIn>
+
+
+        {/* ── Dépenses de la catégorie ── */}
+        <FadeIn delay={350}>
+          <Text style={styles.sectionEyebrow}>Dépenses du mois</Text>
+          <View style={styles.expensesList}>
+            {expenses.map((tx) => (
+              <View key={tx.id} style={styles.txCard}>
+                <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
+                  <MaterialCommunityIcons
+                    name={tx.icon}
+                    size={22}
+                    color={tx.iconColor}
+                  />
+                </View>
+                <View style={styles.txContent}>
+                  <Text style={styles.txTitle} numberOfLines={1}>
+                    {tx.title}
+                  </Text>
+                  <Text style={styles.txDate}>{tx.date}</Text>
+                </View>
+                <View style={styles.txRight}>
+                  <Text style={styles.txAmount}>-{formatXaf(tx.amount)}</Text>
+                  {tx.pill && (
+                    <View style={[styles.txPill, { backgroundColor: tx.pillBg }]}>
+                      <Text style={[styles.txPillText, { color: tx.pillColor }]}>
+                        {tx.pill}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))}
           </View>
         </FadeIn>
 
@@ -624,6 +719,36 @@ const styles = StyleSheet.create({
     marginTop: 24,
     textTransform: "uppercase",
   },
+
+  /* Dépenses de la catégorie */
+  expensesList: { gap: 10 },
+  txCard: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  txIcon: {
+    alignItems: "center",
+    borderRadius: 99,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  txContent: { flex: 1, gap: 2, minWidth: 0 },
+  txTitle: { color: colors.text, fontSize: 15, fontWeight: "500" },
+  txDate: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  txRight: { alignItems: "flex-end", gap: 4 },
+  txAmount: { color: colors.text, fontSize: 15, fontWeight: "700" },
+  txPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  txPillText: { fontSize: 11, fontWeight: "700" },
   perspectivesRow: {
     flexDirection: "row",
     gap: 12,

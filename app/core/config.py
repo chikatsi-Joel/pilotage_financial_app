@@ -8,7 +8,12 @@ class Settings(BaseSettings):
     app_name: str = "personal-finance-pilotage-api"
     environment: str = "development"
     database_url: str = "postgresql+asyncpg://finance:finance@localhost:5432/finance"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "http://localhost:19000",
+        "http://localhost:19006",
+    ]
     analytics_lookback_months: int = 6
     min_history_months_for_baseline: int = 3
     attention_deviation_threshold: float = 0.20
