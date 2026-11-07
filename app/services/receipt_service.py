@@ -71,7 +71,8 @@ async def scan_receipt(
             base64.b64encode(image_bytes).decode("ascii"), known,
         )
         log.info("Result of Ollama: %s", result)
-    except Exception:  # noqa: BLE001 - degrade silencieusement vers un scan vide
+    except Exception:  # noqa: BLE001 - dégrade vers un scan vide, mais journalisé
+        log.exception("Receipt scan failed for user %s", user_id)
         return {**EMPTY_SCAN, "fallback": True}
 
     return {
