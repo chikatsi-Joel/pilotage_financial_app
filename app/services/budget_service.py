@@ -249,17 +249,9 @@ async def decide_budget(
     if not budget:
         raise NotFound("Budget not found")
 
-    if (
-        accepted_total + accepted_savings > 0
-        and accepted_total + accepted_savings
-        > Decimal("0")
-    ):
-        income, _ = await get_period_totals(
-            user_id, period, db
-        )
-        if (
-            accepted_total + accepted_savings > income
-        ):
+    if accepted_total + accepted_savings > 0:
+        income, _ = await get_period_totals(user_id, period, db)
+        if accepted_total + accepted_savings > income:
             raise BusinessRule(
                 "Accepted expenses plus savings "
                 "exceed projected income"

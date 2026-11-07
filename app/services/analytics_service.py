@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, literal
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -116,6 +116,47 @@ async def _sum_amount(
     return sum(result.scalars().all(), Decimal("0"))
 
 
+async def _income_total(
+    db: AsyncSession, user_id: UUID, start: date, end: date
+) -> Decimal:
+    """A recurring income is a monthly base; one-off incomes count in their own month only."""
+    recurring_result = await db.execute(
+        select(func.coalesce(func.sum(Income.amount), Decimal("0"))).where(
+            Income.user_id == user_id,
+            Income.active.is_(True),
+            Income.recurring.is_(True),
+            Income.income_date <= end,
+        )
+    )
+    one_off_result = await db.execute(
+        select(func.coalesce(func.sum(Income.amount), Decimal("0"))).where(
+            Income.user_id == user_id,
+            Income.active.is_(True),
+            Income.recurring.is_(False),
+            Income.income_date.between(start, end),
+        )
+    )
+    return money(recurring_result.scalar_one()) + money(
+        one_off_result.scalar_one()
+    )
+
+
+async def _contributions_total(
+    db: AsyncSession, user_id: UUID, start: date, end: date
+) -> Decimal:
+    """Money already moved into savings goals during the period."""
+    result = await db.execute(
+        select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")))
+        .join(SavingsGoal)
+        .where(
+            SavingsGoal.user_id == user_id,
+            SavingsContribution.created_at >= start,
+            SavingsContribution.created_at < end + timedelta(days=1),
+        )
+    )
+    return money(result.scalar_one())
+
+
 def _shift_period(period: str) -> str:
     year, month = map(int, period.split("-"))
     if month == 1:
@@ -209,28 +250,11 @@ async def _dashboard_extra(
 
     # income + expense du mois précédent en un seul aller-retour (UNION ALL)
     prev_start, prev_end = month_bounds(_shift_period(period))
-    prev_result = await db.execute(
-        select(
-            literal("income").label("kind"),
-            func.coalesce(func.sum(Income.amount), Decimal("0")),
-        )
-        .where(
-            Income.user_id == user_id,
-            Income.income_date.between(prev_start, prev_end),
-        )
-        .union_all(
-            select(
-                literal("expense"),
-                func.coalesce(func.sum(Expense.amount), Decimal("0")),
-            ).where(
-                Expense.user_id == user_id,
-                Expense.expense_date.between(prev_start, prev_end),
-            )
-        )
+    prev_income = await _income_total(db, user_id, prev_start, prev_end)
+    prev_expense = await _sum_amount(
+        db, Expense, user_id, Expense.expense_date,
+        prev_start, prev_end,
     )
-    prev_totals = dict(prev_result.all())
-    prev_income = prev_totals.get("income", Decimal("0"))
-    prev_expense = prev_totals.get("expense", Decimal("0"))
     prev_savings = prev_income - prev_expense
 
     monthly_variation = (
@@ -339,15 +363,14 @@ async def get_dashboard(
 ) -> DashboardRead:
     start, end = month_bounds(period)
 
-    income_total = await _sum_amount(
-        db, Income, user_id, Income.income_date,
-        start, end,
-    )
+    income_total = await _income_total(db, user_id, start, end)
     expense_total = await _sum_amount(
         db, Expense, user_id, Expense.expense_date,
         start, end,
     )
     savings = income_total - expense_total
+    contributions = await _contributions_total(db, user_id, start, end)
+    remaining = income_total - expense_total - contributions
     savings_rate = (
         (savings / income_total).quantize(
             Decimal("0.00001")
@@ -378,6 +401,8 @@ async def get_dashboard(
         income=money(income_total),
         expenses=money(expense_total),
         savings=money(savings),
+        remaining_balance=money(remaining),
+        contributions=money(contributions),
         savings_rate=savings_rate,
         categories_in_drift=len(drifts),
         potential_savings=money(
@@ -403,10 +428,7 @@ async def refresh_analytics(
         user_id, period, db
     )
 
-    income = await _sum_amount(
-        db, Income, user_id, Income.income_date,
-        start, end,
-    )
+    income = await _income_total(db, user_id, start, end)
     expense = await _sum_amount(
         db, Expense, user_id, Expense.expense_date,
         start, end,
@@ -487,7 +509,11 @@ async def refresh_analytics(
             ),
             current_amount=money(a.current_amount),
             estimated_saving=money(a.potential_saving),
-            profile_data=_profile_to_dict(p),
+            profile_data=_profile_to_dict(p)
+            | {
+                "essential": a.essential,
+                "opportunity_score": a.opportunity_score,
+            },
         )
         if existing is None:
             db.add(CategoryAnalytics(**values))
@@ -518,10 +544,7 @@ async def get_period_totals(
     user_id: UUID, period: str, db: AsyncSession
 ) -> tuple[Decimal, Decimal]:
     start, end = month_bounds(period)
-    income = await _sum_amount(
-        db, Income, user_id, Income.income_date,
-        start, end,
-    )
+    income = await _income_total(db, user_id, start, end)
     expense = await _sum_amount(
         db, Expense, user_id, Expense.expense_date,
         start, end,
@@ -550,8 +573,21 @@ async def invalidate_snapshots(
 
 def _snapshot_to_category_read(
     row: CategoryAnalytics,
+    category: Category | None = None,
 ) -> CategoryAnalyticsRead:
+    """Reconstruit la lecture analytics depuis le cache.
+
+    `essential` et `opportunity_score` sont persistés dans `profile_data` ;
+    pour les anciennes lignes sans ces clés, on retombe sur la catégorie.
+    """
     p = row.profile_data or {}
+    if "essential" in p:
+        essential = bool(p["essential"])
+    else:
+        essential = (
+            category is not None
+            and category.essentiality.value == "ESSENTIAL"
+        )
     forecast = p.get("forecast", {})
     profile = TimeSeriesProfileRead(
         level=p.get("level", 0.0),
@@ -571,10 +607,10 @@ def _snapshot_to_category_read(
     )
     return CategoryAnalyticsRead(
         category_id=row.category_id,
-        name="",
+        name=category.name if category else "",
         description="",
         period=row.period,
-        essential=row.trend_direction is not None,
+        essential=essential,
         current_amount=float(row.current_amount),
         baseline_amount=float(row.baseline) if row.baseline else 0.0,
         expected_amount=float(row.current_amount - row.deviation),
@@ -584,13 +620,13 @@ def _snapshot_to_category_read(
             else 0.0
         ),
         potential_saving=float(row.estimated_saving),
-        opportunity_score=0.0,
+        opportunity_score=float(p.get("opportunity_score", 0.0)),
         profile=profile,
     )
 
 
 async def get_category_analytics_snapshot(
-    user_id: UUID, period: str, db: AsyncSession
+    user_id: UUID, period: str, db: AsyncSession, _attempts: int = 0
 ) -> list[CategoryAnalyticsRead]:
     result = await db.execute(
         select(CategoryAnalytics).where(
@@ -606,21 +642,24 @@ async def get_category_analytics_snapshot(
                 Category.user_id == user_id,
             )
         )
-        names = {c.id: c.name for c in cat_result.scalars().all()}
+        cats = {c.id: c for c in cat_result.scalars().all()}
 
-        reads = []
-        for row in rows:
-            r = _snapshot_to_category_read(row)
-            r.name = names.get(row.category_id, "")
-            reads.append(r)
-        return reads
+        return [
+            _snapshot_to_category_read(row, cats.get(row.category_id))
+            for row in rows
+        ]
+
+    if _attempts >= 1:
+        return []
 
     await refresh_analytics(user_id, period, db)
-    return await get_category_analytics_snapshot(user_id, period, db)
+    return await get_category_analytics_snapshot(
+        user_id, period, db, _attempts + 1
+    )
 
 
 async def get_dashboard_snapshot(
-    user_id: UUID, period: str, db: AsyncSession
+    user_id: UUID, period: str, db: AsyncSession, _attempts: int = 0
 ) -> DashboardRead:
     snapshot_result = await db.execute(
         select(MonthlySnapshot).where(
@@ -645,13 +684,12 @@ async def get_dashboard_snapshot(
                     Category.user_id == user_id,
                 )
             )
-            names = {c.id: c.name for c in cat_result.scalars().all()}
+            cat_by_id = {c.id: c for c in cat_result.scalars().all()}
 
-            reads = []
-            for row in cats:
-                r = _snapshot_to_category_read(row)
-                r.name = names.get(row.category_id, "")
-                reads.append(r)
+            reads = [
+                _snapshot_to_category_read(row, cat_by_id.get(row.category_id))
+                for row in cats
+            ]
 
             drifts = [
                 x for x in reads
@@ -661,18 +699,39 @@ async def get_dashboard_snapshot(
                 key=lambda x: x.profile.drift_score, reverse=True
             )
 
+            start, end = month_bounds(period)
+            live_income = await _income_total(db, user_id, start, end)
+            live_expense = await _sum_amount(
+                db, Expense, user_id, Expense.expense_date,
+                start, end,
+            )
+            live_savings = live_income - live_expense
+            live_contrib = await _contributions_total(
+                db, user_id, start, end
+            )
+            live_remaining = live_income - live_expense - live_contrib
+            live_rate = (
+                (live_savings / live_income).quantize(
+                    Decimal("0.00001")
+                )
+                if live_income
+                else Decimal("0")
+            )
+
             weekly, sparkline, monthly_variation, savings_goal = (
                 await _dashboard_extra(
-                    user_id, period, db, money(snapshot.savings)
+                    user_id, period, db, money(live_savings)
                 )
             )
 
             return DashboardRead(
                 period=period,
-                income=snapshot.income,
-                expenses=snapshot.expenses,
-                savings=snapshot.savings,
-                savings_rate=snapshot.savings_rate,
+                income=money(live_income),
+                expenses=money(live_expense),
+                savings=money(live_savings),
+                remaining_balance=money(live_remaining),
+                contributions=money(live_contrib),
+                savings_rate=live_rate,
                 categories_in_drift=len(drifts),
                 potential_savings=money(
                     sum(
@@ -687,5 +746,23 @@ async def get_dashboard_snapshot(
                 savings_goal=savings_goal,
             )
 
+    if _attempts >= 1:
+        return DashboardRead(
+            period=period,
+            income=money(0),
+            expenses=money(0),
+            savings=money(0),
+            remaining_balance=money(0),
+            contributions=money(0),
+            savings_rate=0.0,
+            categories_in_drift=0,
+            potential_savings=money(0),
+            top_drift_categories=[],
+            weekly=[],
+            sparkline=[],
+            monthly_variation=0.0,
+            savings_goal=None,
+        )
+
     await refresh_analytics(user_id, period, db)
-    return await get_dashboard_snapshot(user_id, period, db)
+    return await get_dashboard_snapshot(user_id, period, db, _attempts + 1)

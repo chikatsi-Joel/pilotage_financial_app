@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import SavingsContribution, SavingsGoal
+from app.models import SavingsContribution, SavingsGoal, User
 from app.schemas.common import (
     SavingsGoalAnalysis,
     SavingsGoalContributeRead,
@@ -37,9 +37,13 @@ async def create_goal(
     goal = SavingsGoal( user_id=user_id, **payload.model_dump() )
     db.add(goal)
     await db.commit()
-    await db.refresh(goal)
 
-    return goal
+    result = await db.execute(
+        select(SavingsGoal)
+        .where(SavingsGoal.id == goal.id)
+        .options(selectinload(SavingsGoal.contributions))
+    )
+    return result.scalar_one()
 
 
 async def list_goals(
@@ -196,33 +200,25 @@ async def get_total_contributions_for_period(user_id: UUID, period: str, db: Asy
 
 
 async def _available_for_user(user_id: UUID, d: date, db: AsyncSession) -> Decimal:
+    """Solde libre du mois de `d` : revenus - dépenses - contributions déjà versées."""
     period = d.strftime("%Y-%m")
-    start, end = month_bounds(period)
-
     income, expenses = await get_period_totals(user_id, period, db)
-
-    contrib_result = await db.execute(
-        select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")))
-        .join(SavingsGoal)
-        .where(
-            SavingsGoal.user_id == user_id,
-            SavingsContribution.created_at >= start,
-            SavingsContribution.created_at < end,
-        )
-    )
-    prior_contributions = contrib_result.scalar_one()
-
-    return money(income - expenses - prior_contributions)
+    contributions = await get_total_contributions_for_period(user_id, period, db)
+    return money(income - expenses - contributions)
 
 
 async def contribute(user_id: UUID, goal_id: UUID, amount: Decimal, db: AsyncSession,) -> SavingsGoalContributeRead:
     if amount <= 0:
         raise BusinessRule("Contribution amount must be positive")
 
+    # Verrou au niveau utilisateur : le solde disponible est partagé entre tous
+    # les objectifs, verrouiller un seul objectif ne protège pas contre deux
+    # contributions simultanées sur des objectifs différents.
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
+
     result = await db.execute(
         select(SavingsGoal)
         .where(SavingsGoal.id == goal_id, SavingsGoal.user_id == user_id)
-        .with_for_update()
     )
 
     goal = result.scalar_one_or_none()
