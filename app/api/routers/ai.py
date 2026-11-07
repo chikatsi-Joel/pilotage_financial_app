@@ -12,7 +12,7 @@ from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
 from app.schemas.common import PaginatedResponse
 from app.services import analytics_service, savings_service
-from app.services.ai import OllamaProvider
+from app.services.ai import OllamaProvider, get_provider
 from app.services.analytics_service import InvalidPeriod
 from app.services.pagination import paginate
 
@@ -20,14 +20,9 @@ router = APIRouter(
     prefix="/users/{user_id}/ai", tags=["ai"]
 )
 
-_ai_provider: OllamaProvider | None = None
-
 
 def get_ai_provider() -> OllamaProvider | None:
-    global _ai_provider
-    if _ai_provider is None:
-        _ai_provider = OllamaProvider()
-    return _ai_provider
+    return get_provider()
 
 
 class AIAnalysisResponse(BaseModel):
@@ -64,7 +59,11 @@ async def analyze_period(period: str, user: UserDep, db: DbSession,):
         analytics = await analytics_service.compute_category_analytics(user.id, period, db)
         dash = await analytics_service.get_dashboard( user.id, period, db)
         savings_goals = await savings_service.build_goal_analyses(user.id, period, db)
-        total_contributions = await savings_service.get_total_contributions_for_period(user.id, period, db)
+        total_contributions = (
+            await savings_service.get_total_contributions_for_period(
+                user.id, period, db
+            )
+        )
 
     except InvalidPeriod as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
