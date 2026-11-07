@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Query
@@ -108,7 +109,7 @@ async def analyze_period(period: str, user: UserDep, db: DbSession,):
             "total_monthly_contributions": str(total_contributions),
             "potential_additional_savings": str(dash.potential_savings),
             "unallocated_monthly_savings": str(
-                max(dash.savings - total_contributions, 0)
+                max(Decimal(str(dash.savings)) - total_contributions, Decimal(0))
             ),
         },
         "savings_goals": [

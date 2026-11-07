@@ -96,3 +96,25 @@ async def test_dashboard_without_categories_does_not_loop(session: AsyncSession)
 
     assert dashboard.expenses == Decimal("0.00")
     assert dashboard.top_drift_categories == []
+
+
+async def test_ai_analyze_handles_float_dashboard_and_decimal_contributions(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Régression : `dash.savings` (float) moins les contributions (Decimal) → TypeError 500."""
+    from app.api.routers import ai as ai_router
+
+    captured: dict = {}
+
+    class FakeProvider:
+        async def analyze(self, context: dict) -> dict:
+            captured.update(context)
+            return {"summary": "ok", "alerts": [], "recommendations": [], "projected_impact": {}}
+
+    monkeypatch.setattr(ai_router, "get_ai_provider", lambda: FakeProvider())
+    user = await _seed(session)
+
+    result = await ai_router.analyze_period(PERIOD, user, session)
+
+    assert result.summary == "ok"
+    assert captured["savings"]["unallocated_monthly_savings"] == "650.00"
