@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +10,6 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import Svg, {
   Circle,
   Defs,
@@ -21,44 +21,201 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import { analytics as analyticsApi } from "../src/shared/api/analytics";
+import { useAppStore } from "../src/shared/store";
+import type { CategoryAnalytics, SavingsGoalSummary } from "../src/shared/types";
+import { formatMoney } from "../src/shared/utils/money";
 import { ProgressBar, ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 // ═══════════════════════════════════════════════════════════
-//  TYPES & DONNÉES
+//  TYPES
 // ═══════════════════════════════════════════════════════════
 
 type Period = "1M" | "3M" | "6M" | "1A";
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-const PERIODS: { key: Period; label: string }[] = [
-  { key: "1M", label: "1M" },
-  { key: "3M", label: "3M" },
-  { key: "6M", label: "6M" },
-  { key: "1A", label: "1A" },
+const PERIODS: { key: Period; label: string; months: number }[] = [
+  { key: "1M", label: "1M", months: 1 },
+  { key: "3M", label: "3M", months: 3 },
+  { key: "6M", label: "6M", months: 6 },
+  { key: "1A", label: "1A", months: 12 },
 ];
 
-const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû"];
-const INCOME = [3200, 3200, 3200, 3200, 3200, 3200, 3200, 3200];
-const EXPENSES = [2400, 2100, 2600, 2300, 2500, 2200, 2100, 1950];
-const SAVINGS = INCOME.map((inc, i) => inc - EXPENSES[i]);
-
-const CATEGORIES = [
-  { name: "Logement", pct: 35, amount: 850, color: colors.primary, icon: "home" as IconName },
-  { name: "Alimentation", pct: 22, amount: 530, color: "#6D43B7", icon: "food" as IconName },
-  { name: "Transport", pct: 15, amount: 360, color: colors.accent, icon: "car" as IconName },
-  { name: "Loisirs", pct: 14, amount: 340, color: "#E91E63", icon: "gamepad-variant" as IconName },
-  { name: "Santé", pct: 8, amount: 195, color: colors.success, icon: "medical-bag" as IconName },
-  { name: "Autres", pct: 6, amount: 145, color: colors.textMuted, icon: "dots-horizontal" as IconName },
+const MONTH_SHORT = [
+  "Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+  "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc",
 ];
 
-const INSIGHTS = [
-  { icon: "trending-down" as IconName, text: "Vos dépenses diminuent de 8% sur 3 mois", tone: "success" as const },
-  { icon: "alert-circle-outline" as IconName, text: "Budget loisirs dépassé de 15%", tone: "warning" as const },
-  { icon: "target" as IconName, text: "Objectif épargne atteint à 90%", tone: "success" as const },
+const PALETTE = [
+  colors.primary, "#6D43B7", colors.accent, "#E91E63",
+  colors.success, colors.warning, "#0EA5E9", "#865DD2",
 ];
 
-const fmt = (v: number) => new Intl.NumberFormat("fr-FR").format(v);
+const ICON_RULES: readonly { match: RegExp; icon: IconName }[] = [
+  { match: /alimentation|nourriture|courses|supermarch|restaurant|restauration/i, icon: "silverware-fork-knife" },
+  { match: /transport|carburant|taxi|uber|bus|train|avion/i, icon: "car" },
+  { match: /loisir|divertissement|vacance|abonnement|streaming|jeu/i, icon: "gamepad-variant" },
+  { match: /sant|medical|pharmacie|soin/i, icon: "medical-bag" },
+  { match: /maison|logement|loyer|electricite|eau|entretien/i, icon: "home" },
+  { match: /v[eê]tement|shopping|habit|chaussure/i, icon: "shopping" },
+  { match: /facture|energie|electricit|internet|telephone/i, icon: "receipt" },
+  { match: /epargne|invest/i, icon: "piggy-bank-outline" },
+];
+
+function iconFor(label: string): IconName {
+  for (const rule of ICON_RULES) {
+    if (rule.match.test(label)) return rule.icon;
+  }
+  return "shape-outline";
+}
+
+type MonthPoint = {
+  key: string;
+  label: string;
+  income: number;
+  expenses: number;
+  savings: number;
+};
+
+type CategorySlice = {
+  categoryId: string;
+  name: string;
+  amount: number;
+  pct: number;
+  color: string;
+  icon: IconName;
+};
+
+type Profile = {
+  trend: number;
+  volatility: number;
+  drift: number;
+  anomaly: number;
+  seasonality: number;
+  seasonalityReliable: boolean;
+  confidence: number;
+  changePoints: string[];
+  forecastMethod: string;
+  forecastValue: number;
+  forecastMae: number | null;
+};
+
+type Insight = { icon: IconName; text: string; tone: "success" | "warning" };
+
+// ═══════════════════════════════════════════════════════════
+//  DÉRIVÉS DE L'API
+// ═══════════════════════════════════════════════════════════
+
+/** Les N derniers mois (inclus) jusqu'au mois courant de l'API. */
+function monthWindow(period: string, months: number): string[] {
+  const [y, m] = period.split("-").map(Number);
+  const base = new Date(y || 1970, (m || 1) - 1, 1);
+  const out: string[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+function sliceCategories(items: CategoryAnalytics[]): CategorySlice[] {
+  const total = items.reduce((acc, c) => acc + c.current_amount, 0);
+  return items
+    .filter((c) => c.current_amount > 0)
+    .sort((a, b) => b.current_amount - a.current_amount)
+    .map((c, i) => ({
+      categoryId: c.category_id,
+      name: c.name,
+      amount: c.current_amount,
+      pct: total > 0 ? Math.round((c.current_amount / total) * 100) : 0,
+      color: PALETTE[i % PALETTE.length],
+      icon: iconFor(c.name),
+    }));
+}
+
+function averageProfile(items: CategoryAnalytics[]): Profile {
+  const withHistory = items.filter((c) => c.baseline_amount > 0);
+  const pool = withHistory.length ? withHistory : items;
+  const n = pool.length || 1;
+  const mean = (pick: (c: CategoryAnalytics) => number) =>
+    pool.reduce((acc, c) => acc + (pick(c) || 0), 0) / n;
+
+  const changePoints = Array.from(
+    new Set(pool.flatMap((c) => c.profile.change_points.map((p) => p + 1))),
+  )
+    .sort((a, b) => a - b)
+    .slice(0, 4)
+    .map((m) => MONTH_SHORT[m - 1] ?? String(m));
+
+  return {
+    trend: mean((c) => c.profile.trend),
+    volatility: mean((c) => c.profile.volatility),
+    drift: mean((c) => c.profile.drift_score),
+    anomaly: mean((c) => c.profile.anomaly_score),
+    seasonality: mean((c) => c.profile.seasonality_strength),
+    seasonalityReliable: pool.some((c) => c.profile.seasonality_reliable),
+    confidence: mean((c) => c.profile.confidence),
+    changePoints,
+    forecastMethod: pool[0]?.profile.forecast.method ?? "n/a",
+    forecastValue: mean((c) => c.profile.forecast.value),
+    forecastMae: pool[0]?.profile.forecast.mae ?? null,
+  };
+}
+
+function buildInsights(
+  months: MonthPoint[],
+  items: CategoryAnalytics[],
+  goal: SavingsGoalSummary | null,
+): Insight[] {
+  const out: Insight[] = [];
+  const current = months[months.length - 1];
+  const previous = months[months.length - 2];
+
+  if (current && previous && previous.expenses > 0) {
+    const delta = ((current.expenses - previous.expenses) / previous.expenses) * 100;
+    out.push({
+      icon: delta <= 0 ? "trending-down" : "trending-up",
+      tone: delta <= 0 ? "success" : "warning",
+      text:
+        `Vos dépenses ${delta <= 0 ? "diminuent" : "augmentent"} de ${Math.abs(
+          Math.round(delta),
+        )}% sur un mois`,
+    });
+  }
+
+  for (const c of items) {
+    if (c.profile.drift_score >= 0.5) {
+      out.push({
+        icon: "alert-circle-outline",
+        tone: "warning",
+        text: `${c.name} en dérive (${Math.round(c.variation_percentage)}% vs normale, confiance ${Math.round(
+          c.profile.confidence * 100,
+        )}%)`,
+      });
+      break;
+    }
+  }
+
+  if (goal && goal.progress_percentage >= 90) {
+    out.push({
+      icon: "target",
+      tone: "success",
+      text: `Objectif « ${goal.name} » à ${Math.round(goal.progress_percentage)}%`,
+    });
+  }
+
+  const potential = items.reduce((acc, c) => acc + c.potential_saving, 0);
+  if (potential > 0) {
+    out.push({
+      icon: "piggy-bank-outline",
+      tone: "success",
+      text: `Potentiel d'économie identifié : ${formatMoney(potential)}`,
+    });
+  }
+
+  return out;
+}
 
 // ═══════════════════════════════════════════════════════════
 //  COMPOSANTS
@@ -95,28 +252,74 @@ const ptStyles = StyleSheet.create({
 //  HERO — Solde + Métriques clés fusionnés
 // ─────────────────────────────────────────────────────────
 
-function HeroCard() {
-  const avgExpense = Math.round(EXPENSES.reduce((a, b) => a + b, 0) / EXPENSES.length);
-  const avgSaving = Math.round(SAVINGS.reduce((a, b) => a + b, 0) / SAVINGS.length);
-  const burnRate = Math.round(avgExpense / 30);
-
+function HeroCard({
+  balance,
+  avgExpenses,
+  avgSavings,
+  savingsRate,
+  variation,
+  goal,
+  burnRate,
+  currency,
+}: {
+  balance: number;
+  avgExpenses: number;
+  avgSavings: number;
+  savingsRate: number;
+  variation: number | null;
+  goal: SavingsGoalSummary | null;
+  burnRate: number;
+  currency: string;
+}) {
+  const days = 30;
   return (
     <View style={hStyles.card}>
       <View style={hStyles.top}>
-        <Text style={hStyles.label}>Solde actuel</Text>
-        <Text style={hStyles.amount}>2 450 €</Text>
+        <Text style={hStyles.label}>{goal ? `Objectif : ${goal.name}` : "Solde du mois"}</Text>
+        <Text style={hStyles.amount}>{formatMoney(balance, currency)}</Text>
         <View style={hStyles.trend}>
-          <MaterialCommunityIcons color={colors.success} name="trending-up" size={14} />
-          <Text style={hStyles.trendText}>+12% vs juillet</Text>
+          <MaterialCommunityIcons
+            color={variation != null && variation < 0 ? colors.success : colors.warning}
+            name={variation != null && variation < 0 ? "trending-down" : "trending-up"}
+            size={14}
+          />
+          <Text
+            style={[
+              hStyles.trendText,
+              { color: variation != null && variation < 0 ? colors.success : colors.warning },
+            ]}
+          >
+            {variation == null
+              ? "Pas de comparaison"
+              : `${variation > 0 ? "+" : ""}${Math.round(variation)}% vs mois précédent`}
+          </Text>
         </View>
       </View>
 
       <View style={hStyles.divider} />
 
       <View style={hStyles.grid}>
-        <HeroStat label="Dépenses moy." value={`${fmt(avgExpense)} €`} delta="-8%" deltaUp={false} />
-        <HeroStat label="Épargne moy." value={`${fmt(avgSaving)} €`} delta="+12%" deltaUp />
-        <HeroStat label="Taux épargne" value="27%" delta="obj. 30%" deltaUp={false} muted />
+        <HeroStat
+          label="Dépenses moy."
+          value={formatMoney(avgExpenses, currency)}
+          delta={`${goal ? `${Math.round(goal.progress_percentage)}%` : "n/a"} objectif`}
+          deltaUp
+          muted
+        />
+        <HeroStat
+          label="Épargne moy."
+          value={formatMoney(avgSavings, currency)}
+          delta={formatMoney(avgSavings, currency)}
+          deltaUp
+          muted
+        />
+        <HeroStat
+          label="Taux épargne"
+          value={`${Math.round(savingsRate * 100)}%`}
+          delta="net"
+          deltaUp
+          muted
+        />
       </View>
 
       <View style={hStyles.divider} />
@@ -126,15 +329,17 @@ function HeroCard() {
           <MaterialCommunityIcons color={colors.primary} name="fire" size={14} />
           <Text style={hStyles.burnLabel}>Burn rate</Text>
         </View>
-        <Text style={hStyles.burnValue}>{fmt(burnRate)} €/jour</Text>
+        <Text style={hStyles.burnValue}>
+          {formatMoney(burnRate, currency)}/jour
+        </Text>
       </View>
-        <ProgressBar
-          progress={(burnRate / 150) * 100}
-          height={4}
-          color={colors.primary}
-          trackColor="#F0F0F5"
-          style={{ marginTop: 6 }}
-        />
+      <ProgressBar
+        progress={avgExpenses > 0 ? Math.min((burnRate * days) / avgExpenses, 1) * 100 : 0}
+        height={4}
+        color={colors.primary}
+        trackColor="#F0F0F5"
+        style={{ marginTop: 6 }}
+      />
     </View>
   );
 }
@@ -155,7 +360,9 @@ function HeroStat({
   return (
     <View style={hsStyles.col}>
       <Text style={hsStyles.label}>{label}</Text>
-      <Text style={hsStyles.value}>{value}</Text>
+      <Text style={hsStyles.value} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
       <Text
         style={[
           hsStyles.delta,
@@ -183,7 +390,7 @@ const hStyles = StyleSheet.create({
   },
   top: { gap: 2 },
   label: { color: colors.textMuted, fontSize: 13, fontWeight: "500" },
-  amount: { color: colors.text, fontSize: 40, fontWeight: "700", letterSpacing: -1.5 },
+  amount: { color: colors.text, fontSize: 34, fontWeight: "700", letterSpacing: -1.5 },
   trend: { alignItems: "center", flexDirection: "row", gap: 4, marginTop: 4 },
   trendText: { color: colors.success, fontSize: 13, fontWeight: "600" },
   divider: { backgroundColor: "#F0F0F5", height: 1 },
@@ -192,14 +399,12 @@ const hStyles = StyleSheet.create({
   burnLeft: { alignItems: "center", flexDirection: "row", gap: 6 },
   burnLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
   burnValue: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  burnBar: { backgroundColor: "#F0F0F5", borderRadius: 99, height: 4, marginTop: 6 },
-  burnFill: { backgroundColor: colors.primary, borderRadius: 99, height: 4 },
 });
 
 const hsStyles = StyleSheet.create({
   col: { flex: 1, gap: 2 },
   label: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
-  value: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  value: { color: colors.text, fontSize: 15, fontWeight: "700" },
   delta: { fontSize: 11, fontWeight: "600", marginTop: 2 },
   deltaUp: { color: colors.success },
   deltaDown: { color: "#E91E63" },
@@ -210,28 +415,31 @@ const hsStyles = StyleSheet.create({
 //  AREA CHART
 // ─────────────────────────────────────────────────────────
 
-function AreaChart() {
+function AreaChart({ months, currency }: { months: MonthPoint[]; currency: string }) {
   const W = 340;
   const H = 180;
-  const PAD_L = 40;
+  const PAD_L = 46;
   const PAD_B = 24;
   const chartH = H - PAD_B;
-  const max = Math.max(...INCOME) * 1.1;
-  const stepX = (W - PAD_L) / (MONTHS.length - 1);
+
+  const income = months.map((m) => m.income);
+  const expenses = months.map((m) => m.expenses);
+  const max = Math.max(1, ...income, ...expenses) * 1.1;
+  const stepX = months.length > 1 ? (W - PAD_L) / (months.length - 1) : 0;
 
   const toY = (v: number) => chartH - (v / max) * chartH;
   const toX = (i: number) => PAD_L + i * stepX;
 
   const { incArea, expArea, incPoints, expPoints } = useMemo(() => {
-    const incPath = INCOME.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}`).join(" ");
-    const expPath = EXPENSES.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}`).join(" ");
+    const incPath = income.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}`).join(" ");
+    const expPath = expenses.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}`).join(" ");
     return {
-      incArea: `${incPath} L${toX(INCOME.length - 1)},${chartH} L${toX(0)},${chartH} Z`,
-      expArea: `${expPath} L${toX(EXPENSES.length - 1)},${chartH} L${toX(0)},${chartH} Z`,
-      incPoints: INCOME.map((v, i) => `${toX(i)},${toY(v)}`).join(" "),
-      expPoints: EXPENSES.map((v, i) => `${toX(i)},${toY(v)}`).join(" "),
+      incArea: `${incPath} L${toX(income.length - 1)},${chartH} L${toX(0)},${chartH} Z`,
+      expArea: `${expPath} L${toX(expenses.length - 1)},${chartH} L${toX(0)},${chartH} Z`,
+      incPoints: income.map((v, i) => `${toX(i)},${toY(v)}`).join(" "),
+      expPoints: expenses.map((v, i) => `${toX(i)},${toY(v)}`).join(" "),
     };
-  }, []);
+  }, [months]);
 
   return (
     <View style={acStyles.wrap}>
@@ -283,7 +491,7 @@ function AreaChart() {
               fill={colors.textMuted}
               textAnchor="end"
             >
-              {`${Math.round((max * pct) / 1000)}k`}
+              {formatMoney(max * pct, currency)}
             </SvgText>
           ))}
 
@@ -293,16 +501,16 @@ function AreaChart() {
           <Polyline points={incPoints} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
           <Polyline points={expPoints} fill="none" stroke="#E91E63" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
 
-          {INCOME.map((v, i) => (
+          {income.map((v, i) => (
             <Circle key={`i${i}`} cx={toX(i)} cy={toY(v)} r={3.5} fill="#FFFFFF" stroke={colors.primary} strokeWidth={2} />
           ))}
-          {EXPENSES.map((v, i) => (
+          {expenses.map((v, i) => (
             <Circle key={`e${i}`} cx={toX(i)} cy={toY(v)} r={3.5} fill="#FFFFFF" stroke="#E91E63" strokeWidth={2} />
           ))}
 
-          {MONTHS.map((m, i) => (
-            <SvgText key={m} x={toX(i)} y={H} fontSize={11} fill={colors.textMuted} textAnchor="middle" fontWeight="600">
-              {m}
+          {months.map((m, i) => (
+            <SvgText key={m.key} x={toX(i)} y={H} fontSize={11} fill={colors.textMuted} textAnchor="middle" fontWeight="600">
+              {m.label}
             </SvgText>
           ))}
         </Svg>
@@ -322,32 +530,52 @@ const acStyles = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────
-//  PROFIL STATISTIQUE — redesigné en ligne propre
+//  PROFIL STATISTIQUE
 // ─────────────────────────────────────────────────────────
 
-function ProfileCard() {
+function ProfileCard({ profile }: { profile: Profile }) {
+  const pct = (v: number) => `${Math.round(Math.min(Math.max(v, 0), 1) * 100)}%`;
   return (
     <View style={pfStyles.card}>
       <Text style={pfStyles.title}>Profil statistique</Text>
 
       <View style={pfStyles.metrics}>
-        <ProfileMetric icon="trending-up" color={colors.success} label="Tendance" value="+2.4%" />
-        <ProfileMetric icon="waveform" color={colors.accent} label="Volatilité" value="0.18" />
-        <ProfileMetric icon="chart-bubble" color={colors.warning} label="Drift" value="0.35" />
-        <ProfileMetric icon="alert-circle" color={colors.danger} label="Anomalies" value="0.12" />
+        <ProfileMetric icon="trending-up" color={colors.success} label="Tendance" value={profile.trend.toFixed(2)} />
+        <ProfileMetric icon="waveform" color={colors.accent} label="Volatilité" value={profile.volatility.toFixed(2)} />
+        <ProfileMetric icon="chart-bubble" color={colors.warning} label="Drift" value={profile.drift.toFixed(2)} />
+        <ProfileMetric icon="alert-circle" color={colors.danger} label="Anomalies" value={profile.anomaly.toFixed(2)} />
       </View>
 
       <View style={pfStyles.bars}>
-        <ProfileBar icon="calendar-sync" color={colors.primary} label="Saisonnalité" value="0.68" width="68%" />
-        <ProfileBar icon="shield-check" color={colors.accent} label="Confiance" value="82%" width="82%" />
+        <ProfileBar
+          icon="calendar-sync"
+          color={colors.primary}
+          label="Saisonnalité"
+          value={pct(profile.seasonality)}
+          width={pct(profile.seasonality) as DimensionValue}
+        />
+        <ProfileBar
+          icon="shield-check"
+          color={colors.accent}
+          label="Confiance"
+          value={pct(profile.confidence)}
+          width={pct(profile.confidence) as DimensionValue}
+        />
       </View>
 
       <View style={pfStyles.footer}>
         <MaterialCommunityIcons color={colors.textMuted} name="flag-outline" size={14} />
-        <Text style={pfStyles.footerText}>Changements détectés :</Text>
+        <Text style={pfStyles.footerText}>
+          {profile.seasonalityReliable ? "Saisonnalité fiable · " : ""}Changements détectés :
+        </Text>
         <View style={pfStyles.chips}>
-          <Text style={pfStyles.chip}>Mars</Text>
-          <Text style={pfStyles.chip}>Juin</Text>
+          {profile.changePoints.length === 0 ? (
+            <Text style={pfStyles.chip}>Aucun</Text>
+          ) : (
+            profile.changePoints.map((m) => (
+              <Text key={m} style={pfStyles.chip}>{m}</Text>
+            ))
+          )}
         </View>
       </View>
     </View>
@@ -432,7 +660,19 @@ const pbStyles = StyleSheet.create({
 //  PRÉVISION
 // ─────────────────────────────────────────────────────────
 
-function ForecastCard() {
+function ForecastCard({
+  profile,
+  nextLabel,
+  currency,
+}: {
+  profile: Profile;
+  nextLabel: string;
+  currency: string;
+}) {
+  const maePct =
+    profile.forecastValue > 0 && profile.forecastMae != null
+      ? Math.abs(profile.forecastMae / profile.forecastValue) * 100
+      : null;
   return (
     <View style={fcStyles.card}>
       <View style={fcStyles.header}>
@@ -440,22 +680,27 @@ function ForecastCard() {
           <MaterialCommunityIcons color={colors.primary} name="crystal-ball" size={20} />
         </View>
         <View>
-          <Text style={fcStyles.title}>Prévision septembre</Text>
-          <Text style={fcStyles.sub}>Méthode EWMA — erreur 5.8%</Text>
+          <Text style={fcStyles.title}>Prévision {nextLabel}</Text>
+          <Text style={fcStyles.sub}>
+            Méthode {profile.forecastMethod}
+            {maePct != null ? ` — erreur ${maePct.toFixed(1)}%` : ""}
+          </Text>
         </View>
       </View>
 
       <View style={fcStyles.body}>
         <View style={fcStyles.col}>
           <Text style={fcStyles.label}>Dépense prédite</Text>
-          <Text style={fcStyles.amount}>1 870 €</Text>
-          <Text style={fcStyles.delta}>-4% vs août</Text>
+          <Text style={fcStyles.amount}>{formatMoney(profile.forecastValue, currency)}</Text>
+          <Text style={fcStyles.delta}>Moyenne des catégories</Text>
         </View>
         <View style={fcStyles.sep} />
         <View style={fcStyles.col}>
           <Text style={fcStyles.label}>Marge d'erreur</Text>
-          <Text style={[fcStyles.amount, { color: colors.accent }]}>± 145 €</Text>
-          <Text style={fcStyles.delta}>MAE : 145 €</Text>
+          <Text style={[fcStyles.amount, { color: colors.accent }]}>
+            {profile.forecastMae == null ? "—" : `± ${formatMoney(profile.forecastMae, currency)}`}
+          </Text>
+          <Text style={fcStyles.delta}>MAE du modèle</Text>
         </View>
       </View>
     </View>
@@ -485,7 +730,7 @@ const fcStyles = StyleSheet.create({
   body: { flexDirection: "row", gap: 16 },
   col: { flex: 1, gap: 4 },
   label: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
-  amount: { color: colors.text, fontSize: 24, fontWeight: "700" },
+  amount: { color: colors.text, fontSize: 20, fontWeight: "700" },
   delta: { color: colors.success, fontSize: 12, fontWeight: "600" },
   sep: { backgroundColor: "#E4E6F0", width: 1 },
 });
@@ -494,7 +739,17 @@ const fcStyles = StyleSheet.create({
 //  DONUT
 // ─────────────────────────────────────────────────────────
 
-function DonutChart() {
+function DonutChart({
+  categories,
+  total,
+  periodLabel,
+  currency,
+}: {
+  categories: CategorySlice[];
+  total: number;
+  periodLabel: string;
+  currency: string;
+}) {
   const size = 130;
   const stroke = 14;
   const r = (size - stroke) / 2;
@@ -502,19 +757,19 @@ function DonutChart() {
 
   const segments = useMemo(() => {
     let acc = 0;
-    return CATEGORIES.map((cat) => {
+    return categories.map((cat) => {
       const dash = (cat.pct / 100) * circ;
       const offset = -(acc / 100) * circ;
       acc += cat.pct;
       return { ...cat, dash, offset };
     });
-  }, []);
+  }, [categories]);
 
   return (
     <View style={dnStyles.card}>
       <View style={dnStyles.header}>
         <Text style={dnStyles.title}>Répartition</Text>
-        <Text style={dnStyles.sub}>Août 2026</Text>
+        <Text style={dnStyles.sub}>{periodLabel}</Text>
       </View>
 
       <View style={dnStyles.body}>
@@ -522,28 +777,29 @@ function DonutChart() {
           <Svg width={size} height={size}>
             {segments.map((seg) => (
               <Circle
-                key={seg.name}
+                key={seg.categoryId}
                 cx={size / 2}
                 cy={size / 2}
                 r={r}
                 fill="none"
                 stroke={seg.color}
                 strokeWidth={stroke}
-                strokeDasharray={`${seg.dash - 2} ${circ - seg.dash + 2}`}
+                strokeDasharray={`${Math.max(seg.dash - 2, 0)} ${circ - seg.dash + 2}`}
                 strokeDashoffset={seg.offset}
                 strokeLinecap="round"
               />
             ))}
           </Svg>
           <View style={dnStyles.center}>
-            <Text style={dnStyles.total}>{fmt(EXPENSES[7])}</Text>
-            <Text style={dnStyles.unit}>€</Text>
+            <Text style={dnStyles.total} numberOfLines={1} adjustsFontSizeToFit>
+              {formatMoney(total, currency)}
+            </Text>
           </View>
         </View>
 
         <View style={dnStyles.legend}>
-          {CATEGORIES.map((cat) => (
-            <View key={cat.name} style={dnStyles.row}>
+          {categories.map((cat) => (
+            <View key={cat.categoryId} style={dnStyles.row}>
               <View style={[dnStyles.dot, { backgroundColor: cat.color }]} />
               <Text style={dnStyles.name}>{cat.name}</Text>
               <Text style={dnStyles.pct}>{cat.pct}%</Text>
@@ -563,8 +819,7 @@ const dnStyles = StyleSheet.create({
   body: { alignItems: "center", flexDirection: "row", gap: 24 },
   wrap: { alignItems: "center", justifyContent: "center" },
   center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
-  total: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  unit: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
+  total: { color: colors.text, fontSize: 18, fontWeight: "700" },
   legend: { flex: 1, gap: 10 },
   row: { alignItems: "center", flexDirection: "row", gap: 8 },
   dot: { borderRadius: 99, height: 8, width: 8 },
@@ -573,36 +828,46 @@ const dnStyles = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────
-//  CATÉGORIES — barres épaisses et design
+//  CATÉGORIES
 // ─────────────────────────────────────────────────────────
 
-function CategoryBars() {
-  const maxAmt = Math.max(...CATEGORIES.map((c) => c.amount));
+function CategoryBars({
+  categories,
+  currency,
+}: {
+  categories: CategorySlice[];
+  currency: string;
+}) {
+  const maxAmt = Math.max(1, ...categories.map((c) => c.amount));
 
   return (
     <View style={cbStyles.wrap}>
       <Text style={cbStyles.title}>Détail par catégorie</Text>
-      {CATEGORIES.map((cat) => (
-        <View key={cat.name} style={cbStyles.row}>
-          <View style={cbStyles.top}>
-            <View style={cbStyles.left}>
-              <View style={[cbStyles.icon, { backgroundColor: `${cat.color}12` }]}>
-                <MaterialCommunityIcons color={cat.color} name={cat.icon} size={15} />
+      {categories.length === 0 ? (
+        <Text style={cbStyles.empty}>Aucune dépense enregistrée sur la période.</Text>
+      ) : (
+        categories.map((cat) => (
+          <View key={cat.categoryId} style={cbStyles.row}>
+            <View style={cbStyles.top}>
+              <View style={cbStyles.left}>
+                <View style={[cbStyles.icon, { backgroundColor: `${cat.color}12` }]}>
+                  <MaterialCommunityIcons color={cat.color} name={cat.icon} size={15} />
+                </View>
+                <Text style={cbStyles.name}>{cat.name}</Text>
               </View>
-              <Text style={cbStyles.name}>{cat.name}</Text>
+              <Text style={cbStyles.amount}>{formatMoney(cat.amount, currency)}</Text>
             </View>
-            <Text style={cbStyles.amount}>{fmt(cat.amount)} €</Text>
+            <View style={cbStyles.track}>
+              <View
+                style={[
+                  cbStyles.fill,
+                  { width: `${(cat.amount / maxAmt) * 100}%`, backgroundColor: cat.color },
+                ]}
+              />
+            </View>
           </View>
-          <View style={cbStyles.track}>
-            <View
-              style={[
-                cbStyles.fill,
-                { width: `${(cat.amount / maxAmt) * 100}%`, backgroundColor: cat.color },
-              ]}
-            />
-          </View>
-        </View>
-      ))}
+        ))
+      )}
     </View>
   );
 }
@@ -610,6 +875,7 @@ function CategoryBars() {
 const cbStyles = StyleSheet.create({
   wrap: { gap: 14 },
   title: { color: colors.text, fontSize: 17, fontWeight: "700", paddingHorizontal: 4 },
+  empty: { color: colors.textMuted, fontSize: 13, fontStyle: "italic", paddingHorizontal: 4 },
   row: { gap: 8 },
   top: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   left: { alignItems: "center", flexDirection: "row", gap: 10 },
@@ -621,14 +887,15 @@ const cbStyles = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────
-//  INSIGHTS — bordures latérales, pas de fonds criards
+//  INSIGHTS
 // ─────────────────────────────────────────────────────────
 
-function InsightAlerts() {
+function InsightAlerts({ insights }: { insights: Insight[] }) {
+  if (insights.length === 0) return null;
   return (
     <View style={inStyles.wrap}>
       <Text style={inStyles.title}>Alertes</Text>
-      {INSIGHTS.map((ins, i) => (
+      {insights.map((ins, i) => (
         <View
           key={i}
           style={[
@@ -673,7 +940,87 @@ const inStyles = StyleSheet.create({
 // ═══════════════════════════════════════════════════════════
 
 export default function StatsDetail() {
-  const [period, setPeriod] = useState<Period>("1M");
+  const userId = useAppStore((s) => s.userId);
+  const period = useAppStore((s) => s.currentPeriod);
+  const currency = useAppStore((s) => s.currency);
+
+  const [range, setRange] = useState<Period>("3M");
+  const [months, setMonths] = useState<MonthPoint[]>([]);
+  const [items, setItems] = useState<CategoryAnalytics[]>([]);
+  const [goal, setGoal] = useState<SavingsGoalSummary | null>(null);
+  const [balance, setBalance] = useState(0);
+  const [savingsRate, setSavingsRate] = useState(0);
+  const [variation, setVariation] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    const window = monthWindow(period, PERIODS.find((p) => p.key === range)!.months);
+    try {
+      const [dashboards, catItems] = await Promise.all([
+        Promise.all(
+          window.map((m) => analyticsApi.dashboard(userId, m).catch(() => null)),
+        ),
+        analyticsApi.categories(userId, period).catch(() => [] as CategoryAnalytics[]),
+      ]);
+
+      setMonths(
+        window.map((key, i) => {
+          const [y, m] = key.split("-").map(Number);
+          const d = dashboards[i];
+          return {
+            key,
+            label: MONTH_SHORT[m - 1] ?? key,
+            income: d?.income ?? 0,
+            expenses: d?.expenses ?? 0,
+            savings: d?.savings ?? 0,
+          };
+        }),
+      );
+      setItems(catItems);
+
+      const current = dashboards[dashboards.length - 1];
+      setBalance(current?.savings ?? 0);
+      setSavingsRate(current?.savings_rate ?? 0);
+      setGoal(current?.savings_goal ?? null);
+      const previous = dashboards[dashboards.length - 2];
+      setVariation(
+        current && previous && previous.expenses > 0
+          ? ((current.expenses - previous.expenses) / previous.expenses) * 100
+          : (current?.monthly_variation ?? null),
+      );
+    } catch {
+      setError("Statistiques indisponibles. Vérifiez la connexion au serveur.");
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, period, range]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const slices = useMemo(() => sliceCategories(items), [items]);
+  const profile = useMemo(() => averageProfile(items), [items]);
+  const insights = useMemo(() => buildInsights(months, items, goal), [months, items, goal]);
+
+  const totalExpenses = slices.reduce((acc, c) => acc + c.amount, 0);
+  const avgExpenses =
+    months.length > 0 ? months.reduce((acc, m) => acc + m.expenses, 0) / months.length : 0;
+  const avgSavings =
+    months.length > 0 ? months.reduce((acc, m) => acc + m.savings, 0) / months.length : 0;
+  const burnRate = avgExpenses / 30;
+
+  const nextMonth = (() => {
+    const [y, m] = period.split("-").map(Number);
+    const d = new Date(y || 1970, (m || 1), 1);
+    return MONTH_SHORT[d.getMonth()] ?? "mois suivant";
+  })();
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -682,13 +1029,40 @@ export default function StatsDetail() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        refreshControl={undefined}
       >
-        <PeriodTabs active={period} onChange={setPeriod} />
-        <HeroCard />
-        <AreaChart />
-        <ProfileCard />
-        <ForecastCard />
-        <DonutChart />
+        <PeriodTabs active={range} onChange={setRange} />
+
+        {loading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : (
+          <>
+            <HeroCard
+              balance={balance}
+              avgExpenses={avgExpenses}
+              avgSavings={avgSavings}
+              savingsRate={savingsRate}
+              variation={variation}
+              goal={goal}
+              burnRate={burnRate}
+              currency={currency}
+            />
+            <AreaChart months={months} currency={currency} />
+            <ProfileCard profile={profile} />
+            <ForecastCard profile={profile} nextLabel={nextMonth} currency={currency} />
+            <DonutChart
+              categories={slices}
+              total={totalExpenses}
+              periodLabel={period}
+              currency={currency}
+            />
+            <CategoryBars categories={slices} currency={currency} />
+            <InsightAlerts insights={insights} />
+          </>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -702,14 +1076,10 @@ export default function StatsDetail() {
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scroll: { gap: 24, padding: 16, paddingBottom: 32 },
-
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    paddingVertical: 24,
+    textAlign: "center",
   },
-  backBtn: { padding: 6 },
-  headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
 });

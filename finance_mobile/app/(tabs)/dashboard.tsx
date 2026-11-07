@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,10 +15,12 @@ import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
 import { analytics } from "../../src/shared/api/analytics";
+import { incomes as incomesApi } from "../../src/shared/api/incomes";
 import { useAppStore } from "../../src/shared/store";
 import type {
   CategoryAnalytics,
   Dashboard,
+  Income,
   WeeklyExpense,
 } from "../../src/shared/types";
 import { formatMoney } from "../../src/shared/utils/money";
@@ -54,6 +57,19 @@ const CATEGORY_ICON: Record<
 
 function categoryIcon(name: string) {
   return CATEGORY_ICON[name] ?? "tag-outline";
+}
+
+const SOURCE_ICON: Record<
+  string,
+  React.ComponentProps<typeof MaterialCommunityIcons>["name"]
+> = {
+  Salaire: "cash-multiple",
+  "Remboursement de prêt": "hand-coin-outline",
+  Dividende: "trending-up",
+};
+
+function sourceIcon(name: string) {
+  return SOURCE_ICON[name] ?? "plus-circle-outline";
 }
 
 const MONTHS_FR = [
@@ -419,27 +435,48 @@ export default function Dashboard() {
   const period = useAppStore((s) => s.currentPeriod);
 
   const [data, setData] = useState<Dashboard | null>(null);
+  const [incomeSources, setIncomeSources] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       if (!userId) throw new Error("no-session");
-      const result = await analytics.dashboard(userId, period);
+      const [result, incomesRes] = await Promise.all([
+        analytics.dashboard(userId, period),
+        incomesApi.list(userId, { limit: 100 }),
+      ]);
       setData(result);
+      setIncomeSources(incomesRes.items);
     } catch {
-      setData(null);
-      setError(
-        userId
-          ? "Serveur injoignable. Vérifiez que le backend est démarré."
-          : "Session non initialisée. Passez par l'onboarding."
-      );
+      if (!opts?.silent) {
+        setData(null);
+        setIncomeSources([]);
+        setError(
+          userId
+            ? "Serveur injoignable. Vérifiez que le backend est démarré."
+            : "Session non initialisée. Passez par l'onboarding."
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [userId, period]);
+
+  const onRefresh = useCallback(async () => {
+    if (!userId) return;
+    setRefreshing(true);
+    try {
+      await analytics.refresh(userId, period);
+    } catch {
+      // Rafraîchissement serveur indisponible : on repart des données actuelles.
+    }
+    await load({ silent: true });
+    setRefreshing(false);
+  }, [userId, period, load]);
 
   useFocusEffect(
     useCallback(() => {
@@ -447,7 +484,25 @@ export default function Dashboard() {
     }, [load])
   );
 
-  const solde = data ? data.income - data.expenses : 0;
+  const solde = data
+    ? data.remaining_balance ?? data.income - data.expenses
+    : 0;
+
+  const recurringIncomes = incomeSources.filter(
+    (i) => i.active && i.recurring
+  );
+
+  const editIncome = (income: Income) =>
+    router.push({
+      pathname: "/add-income",
+      params: {
+        incomeId: income.id,
+        amount: String(income.amount),
+        source: income.source,
+        date: income.income_date,
+        recurring: String(income.recurring),
+      },
+    });
 
   const alerts: AlertItem[] =
     data?.top_drift_categories.slice(0, 4).map(
@@ -490,7 +545,10 @@ export default function Dashboard() {
             size={40}
           />
           <Text style={styles.errorTitle}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={load}>
+          <Pressable
+            style={styles.retryBtn}
+            onPress={() => void load()}
+          >
             <Text style={styles.retryText}>Réessayer</Text>
           </Pressable>
         </View>
@@ -503,23 +561,34 @@ export default function Dashboard() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* ── Header ── */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Tableau de bord</Text>
           <View style={styles.headerActions}>
-            <Link href="/add-expense" asChild>
-              <Pressable
-                style={styles.quickAdd}
-                hitSlop={8}
-                accessibilityLabel="Ajouter une dépense"
-                accessibilityRole="button"
-                accessibilityHint="Ouvre le formulaire de saisie d'une dépense"
-              >
-                <MaterialCommunityIcons name="plus" size={15} color={colors.primary} />
-                <Text style={styles.quickAddText}>Ajouter</Text>
-              </Pressable>
-            </Link>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ajouter un revenu (salaire, prêt, dividende)"
+              onPress={() => router.push("/add-income")}
+              style={({ pressed }) => [
+                styles.incomeBtn,
+                pressed && styles.incomeBtnPressed,
+              ]}
+            >
+              <MaterialCommunityIcons
+                color={colors.primary}
+                name="bank-plus"
+                size={18}
+              />
+            </Pressable>
             <View style={styles.avatar}>
               <MaterialCommunityIcons
                 color="#FFFFFF"
@@ -532,12 +601,25 @@ export default function Dashboard() {
 
         {/* ── Solde Restant ── */}
         <View style={styles.soldeCard}>
-          <View style={styles.soldeDecorTop} />
-          <View style={styles.soldeDecorBottom} />
+          <View pointerEvents="none" style={styles.soldeDecorTop} />
+          <View pointerEvents="none" style={styles.soldeDecorBottom} />
           <Text style={styles.soldeLabel}>Solde Restant</Text>
           <Text style={styles.soldeAmount}>
             {formatMoney(solde, currency)}
           </Text>
+          {(data?.contributions ?? 0) > 0 && (
+            <View style={styles.soldeContribRow}>
+              <MaterialCommunityIcons
+                color={colors.primary}
+                name="piggy-bank"
+                size={14}
+              />
+              <Text style={styles.soldeContribText}>
+                dont {formatMoney(data?.contributions ?? 0, currency)} déjà
+                versés à l'épargne
+              </Text>
+            </View>
+          )}
           <Sparkline data={data?.sparkline ?? []} />
           {data?.monthly_variation != null && (
             <Pressable
@@ -560,6 +642,56 @@ export default function Dashboard() {
             </Pressable>
           )}
         </View>
+
+        {/* ── Revenus récurrents ── */}
+        {recurringIncomes.length > 0 && (
+          <>
+            <View style={styles.incomeSectionHeader}>
+              <Text style={styles.sectionTitle}>Revenus récurrents</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Voir toutes les sources de revenus"
+                onPress={() => router.push("/income-sources")}
+                hitSlop={8}
+              >
+                <Text style={styles.incomeSectionLink}>Tout voir</Text>
+              </Pressable>
+            </View>
+            {recurringIncomes.map((income) => (
+              <Pressable
+                key={income.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Modifier ${income.source}`}
+                onPress={() => editIncome(income)}
+                style={({ pressed }) => [
+                  styles.incomeCard,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <View style={styles.incomeIcon}>
+                  <MaterialCommunityIcons
+                    color={colors.primary}
+                    name={sourceIcon(income.source)}
+                    size={20}
+                  />
+                </View>
+                <View style={styles.incomeCopy}>
+                  <Text style={styles.incomeLabel} numberOfLines={1}>
+                    {income.source}
+                  </Text>
+                  <Text style={styles.incomeValue}>
+                    {formatMoney(income.amount, currency)}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  color={colors.textMuted}
+                  name="chevron-right"
+                  size={22}
+                />
+              </Pressable>
+            ))}
+          </>
+        )}
 
         {/* ── Vigilance Budgétaire ── */}
         {alerts.length > 0 && (
@@ -590,7 +722,7 @@ export default function Dashboard() {
 
         {/* ── Épargne Projetée ── */}
         <View style={styles.projectedCard}>
-          <View style={styles.projectedDecor} />
+          <View pointerEvents="none" style={styles.projectedDecor} />
           <View style={styles.projectedTop}>
             <Text style={styles.projectedLabel}>Épargne Projetée</Text>
             <Text style={styles.projectedDate}>{projectedDate}</Text>
@@ -645,8 +777,8 @@ export default function Dashboard() {
         {/* ── Épargne Réalisée ── */}
         {goal && (
           <View style={styles.savingsCard}>
-            <View style={styles.savingsDecorTop} />
-            <View style={styles.savingsDecorBottom} />
+            <View pointerEvents="none" style={styles.savingsDecorTop} />
+            <View pointerEvents="none" style={styles.savingsDecorBottom} />
             <View style={styles.savingsContent}>
               <View style={styles.savingsLeft}>
                 <Text style={styles.savingsLabel}>Épargne Réalisée</Text>
@@ -702,9 +834,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 4,
+    zIndex: 10,
   },
   headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
   headerActions: { alignItems: "center", flexDirection: "row", gap: 10 },
+  incomeBtn: {
+    alignItems: "center",
+    backgroundColor: "#E4DFFF",
+    borderColor: colors.primary,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  incomeBtnPressed: { opacity: 0.7 },
   quickAdd: {
     alignItems: "center",
     backgroundColor: "#E4DFFF30",
@@ -775,6 +919,46 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   soldeTrendText: { color: colors.accent, fontSize: 12, fontWeight: "600" },
+  soldeContribRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  soldeContribText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  /* Revenus */
+  incomeSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  incomeSectionLink: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  incomeCard: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  incomeIcon: {
+    alignItems: "center",
+    backgroundColor: `${colors.primary}1A`,
+    borderRadius: 12,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  incomeCopy: { flex: 1, gap: 2 },
+  incomeLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
+  incomeValue: { color: colors.text, fontSize: 18, fontWeight: "800" },
 
   /* Vigilance */
   sectionTitle: {

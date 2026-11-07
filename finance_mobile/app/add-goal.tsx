@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -12,7 +14,10 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 
+import { savings as savingsApi } from "../src/shared/api/savings";
+import { useAppStore } from "../src/shared/store";
 import { ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
@@ -46,10 +51,12 @@ function formatNumber(value: number): string {
 }
 
 export default function AddGoal() {
+  const userId = useAppStore((s) => s.userId);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const monthlyEstimate = useMemo(
     () => computeMonthlyEstimate(amount, date),
@@ -64,6 +71,44 @@ export default function AddGoal() {
       setDate(`${y}-${m}`);
     }
   };
+
+  async function createGoal() {
+    const targetAmount = parseFloat(amount.replace(/\s/g, "").replace(",", ".")) || 0;
+
+    if (!name.trim()) {
+      Alert.alert("Nom manquant", "Renseignez un nom pour l'objectif.");
+      return;
+    }
+    if (targetAmount <= 0) {
+      Alert.alert("Montant invalide", "Renseignez un montant cible supérieur à 0.");
+      return;
+    }
+    if (!date) {
+      Alert.alert("Date manquante", "Choisissez une date cible.");
+      return;
+    }
+    if (!userId) {
+      Alert.alert("Session expirée", "Recommencez l'inscription.");
+      router.replace("/onboarding");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await savingsApi.create(userId, {
+        name: name.trim(),
+        target_amount: targetAmount,
+        deadline: `${date}-01`,
+      });
+      router.back();
+    } catch {
+      setSaving(false);
+      Alert.alert(
+        "Échec de la création",
+        "Impossible de créer l'objectif. Vérifiez la connexion au serveur.",
+      );
+    }
+  }
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -173,9 +218,19 @@ export default function AddGoal() {
         {/* ── CTA ── */}
         <View style={styles.ctaContainer}>
           <View style={styles.ctaFade} />
-          <Pressable style={styles.ctaButton}>
-            <MaterialCommunityIcons color="#FFFFFF" name="plus-circle" size={22} />
-            <Text style={styles.ctaText}>Créer l'objectif</Text>
+          <Pressable
+            style={[styles.ctaButton, saving && styles.ctaButtonDisabled]}
+            onPress={createGoal}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <MaterialCommunityIcons color="#FFFFFF" name="plus-circle" size={22} />
+                <Text style={styles.ctaText}>Créer l'objectif</Text>
+              </>
+            )}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -305,4 +360,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   ctaText: { color: "#FFFFFF", fontSize: 20, fontWeight: "600" },
+  ctaButtonDisabled: { opacity: 0.7 },
 });

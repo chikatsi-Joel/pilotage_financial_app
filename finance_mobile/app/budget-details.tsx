@@ -1,5 +1,6 @@
-import React, { useMemo, useRef } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,16 +11,20 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import Svg, {
   Circle,
   Line,
   Path,
-  Rect,
   Text as SvgText,
 } from "react-native-svg";
 
 import { BackButton } from "../src/ui/components";
+import { analytics as analyticsApi } from "../src/shared/api/analytics";
+import { expenses as expensesApi } from "../src/shared/api/expenses";
+import { useAppStore } from "../src/shared/store";
+import type { CategoryAnalytics, Expense } from "../src/shared/types";
+import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
@@ -27,33 +32,42 @@ import { colors } from "../src/ui/theme";
 /* ------------------------------------------------------------------ */
 
 type DetailParams = {
+  catId?: string;
   category?: string;
   amount?: string;
   tint?: string;
   opt?: string;
+  icon?: string;
+  allocated?: string;
 };
-
-/* ------------------------------------------------------------------ */
-//  Données mockées (à remplacer par ton API)
-/* ------------------------------------------------------------------ */
-
-const MOCK = {
-  habitual: 66412,
-  trendLabel: "↗ En hausse",
-  trendSub: "Accélération continue",
-  driftSince: "3 mois",
-  projectionNext: 95000,
-  optimizationPotential: 21000,
-  rationale:
-    "Vos dépenses de logement affichent une dérive persistante par rapport à votre niveau habituel. Une renégociation de vos contrats énergétiques pourrait libérer un fort potentiel d'optimisation.",
-};
-
-/* ------------------------------------------------------------------ */
-//  Coefficient d'optimisation (miroir de OptimizationPotential backend)
-/* ------------------------------------------------------------------ */
 
 const OPT_LEVELS = ["low", "medium", "high"] as const;
 type OptLevel = (typeof OPT_LEVELS)[number];
+
+function optFromScore(cat: CategoryAnalytics): OptLevel {
+  if (cat.opportunity_score >= 0.6) return "high";
+  if (cat.opportunity_score >= 0.35) return "medium";
+  return "low";
+}
+
+function formatPct(value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${Math.round(Math.abs(value))}%`;
+}
+
+function txDate(iso: string): string {
+  const d = new Date(iso);
+  const label = d.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+  });
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  return sameDay ? `Aujourd'hui, ${label}` : label;
+}
 
 const OPT_META: Record<
   OptLevel,
@@ -68,65 +82,6 @@ const OPT_COEFFICIENT: Record<OptLevel, string> = {
   low: "0,25",
   medium: "0,60",
   high: "1,00",
-};
-
-const formatXaf = (n: number) =>
-  new Intl.NumberFormat("fr-FR").format(n) + " XAF";
-
-/* ------------------------------------------------------------------ */
-//  Dépenses de la catégorie (mock par catégorie)
-/* ------------------------------------------------------------------ */
-
-type CategoryExpense = {
-  id: string;
-  title: string;
-  date: string;
-  amount: number;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  iconBg: string;
-  iconColor: string;
-  pill?: string;
-  pillBg?: string;
-  pillColor?: string;
-};
-
-const DEFAULT_EXPENSES: CategoryExpense[] = [
-  { id: "d1", title: "Achat en ligne", date: "29 août", amount: 3490, icon: "shopping", iconBg: "#E3E1ED", iconColor: "#64636D", pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
-  { id: "d2", title: "Paiement carte", date: "22 août", amount: 1200, icon: "credit-card", iconBg: "#E3E1ED", iconColor: "#64636D" },
-  { id: "d3", title: "Paiement mobile", date: "16 août", amount: 850, icon: "cellphone", iconBg: "#E3E1ED", iconColor: "#64636D" },
-];
-
-const MOCK_EXPENSES: Record<string, CategoryExpense[]> = {
-  "Logement & Charges": [
-    { id: "l1", title: "Loyer Appartement", date: "30 août", amount: 114000, icon: "home", iconBg: "#DCE9FF", iconColor: colors.primary, pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
-    { id: "l2", title: "EDF - Électricité", date: "22 août", amount: 6200, icon: "lightning-bolt", iconBg: "#FFF0D7", iconColor: colors.warning, pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
-    { id: "l3", title: "Internet - Orange", date: "18 août", amount: 2999, icon: "wifi", iconBg: "#E3E1ED", iconColor: "#64636D", pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
-    { id: "l4", title: "Eau - Société Camerounaise", date: "05 août", amount: 1800, icon: "water", iconBg: "#DCE9FF", iconColor: colors.primary },
-  ],
-  Alimentation: [
-    { id: "a1", title: "Carrefour - Courses", date: "29 août", amount: 9640, icon: "cart", iconBg: "#E3E1ED", iconColor: "#64636D", pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
-    { id: "a2", title: "Marché Central", date: "24 août", amount: 4250, icon: "shopping", iconBg: "#E3E1ED", iconColor: "#64636D" },
-    { id: "a3", title: "Restaurant Le Papaye", date: "12 août", amount: 3500, icon: "silverware-fork-knife", iconBg: "#D3BBFF30", iconColor: colors.accent, pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
-    { id: "a4", title: "Carrefour Market", date: "06 août", amount: 7800, icon: "cart", iconBg: "#E3E1ED", iconColor: "#64636D" },
-  ],
-  Transports: [
-    { id: "t1", title: "TotalEnergies - Essence", date: "27 août", amount: 5500, icon: "gas-station", iconBg: "#E3E1ED", iconColor: "#64636D" },
-    { id: "t2", title: "Course Uber", date: "20 août", amount: 1800, icon: "car", iconBg: "#E3E1ED", iconColor: "#64636D" },
-    { id: "t3", title: "Abonnement transport", date: "02 août", amount: 2500, icon: "bus", iconBg: "#DCE9FF", iconColor: colors.primary, pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
-  ],
-  "Loisirs & Sorties": [
-    { id: "lo1", title: "Cinéma Pathé", date: "28 août", amount: 2200, icon: "movie", iconBg: "#D3BBFF30", iconColor: colors.accent },
-    { id: "lo2", title: "Restaurant La Paillote", date: "19 août", amount: 6000, icon: "silverware-fork-knife", iconBg: "#D3BBFF30", iconColor: colors.accent, pill: "Optimisable", pillBg: "#D3BBFF30", pillColor: colors.accent },
-    { id: "lo3", title: "Session Bowling", date: "15 août", amount: 3800, icon: "bowling", iconBg: "#E3E1ED", iconColor: "#64636D" },
-  ],
-  Santé: [
-    { id: "s1", title: "Pharmacie de la Poste", date: "21 août", amount: 4100, icon: "medical-bag", iconBg: "#DCE9FF", iconColor: colors.primary, pill: "Essentielle", pillBg: "#DCE9FF", pillColor: colors.text },
-    { id: "s2", title: "Consultation Dresseur", date: "10 août", amount: 3000, icon: "hospital-building", iconBg: "#E3E1ED", iconColor: "#64636D" },
-  ],
-  Épargne: [
-    { id: "e1", title: "Virement automatique", date: "28 août", amount: 25000, icon: "piggy-bank", iconBg: "#FFF0D7", iconColor: colors.warning, pill: "Automatique", pillBg: "#FFF0D7", pillColor: colors.warning },
-    { id: "e2", title: "Dépôt Livret A", date: "28 août", amount: 15000, icon: "bank", iconBg: "#DCE9FF", iconColor: colors.primary },
-  ],
 };
 
 /* ------------------------------------------------------------------ */
@@ -173,7 +128,19 @@ const FadeIn = ({
 //  Graphique SVG
 /* ------------------------------------------------------------------ */
 
-const SpendingChart = () => {
+const SpendingChart = ({
+  baseline = 0,
+  forecast = 0,
+  expenses = [],
+  period,
+  tint = colors.primary,
+}: {
+  baseline?: number;
+  forecast?: number;
+  expenses?: Expense[];
+  period: string;
+  tint?: string;
+}) => {
   const pathOpacity = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -185,13 +152,56 @@ const SpendingChart = () => {
     }).start();
   }, [pathOpacity]);
 
+  const W = 300;
+  const H = 120;
+  const PAD = { l: 12, r: 12, t: 8, b: 10 };
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+
+  const [y, m] = (period || "2026-01").split("-").map(Number);
+  const lastDay = new Date(y, m || 1, 0).getDate() || 30;
+  const now = new Date();
+  const todayDay = Math.max(1, Math.min(now.getDate(), lastDay));
+
+  const cumByDay = new Map<number, number>();
+  let running = 0;
+  const sorted = [...expenses]
+    .filter((e) => e.expense_date)
+    .sort((a, b) => a.expense_date.localeCompare(b.expense_date));
+  for (const e of sorted) {
+    const day = new Date(e.expense_date).getDate();
+    running += e.amount;
+    cumByDay.set(day, running);
+  }
+  const cumToday = running;
+  const maxVal = Math.max(cumToday, baseline, forecast, 1);
+
+  const x = (day: number) => PAD.l + (day / lastDay) * plotW;
+  const yFor = (v: number) => PAD.t + plotH - (v / maxVal) * plotH;
+
+  const realPoints: Array<[number, number]> = [[0, 0]];
+  let acc = 0;
+  for (let d = 1; d <= todayDay; d++) {
+    const v = cumByDay.get(d);
+    if (v !== undefined) acc = v;
+    realPoints.push([d, acc]);
+  }
+  const realPath = realPoints
+    .map(([d, v], i) => `${i ? "L" : "M"} ${x(d).toFixed(1)} ${yFor(v).toFixed(1)}`)
+    .join(" ");
+
+  const habPath = `M ${x(0).toFixed(1)} ${yFor(0).toFixed(1)} L ${x(lastDay).toFixed(1)} ${yFor(baseline).toFixed(1)}`;
+  const projPath = `M ${x(todayDay).toFixed(1)} ${yFor(acc).toFixed(1)} L ${x(lastDay).toFixed(1)} ${yFor(forecast).toFixed(1)}`;
+
+  const gridYs = [0.25, 0.5, 0.75].map((f) => PAD.t + plotH * f);
+
   return (
     <View style={styles.chartBox}>
       <View style={styles.chartHeader}>
         <Text style={styles.chartTitle}>Évolution & Projection</Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+            <View style={[styles.legendDot, { backgroundColor: tint }]} />
             <Text style={styles.legendText}>Réel</Text>
           </View>
           <View style={styles.legendItem}>
@@ -200,57 +210,63 @@ const SpendingChart = () => {
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
-            <Text style={styles.legendText}>Saison</Text>
+            <Text style={styles.legendText}>Projection</Text>
           </View>
         </View>
       </View>
 
       <Animated.View style={{ opacity: pathOpacity, height: 160 }}>
-        <Svg viewBox="0 0 300 120" width="100%" height="100%">
-          {/* Zone saisonnière */}
-          <Rect x="160" y="0" width="40" height="120" fill={`${colors.accent}18`} />
-          <SvgText x="180" y="14" fill={colors.accent} fontSize="10" fontWeight="600" textAnchor="middle">
-            Pic
-          </SvgText>
-
+        <Svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
           {/* Grid */}
-          <Line x1="0" y1="30" x2="300" y2="30" stroke="#C8C4D550" strokeDasharray="2" strokeWidth="0.5" />
-          <Line x1="0" y1="60" x2="300" y2="60" stroke="#C8C4D550" strokeDasharray="2" strokeWidth="0.5" />
-          <Line x1="0" y1="90" x2="300" y2="90" stroke="#C8C4D550" strokeDasharray="2" strokeWidth="0.5" />
+          {gridYs.map((gy) => (
+            <Line
+              key={gy}
+              x1={PAD.l}
+              y1={gy}
+              x2={W - PAD.r}
+              y2={gy}
+              stroke="#C8C4D550"
+              strokeDasharray="2"
+              strokeWidth="0.5"
+            />
+          ))}
 
-          {/* Baseline */}
-          <Line x1="0" y1="75" x2="300" y2="75" stroke={colors.textMuted} strokeDasharray="4 4" strokeWidth="1.5" />
-          <SvgText x="4" y="71" fill={colors.textMuted} fontSize="9">
-            Niveau habituel (66k)
+          {/* Habituel (cumul attendu) */}
+          <Path
+            d={habPath}
+            stroke={colors.textMuted}
+            strokeDasharray="4 4"
+            strokeWidth="1.5"
+            fill="none"
+          />
+          <SvgText x={x(2)} y={Math.max(yFor(baseline) - 5, 10)} fill={colors.textMuted} fontSize="9">
+            Habituel
           </SvgText>
 
-          {/* Trend */}
-          <Line x1="0" y1="85" x2="220" y2="25" stroke="#7165D3" strokeDasharray="2 2" strokeWidth="1" opacity="0.6" />
-
-          {/* Real spending */}
+          {/* Projection */}
           <Path
-            d="M0 80 Q 50 75, 100 60 T 180 30 T 220 15"
-            fill="none"
-            stroke={colors.primary}
-            strokeWidth="2.5"
-          />
-          <Circle cx="100" cy="60" r="3" fill={colors.primary} />
-          <Circle cx="180" cy="30" r="3" fill={colors.primary} />
-          <Circle cx="220" cy="15" r="4" fill={colors.primary} stroke="#FFFFFF" strokeWidth="2" />
-
-          {/* Forecast */}
-          <Path
-            d="M220 15 Q 260 5, 300 0"
-            fill="none"
+            d={projPath}
             stroke={colors.accent}
             strokeDasharray="2 4"
             strokeWidth="2"
-            opacity="0.7"
+            fill="none"
+            opacity="0.75"
           />
-          <Circle cx="300" cy="0" r="3" fill={colors.accent} opacity="0.7" />
-          <SvgText x="270" y="14" fill={colors.accent} fontSize="10">
+          <Circle cx={x(lastDay)} cy={yFor(forecast)} r="3" fill={colors.accent} opacity="0.8" />
+          <SvgText x={x(lastDay) - 4} y={Math.max(yFor(forecast) - 8, 10)} fill={colors.accent} fontSize="10" textAnchor="end">
             Proj.
           </SvgText>
+
+          {/* Réel (cumul du mois) */}
+          <Path
+            d={realPath}
+            fill="none"
+            stroke={tint}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Circle cx={x(todayDay)} cy={yFor(acc)} r="4" fill={tint} stroke="#FFFFFF" strokeWidth="2" />
         </Svg>
       </Animated.View>
     </View>
@@ -263,27 +279,101 @@ const SpendingChart = () => {
 
 export default function BudgetDetail() {
   const params = useLocalSearchParams<DetailParams>();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const userId = useAppStore((s) => s.userId);
+  const currency = useAppStore((s) => s.currency);
+  const period = useAppStore((s) => s.currentPeriod);
 
-  const category = params.category ?? "Logement & Charges";
-  const amount = Number(params.amount ?? 87000);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [cat, setCat] = React.useState<CategoryAnalytics | null>(null);
+  const [expenses, setExpenses] = React.useState<Expense[]>([]);
+
+  const category = params.category ?? cat?.name ?? "Logement & Charges";
+  const amount = cat?.current_amount ?? Number(params.amount ?? 0);
   const tint = params.tint ?? colors.primary;
+  const allocated = Number(params.allocated ?? 0) || 0;
+  const remaining = allocated > 0 ? allocated - amount : null;
+  const icon =
+    params.icon && params.icon in MaterialCommunityIcons.glyphMap
+      ? (params.icon as keyof typeof MaterialCommunityIcons.glyphMap)
+      : "home";
   const optLevel: OptLevel =
     params.opt === "low" || params.opt === "medium" || params.opt === "high"
       ? params.opt
-      : "medium";
+      : cat
+        ? optFromScore(cat)
+        : "medium";
   const optMeta = OPT_META[optLevel];
-  const expenses = MOCK_EXPENSES[category] ?? DEFAULT_EXPENSES;
 
-  const onRefresh = React.useCallback(() => {
+  const load = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1200);
-  }, []);
+    try {
+      if (!userId) return;
+      const cats = await analyticsApi.categories(userId, period);
+      const categoryId = params.catId || "";
+      const catName = params.category?.trim().toLowerCase();
+      const match =
+        cats.find((c) => c.category_id === categoryId) ??
+        (catName
+          ? cats.find(
+              (c) => c.name.trim().toLowerCase() === catName
+            )
+          : null) ??
+        null;
+      setCat(match);
+      const expenseCategoryId = categoryId || match?.category_id || null;
+      if (!expenseCategoryId) {
+        setExpenses([]);
+        return;
+      }
+      const [y, m] = period.split("-").map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      const res = await expensesApi.list(userId, {
+        categoryId: expenseCategoryId,
+        from: `${period}-01`,
+        to: `${period}-${String(lastDay).padStart(2, "0")}`,
+        limit: 100,
+      });
+      setExpenses(res.items);
+    } catch {
+      setCat(null);
+      setExpenses([]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userId, period, params.catId, params.category]);
 
-  const pctVsHabitual = useMemo(() => {
-    if (MOCK.habitual === 0) return 0;
-    return Math.round(((amount - MOCK.habitual) / MOCK.habitual) * 100);
-  }, [amount]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const baseline = cat?.baseline_amount ?? 0;
+  const pctVsHabitual = cat?.variation_percentage ?? 0;
+  const trendLabel =
+    !cat ? "—" : cat.profile.trend > 0 ? "↗ En hausse" : "↘ En baisse";
+  const trendSub =
+    !cat
+      ? ""
+      : cat.profile.drift_score > 0.6
+        ? "Dérive marquée"
+        : "Tendance modérée";
+  const driftScore = cat?.profile.drift_score ?? 0;
+  const driftSince = cat ? "ce mois-ci" : "";
+  const projection = cat?.profile.forecast.value ?? 0;
+  const potential = cat?.potential_saving ?? 0;
+  const rationale = cat
+    ? `Vos dépenses "${cat.name}" affichent une variation de ${formatPct(
+        cat.variation_percentage
+      )} par rapport à votre niveau habituel. Réduire cette dérive libérerait environ ${formatMoney(
+        cat.potential_saving,
+        currency
+      )} par mois.`
+    : "Analyse indisponible pour cette catégorie.";
+
+  const onRefresh = useCallback(() => {
+    load();
+  }, [load]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -301,7 +391,7 @@ export default function BudgetDetail() {
             <View style={styles.headerMeta}>
               <View style={styles.headerCategoryRow}>
                 <MaterialCommunityIcons
-                  name="home"
+                  name={icon}
                   size={16}
                   color={tint}
                 />
@@ -309,19 +399,49 @@ export default function BudgetDetail() {
                   {category}
                 </Text>
               </View>
-              <Text style={styles.headerAmount}>
-                {new Intl.NumberFormat("fr-FR").format(amount)}{" "}
-                <Text style={styles.headerCurrency}>XAF</Text>
+              <Text style={[styles.headerAmount, allocated > 0 && styles.headerAmountSmall]}>
+                {formatMoney(allocated > 0 ? allocated : amount, currency)}
               </Text>
+              {allocated > 0 && remaining !== null && (
+                <>
+                  <Text style={styles.headerAllocatedLabel}>
+                    Budget alloué
+                  </Text>
+                  <View style={styles.headerAllocated}>
+                    <Text style={styles.headerAllocatedValue}>
+                      Dépensé : {formatMoney(amount, currency)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.headerAllocatedValue,
+                        {
+                          color:
+                            remaining >= 0
+                              ? colors.success
+                              : colors.danger,
+                          fontWeight: "700",
+                        },
+                      ]}
+                    >
+                      {remaining >= 0
+                        ? `Il reste ${formatMoney(remaining, currency)}`
+                        : `Dépassement de ${formatMoney(
+                            -remaining,
+                            currency
+                          )}`}
+                    </Text>
+                  </View>
+                </>
+              )}
               <View style={styles.headerBadges}>
-                <View style={[styles.trendBadge, { backgroundColor: `${colors.danger}12` }]}>
+                <View style={[styles.trendBadge, { backgroundColor: `${pctVsHabitual >= 0 ? colors.danger : colors.success}12` }]}>
                   <MaterialCommunityIcons
-                    name="trending-up"
+                    name={pctVsHabitual >= 0 ? "trending-up" : "trending-down"}
                     size={14}
-                    color={colors.danger}
+                    color={pctVsHabitual >= 0 ? colors.danger : colors.success}
                   />
-                  <Text style={[styles.trendText, { color: colors.danger }]}>
-                    +{pctVsHabitual}% vs habituel
+                  <Text style={[styles.trendText, { color: pctVsHabitual >= 0 ? colors.danger : colors.success }]}>
+                    {formatPct(pctVsHabitual)} vs habituel
                   </Text>
                 </View>
                 <View style={[styles.optBadge, { backgroundColor: optMeta.bg }]}>
@@ -345,9 +465,17 @@ export default function BudgetDetail() {
               />
             </View>
             <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Dérive persistante</Text>
+              <Text style={styles.alertTitle}>
+                {driftScore > 0.6 ? "Dérive persistante" : "État de la dérive"}
+              </Text>
               <Text style={styles.alertDesc}>
-                Dépenses anormalement élevées depuis {MOCK.driftSince}.
+                {cat
+                  ? driftScore > 0.6
+                    ? `Dépenses en dérive depuis ${driftSince} (score ${Math.round(
+                        driftScore * 100
+                      )}/100).`
+                    : "Pas de dérive majeure détectée ce mois sur cette catégorie."
+                  : "Aucune donnée analytique disponible pour cette catégorie."}
               </Text>
             </View>
           </View>
@@ -366,7 +494,7 @@ export default function BudgetDetail() {
                 <Text style={styles.gridLabel}>Niveau habituel</Text>
               </View>
               <Text style={styles.gridValue}>
-                {new Intl.NumberFormat("fr-FR").format(MOCK.habitual)} XAF
+                {formatMoney(baseline, currency)}
               </Text>
               <Text style={styles.gridSub}>Médiane historique</Text>
             </View>
@@ -380,15 +508,21 @@ export default function BudgetDetail() {
                 />
                 <Text style={styles.gridLabel}>Tendance</Text>
               </View>
-              <Text style={styles.gridValue}>{MOCK.trendLabel}</Text>
-              <Text style={styles.gridSub}>{MOCK.trendSub}</Text>
+              <Text style={styles.gridValue}>{trendLabel}</Text>
+              <Text style={styles.gridSub}>{trendSub}</Text>
             </View>
           </View>
         </FadeIn>
 
         {/* ── Graphique ── */}
         <FadeIn delay={300}>
-          <SpendingChart />
+          <SpendingChart
+            baseline={baseline}
+            forecast={projection}
+            expenses={expenses}
+            period={period}
+            tint={tint}
+          />
         </FadeIn>
 
         {/* ── Perspectives ── */}
@@ -405,7 +539,7 @@ export default function BudgetDetail() {
                 />
               </View>
               <Text style={styles.perspectiveValue}>
-                ≈ {new Intl.NumberFormat("fr-FR").format(MOCK.projectionNext)} XAF
+                ≈ {formatMoney(projection, currency)}
               </Text>
             </View>
 
@@ -419,7 +553,7 @@ export default function BudgetDetail() {
                 />
               </View>
               <Text style={[styles.perspectiveValue, { color: colors.primary }]}>
-                ≈ {new Intl.NumberFormat("fr-FR").format(MOCK.optimizationPotential)} XAF
+                ≈ {formatMoney(potential, currency)}
               </Text>
               <Text style={styles.perspectiveCoeff}>
                 Coefficient d'optimisation : {OPT_COEFFICIENT[optLevel]}
@@ -435,35 +569,68 @@ export default function BudgetDetail() {
         {/* ── Dépenses de la catégorie ── */}
         <FadeIn delay={350}>
           <Text style={styles.sectionEyebrow}>Dépenses du mois</Text>
-          <View style={styles.expensesList}>
-            {expenses.map((tx) => (
-              <View key={tx.id} style={styles.txCard}>
-                <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
-                  <MaterialCommunityIcons
-                    name={tx.icon}
-                    size={22}
-                    color={tx.iconColor}
-                  />
-                </View>
-                <View style={styles.txContent}>
-                  <Text style={styles.txTitle} numberOfLines={1}>
-                    {tx.title}
-                  </Text>
-                  <Text style={styles.txDate}>{tx.date}</Text>
-                </View>
-                <View style={styles.txRight}>
-                  <Text style={styles.txAmount}>-{formatXaf(tx.amount)}</Text>
-                  {tx.pill && (
-                    <View style={[styles.txPill, { backgroundColor: tx.pillBg }]}>
-                      <Text style={[styles.txPillText, { color: tx.pillColor }]}>
-                        {tx.pill}
+          {expenses.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Aucune dépense enregistrée pour {category} ce mois-ci.
+            </Text>
+          ) : (
+            <View style={styles.expensesList}>
+              {expenses.map((tx) => (
+                <View key={tx.id} style={styles.txCard}>
+                  <View
+                    style={[
+                      styles.txIcon,
+                      {
+                        backgroundColor: cat?.essential
+                          ? "#DCE9FF"
+                          : "#D3BBFF30",
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="credit-card-outline"
+                      size={22}
+                      color={cat?.essential ? colors.primary : colors.accent}
+                    />
+                  </View>
+                  <View style={styles.txContent}>
+                    <Text style={styles.txTitle} numberOfLines={1}>
+                      {tx.note || "Dépense"}
+                    </Text>
+                    <Text style={styles.txDate}>{txDate(tx.expense_date)}</Text>
+                  </View>
+                  <View style={styles.txRight}>
+                    <Text style={styles.txAmount}>
+                      -{formatMoney(tx.amount, currency)}
+                    </Text>
+                    <View
+                      style={[
+                        styles.txPill,
+                        {
+                          backgroundColor: cat?.essential
+                            ? "#DCE9FF"
+                            : "#D3BBFF30",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.txPillText,
+                          {
+                            color: cat?.essential
+                              ? colors.text
+                              : colors.accent,
+                          },
+                        ]}
+                      >
+                        {cat?.essential ? "Essentielle" : "Optimisable"}
                       </Text>
                     </View>
-                  )}
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </FadeIn>
 
         {/* ── Bloc IA Gemma ── */}
@@ -479,7 +646,7 @@ export default function BudgetDetail() {
                 />
               </View>
               <View style={styles.insightContent}>
-                <Text style={styles.insightText}>{MOCK.rationale}</Text>
+                <Text style={styles.insightText}>{rationale}</Text>
                 <Pressable
                   accessibilityLabel="Comprendre avec l'IA"
                   accessibilityRole="button"
@@ -549,6 +716,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -1,
     lineHeight: 44,
+  },
+  headerAmountSmall: {
+    fontSize: 32,
+    lineHeight: 36,
+  },
+  headerAllocated: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  headerAllocatedLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  headerAllocatedValue: {
+    fontSize: 13,
   },
   headerCurrency: {
     fontSize: 20,
@@ -722,6 +908,12 @@ const styles = StyleSheet.create({
 
   /* Dépenses de la catégorie */
   expensesList: { gap: 10 },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    paddingVertical: 12,
+    textAlign: "center",
+  },
   txCard: {
     alignItems: "center",
     backgroundColor: colors.surface,

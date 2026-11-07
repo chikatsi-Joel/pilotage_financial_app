@@ -10,6 +10,7 @@ from app.api.routers import (
     expenses,
     incomes,
     master_data,
+    receipts,
     savings,
     users,
     what_if,
@@ -39,6 +40,7 @@ app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(budget.router, prefix="/api/v1")
 app.include_router(what_if.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
+app.include_router(receipts.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["system"])

@@ -26,8 +26,10 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "https://api.ollama.com"
     ollama_model: str = "gemma4:31b"
+    ollama_vision_model: str = ""
     ollama_timeout: float = 60.0
-    ollama_api_key: str = "e2aa3375e8e34b75926e5715e3bf0329.GjnBZJucM-tmSCfP4QiTFzES"
+    receipt_scan_max_bytes: int = 10 * 1024 * 1024
+    ollama_api_key: str = ""
 
     @field_validator("cors_origins", mode="before")
     @classmethod

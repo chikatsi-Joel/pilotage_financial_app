@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -20,13 +20,18 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 import { categories as categoriesApi } from "../src/shared/api/categories";
 import { expenses as expensesApi } from "../src/shared/api/expenses";
+import { receipts as receiptsApi } from "../src/shared/api/receipts";
 import { useAppStore } from "../src/shared/store";
+
+/* ------------------------------------------------------------------ */
+/*  Types & constantes                                                 */
+/* ------------------------------------------------------------------ */
 
 interface Category {
   key: string;
@@ -34,91 +39,254 @@ interface Category {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 }
 
-const CATEGORIES: Category[] = [
-  { key: "alimentation", label: "Alimentation", icon: "silverware-fork-knife" },
-  { key: "transport", label: "Transport", icon: "car" },
-  { key: "loisirs", label: "Loisirs", icon: "controller" },
-  { key: "sante", label: "Santé", icon: "medical-bag" },
-  { key: "maison", label: "Maison", icon: "home" },
-  { key: "shopping", label: "Shopping", icon: "shopping" },
-  { key: "factures", label: "Factures", icon: "receipt" },
+type Mode = "scan" | "form";
+type NumpadKey = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "," | "0" | "del";
+
+const ICON_RULES: readonly { match: RegExp; icon: Category["icon"] }[] = [
+  { match: /alimentation|nourriture|courses|supermarch|restaurant|restauration/i, icon: "silverware-fork-knife" },
+  { match: /transport|carburant|taxi|uber|bus|train|avion/i, icon: "car" },
+  { match: /loisir|divertissement|vacance|abonnement|streaming|jeu/i, icon: "controller" },
+  { match: /sant|medical|pharmacie|soin/i, icon: "medical-bag" },
+  { match: /maison|logement|loyer|electricite|eau|entretien/i, icon: "home" },
+  { match: /v[eê]tement|shopping|habit|chaussure/i, icon: "shopping" },
+  { match: /facture|energie|electricit|internet|telephone|abonnement/i, icon: "receipt" },
+  { match: /epargne|epargne|invest/i, icon: "piggy-bank-outline" },
 ];
 
-const NUMPAD = [
-  ["1", "2", "3"],
-  ["4", "5", "6"],
-  ["7", "8", "9"],
-  [",", "0", "del"],
+/** Icône par défaut selon le libellé serveur de la catégorie. */
+function iconFor(label: string): Category["icon"] {
+  for (const rule of ICON_RULES) {
+    if (rule.match.test(label)) return rule.icon;
+  }
+  return "shape-outline";
+}
+
+const NUMPAD_KEYS: readonly NumpadKey[] = [
+  "1", "2", "3",
+  "4", "5", "6",
+  "7", "8", "9",
+  ",", "0", "del",
 ];
+
+const MAX_AMOUNT_DIGITS = 7;
 
 const ANALYZE_STEPS = [
   "Lecture du ticket…",
   "Extraction des montants…",
   "Reconnaissance des libellés…",
   "Catégorisation automatique…",
-];
+] as const;
 
-const DEMO_SCAN = {
-  amount: 85.2,
-  category: "Alimentation",
-  expense_date: todayISO(),
-  merchant: "Monoprix - Courses",
-  description: null as string | null,
-};
+const ANALYZE_STEP_DURATION = 900;
 
-type Mode = "scan" | "form";
+/* ------------------------------------------------------------------ */
+/*  Utilitaires purs (testables, hors composant)                       */
+/* ------------------------------------------------------------------ */
 
-function todayISO() {
-  const d = new Date();
+function toISODate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-function parseISO(iso: string) {
+function parseISODate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
-function formatDateDisplay(iso: string) {
+function formatDisplayDate(iso: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(parseISO(iso));
+  }).format(parseISODate(iso));
 }
 
-const numberToInput = (n: number) =>
-  new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 })
-    .format(n)
-    .replace(/[\u00a0\u202f\s]/g, "");
+/** Saisie clavier numérique : max 2 décimales, pas de "0" superflu. */
+export function updateAmountInput(prev: string, key: NumpadKey): string {
+  if (key === "del") {
+    return prev.length > 1 ? prev.slice(0, -1) : "0";
+  }
+  if (key === ",") {
+    return prev.includes(",") ? prev : prev + ",";
+  }
+  const decimals = prev.split(",")[1];
+  if (decimals && decimals.length >= 2) return prev;
+  if (prev.replace(/[^\d]/g, "").length >= MAX_AMOUNT_DIGITS) return prev;
+  return prev === "0" ? key : prev + key;
+}
 
-export default function AddExpense() {
-  const [mode, setMode] = useState<Mode>("scan");
+function parseAmount(raw: string): number {
+  return Number(raw.replace(",", "."));
+}
 
-  const [amount, setAmount] = useState("0");
-  const [selectedCategory, setSelectedCategory] = useState("alimentation");
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(todayISO());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+/* ------------------------------------------------------------------ */
+/*  Hooks                                                              */
+/* ------------------------------------------------------------------ */
 
-  const [receiptUri, setReceiptUri] = useState<string | null>(null);
-  const [scanError, setScanError] = useState<string | null>(null);
+/** Charge les catégories actives depuis l'API et les adapte à l'affichage. */
+function useCategories(userId: string | null) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [cameraVisible, setCameraVisible] = useState(false);
-  const [capturedUri, setCapturedUri] = useState<string | null>(null);
-  const [frameHeight, setFrameHeight] = useState(0);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeStep, setAnalyzeStep] = useState(0);
+  const load = useCallback(async () => {
+    if (!userId) {
+      setCategories([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await categoriesApi.list(userId, { limit: 100 });
+      setCategories(
+        res.items
+          .filter((c) => c.active !== false)
+          .map((c) => ({ key: c.id, label: c.name, icon: iconFor(c.name) })),
+      );
+    } catch {
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { categories, loading };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sous-composants                                                    */
+/* ------------------------------------------------------------------ */
+
+const Numpad = memo(function Numpad({
+  onPress,
+}: {
+  onPress: (key: NumpadKey) => void;
+}) {
+  return (
+    <View style={styles.numpad}>
+      {NUMPAD_KEYS.map((key) => (
+        <Pressable
+          key={key}
+          accessibilityLabel={key === "del" ? "Effacer" : key === "," ? "Virgule" : key}
+          accessibilityRole="button"
+          onPress={() => onPress(key)}
+          style={({ pressed }) => [
+            styles.numpadBtn,
+            key === "del" && styles.numpadBtnDel,
+            pressed && styles.pressed,
+          ]}
+        >
+          {key === "del" ? (
+            <MaterialCommunityIcons color={colors.textMuted} name="backspace" size={22} />
+          ) : (
+            <Text style={styles.numpadText}>{key}</Text>
+          )}
+        </Pressable>
+      ))}
+    </View>
+  );
+});
+
+const CategoryPicker = memo(function CategoryPicker({
+  categories,
+  selected,
+  onSelect,
+}: {
+  categories: readonly Category[];
+  selected: string;
+  onSelect: (key: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = useMemo(
+    () => (showAll ? categories : categories.slice(0, 4)),
+    [categories, showAll]
+  );
+
+  if (categories.length === 0) {
+    return (
+      <View>
+        <Text style={styles.catTitle}>Catégorie</Text>
+        <Text style={styles.errorText} accessibilityLiveRegion="polite">
+          Aucune catégorie disponible côté serveur.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Text style={styles.catTitle}>Catégorie</Text>
+      <View style={styles.catGrid}>
+        {visible.map((cat) => {
+          const active = selected === cat.key;
+          return (
+            <Pressable
+              key={cat.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Catégorie ${cat.label}`}
+              onPress={() => onSelect(cat.key)}
+              style={({ pressed }) => [
+                styles.catBtn,
+                active && styles.catBtnActive,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={[styles.catIcon, active && styles.catIconActive]}>
+                <MaterialCommunityIcons
+                  color={active ? "#FFFFFF" : colors.primary}
+                  name={cat.icon}
+                  size={22}
+                />
+              </View>
+              <Text style={[styles.catLabel, active && styles.catLabelActive]}>
+                {cat.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={showAll ? "Afficher moins de catégories" : "Afficher plus de catégories"}
+          onPress={() => setShowAll((v) => !v)}
+          style={({ pressed }) => [styles.catBtn, pressed && styles.pressed]}
+        >
+          <View style={styles.catIconMore}>
+            <MaterialCommunityIcons
+              color={colors.textMuted}
+              name={showAll ? "chevron-up" : "dots-horizontal"}
+              size={22}
+            />
+          </View>
+          <Text style={styles.catLabelMore}>{showAll ? "Moins" : "Plus"}</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+});
+
+/** Modal caméra plein écran : permission, cadre de scan, capture. */
+function ScanModal({
+  visible,
+  onClose,
+  onValidate,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onValidate: (uri: string) => void;
+}) {
   const camRef = useRef<CameraView>(null);
   const scanLine = useRef(new Animated.Value(0)).current;
-  const [cameraPermission, requestCameraPermission] =
-    useCameraPermissions();
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [frameHeight, setFrameHeight] = useState(0);
+  const [permission, requestPermission] = useCameraPermissions();
 
   /* Barre de scan : montée / descente continue */
   useEffect(() => {
-    if (!cameraVisible || capturedUri) return;
+    if (!visible || capturedUri) return;
     scanLine.setValue(0);
     const loop = Animated.loop(
       Animated.sequence([
@@ -138,55 +306,282 @@ export default function AddExpense() {
     );
     loop.start();
     return () => loop.stop();
-  }, [cameraVisible, capturedUri, scanLine]);
+  }, [visible, capturedUri, scanLine]);
 
-  /* Faux traitement IA : étapes successives puis pré-remplissage */
+  /* Réinitialise la capture quand la modal se rouvre */
   useEffect(() => {
-    if (!analyzing) return;
-    setAnalyzeStep(0);
-    const interval = setInterval(() => {
-      setAnalyzeStep((s) => {
-        if (s < ANALYZE_STEPS.length - 1) return s + 1;
-        clearInterval(interval);
-        applyFakeScan();
-        return s;
-      });
-    }, 900);
-    return () => clearInterval(interval);
-  }, [analyzing]);
+    if (visible) setCapturedUri(null);
+  }, [visible]);
 
+  const handleClose = useCallback(() => {
+    setCapturedUri(null);
+    onClose();
+  }, [onClose]);
+
+  const capturePhoto = useCallback(async () => {
+    const photo = await camRef.current?.takePictureAsync({ quality: 0.8 });
+    if (photo) setCapturedUri(photo.uri);
+  }, []);
+
+  return (
+    <Modal visible={visible} animationType="fade" onRequestClose={handleClose}>
+      <View style={styles.cameraRoot}>
+        {capturedUri ? (
+          <>
+            <Image source={{ uri: capturedUri }} style={StyleSheet.absoluteFill} />
+            <View style={styles.captureActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Reprendre la photo"
+                onPress={() => setCapturedUri(null)}
+                style={styles.captureGhost}
+              >
+                <Text style={styles.captureGhostText}>Reprendre</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Valider la photo"
+                onPress={() => capturedUri && onValidate(capturedUri)}
+                style={styles.capturePrimary}
+              >
+                <MaterialCommunityIcons color="#FFFFFF" name="check" size={22} />
+                <Text style={styles.capturePrimaryText}>Valider</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : !permission ? (
+          <View style={styles.cameraLoading}>
+            <ActivityIndicator color="#FFFFFF" />
+          </View>
+        ) : !permission.granted ? (
+          <View style={styles.cameraPermBox}>
+            <MaterialCommunityIcons color="#FFFFFF" name="camera-off-outline" size={40} />
+            <Text style={styles.cameraPermText}>
+              Autorisez la caméra pour scanner vos factures.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={requestPermission}
+              style={styles.capturePrimary}
+            >
+              <Text style={styles.capturePrimaryText}>Autoriser</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <CameraView ref={camRef} style={StyleSheet.absoluteFill} facing="back">
+            <View style={styles.cameraTop}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fermer le scanner"
+                hitSlop={8}
+                onPress={handleClose}
+                style={styles.cameraClose}
+              >
+                <MaterialCommunityIcons color="#FFFFFF" name="close" size={26} />
+              </Pressable>
+              <Text style={styles.cameraHint}>Placez le ticket dans le cadre</Text>
+              <View style={styles.cameraCloseSpacer} />
+            </View>
+
+            <View style={styles.cameraMiddle}>
+              <View
+                style={styles.scanFrame}
+                onLayout={(e) => setFrameHeight(e.nativeEvent.layout.height)}
+              >
+                <View style={[styles.corner, styles.cornerTL]} />
+                <View style={[styles.corner, styles.cornerTR]} />
+                <View style={[styles.corner, styles.cornerBL]} />
+                <View style={[styles.corner, styles.cornerBR]} />
+                <Animated.View
+                  style={[
+                    styles.scanBar,
+                    {
+                      transform: [
+                        {
+                          translateY: scanLine.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, Math.max(frameHeight - 28, 0)],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.cameraBottom}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Prendre la photo"
+                onPress={capturePhoto}
+                style={({ pressed }) => [styles.shutter, pressed && { opacity: 0.7 }]}
+              >
+                <View style={styles.shutterInner} />
+              </Pressable>
+            </View>
+          </CameraView>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+/** Overlay d'analyse (simulation IA) avec progression par étapes. */
+function AnalyzingOverlay({ step }: { step: number }) {
+  return (
+    <Modal visible animationType="fade" transparent>
+      <View style={styles.analyzeBackdrop}>
+        <View style={styles.analyzeCard}>
+          <View style={styles.analyzeIconWrap}>
+            <ActivityIndicator color={colors.primary} size="large" />
+          </View>
+          <Text style={styles.analyzeTitle}>Analyse en cours</Text>
+          <Text style={styles.analyzeStep}>{ANALYZE_STEPS[step]}</Text>
+          <View style={styles.analyzeDots}>
+            {ANALYZE_STEPS.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.analyzeDot, i <= step && styles.analyzeDotDone]}
+              />
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Écran principal                                                    */
+/* ------------------------------------------------------------------ */
+
+export default function AddExpense() {
+  const userId = useAppStore((s) => s.userId);
+  const { categories } = useCategories(userId);
+  const params = useLocalSearchParams<{
+    id?: string;
+    amount?: string;
+    categoryId?: string;
+    date?: string;
+    note?: string;
+  }>();
+  const editingId = params.id ?? null;
+  const isEditing = !!editingId;
+
+  const [mode, setMode] = useState<Mode>(isEditing ? "form" : "scan");
+
+  /* Formulaire */
+  const [amount, setAmount] = useState(params.amount ?? "0");
+  const [selectedCategory, setSelectedCategory] = useState(
+    params.categoryId ?? ""
+  );
+  const [note, setNote] = useState(params.note ?? "");
+  const [date, setDate] = useState(params.date ?? toISODate(new Date()));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  /* Scan */
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [receiptMime, setReceiptMime] = useState("image/jpeg");
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [cameraVisible, setCameraVisible] = useState(false);
+
+  /* Analyse */
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeStep, setAnalyzeStep] = useState(0);
+
+  /* Sauvegarde */
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [catIds, setCatIds] = useState<Record<string, string>>({});
+  /* ---------------------------------------------------------------- */
+  /*  Dérivés                                                          */
+  /* ---------------------------------------------------------------- */
 
-  const userId = useAppStore((s) => s.userId);
+  const amountNum = useMemo(() => parseAmount(amount), [amount]);
+  const isAmountValid = Number.isFinite(amountNum) && amountNum > 0;
+  const canSave = isAmountValid && !saving && !!userId && !!selectedCategory;
 
   useEffect(() => {
-    if (!userId) return;
-    categoriesApi
-      .list(userId, { limit: 200 })
-      .then((res) => {
-        const map: Record<string, string> = {};
-        for (const c of res.items) map[c.name.toLowerCase()] = c.id;
-        setCatIds(map);
-      })
-      .catch(() => {});
-  }, [userId]);
+    if (selectedCategory || categories.length === 0) return;
+    setSelectedCategory(categories[0].key);
+  }, [categories, selectedCategory]);
 
-  const visibleCategories = showMore ? CATEGORIES : CATEGORIES.slice(0, 4);
+  /* ---------------------------------------------------------------- */
+  /*  Traitement du ticket : étapes d'UI puis appel API                */
+  /* ---------------------------------------------------------------- */
 
-  function handleNumpad(val: string) {
-    if (val === "del") {
-      setAmount((a) => (a.length > 1 ? a.slice(0, -1) : "0"));
-    } else if (val === ",") {
-      if (!amount.includes(",")) setAmount((a) => a + ",");
-    } else {
-      setAmount((a) => (a === "0" ? val : a.length < 9 ? a + val : a));
+  const applyScan = useCallback(
+    async (uri: string) => {
+      if (!userId) {
+        setAnalyzing(false);
+        setScanError("Session non initialisée. Repassez par l'onboarding.");
+        return;
+      }
+      setScanError(null);
+      try {
+        const scan = await receiptsApi.scan(userId, {
+          uri,
+          name: `receipt-${Date.now()}.${receiptMime.includes("png") ? "png" : "jpg"}`,
+          type: receiptMime,
+        });
+
+        if (scan.amount != null) {
+          setAmount(
+            new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 })
+              .format(scan.amount)
+              .replace(/[  \s]/g, ""),
+          );
+        }
+        const match = scan.category
+          ? categories.find(
+              (c) => c.label.toLowerCase() === scan.category!.toLowerCase(),
+            )
+          : undefined;
+        if (match) setSelectedCategory(match.key);
+        if (scan.expense_date) setDate(scan.expense_date);
+        const detail = [scan.merchant, scan.description].filter(Boolean).join(" · ");
+        if (detail) setNote(detail);
+        if (scan.amount == null) {
+          setScanError("Ticket lu mais montant illisible. Saisissez-le à la main.");
+        }
+
+        setAnalyzing(false);
+        setMode("form");
+      } catch {
+        setAnalyzing(false);
+        setScanError(
+          "Analyse du ticket impossible. Vérifiez le serveur ou saisissez la dépense à la main.",
+        );
+      }
+    },
+    [userId, categories, receiptMime],
+  );
+
+  useEffect(() => {
+    if (!analyzing) return;
+    const uri = receiptUri;
+    setAnalyzeStep(0);
+    const timers = ANALYZE_STEPS.map((_, i) =>
+      setTimeout(() => setAnalyzeStep(i), i * ANALYZE_STEP_DURATION)
+    );
+    if (uri) {
+      timers.push(
+        setTimeout(() => applyScan(uri), ANALYZE_STEPS.length * ANALYZE_STEP_DURATION),
+      );
     }
-  }
+    return () => timers.forEach(clearTimeout);
+  }, [analyzing, applyScan, receiptUri]);
 
-  async function pickImageFromGallery() {
+  /* ---------------------------------------------------------------- */
+  /*  Handlers                                                         */
+  /* ---------------------------------------------------------------- */
+
+  const handleNumpad = useCallback((key: NumpadKey) => {
+    setAmount((prev) => updateAmountInput(prev, key));
+  }, []);
+
+  const pickImageFromGallery = useCallback(async () => {
     setScanError(null);
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -195,73 +590,57 @@ export default function AddExpense() {
     }
     const res = await ImagePicker.launchImageLibraryAsync({
       quality: 0.8,
-      mediaTypes: "images",
+      mediaTypes: ["images"],
     });
-    if (!res.canceled && res.assets[0]) setReceiptUri(res.assets[0].uri);
-  }
-
-  function applyFakeScan() {
-    setAmount(numberToInput(DEMO_SCAN.amount));
-    const match = CATEGORIES.find(
-      (c) => c.label.toLowerCase() === DEMO_SCAN.category.toLowerCase()
-    );
-    if (match) setSelectedCategory(match.key);
-    if (DEMO_SCAN.expense_date) setDate(DEMO_SCAN.expense_date);
-    if (DEMO_SCAN.merchant || DEMO_SCAN.description) {
-      setNote([DEMO_SCAN.merchant, DEMO_SCAN.description].filter(Boolean).join(" · "));
+    const asset = res.assets?.[0];
+    if (!res.canceled && asset) {
+      setReceiptUri(asset.uri);
+      setReceiptMime(asset.mimeType || "image/jpeg");
     }
-    setAnalyzing(false);
-    setMode("form");
-  }
+  }, []);
 
-  function startFakeAnalysis() {
+  const startAnalysis = useCallback((uri: string) => {
     setCameraVisible(false);
-    setCapturedUri(null);
+    setReceiptUri(uri);
     setAnalyzing(true);
-  }
+  }, []);
 
-  async function capturePhoto() {
-    if (!camRef.current) return;
-    const photo = await camRef.current.takePictureAsync({ quality: 0.8 });
-    setCapturedUri(photo.uri);
-  }
+  const onDateChange = useCallback(
+    (event: DateTimePickerEvent, selected?: Date) => {
+      if (Platform.OS === "android") setShowDatePicker(false);
+      if (event.type === "dismissed" || !selected) return;
+      setDate(toISODate(selected));
+    },
+    []
+  );
 
-  function onDateChange(event: DateTimePickerEvent, selected?: Date) {
-    if (Platform.OS === "android") setShowDatePicker(false);
-    if (event.type === "dismissed" || !selected) return;
-    const m = String(selected.getMonth() + 1).padStart(2, "0");
-    const day = String(selected.getDate()).padStart(2, "0");
-    setDate(`${selected.getFullYear()}-${m}-${day}`);
-  }
-
-  async function save() {
+  const save = useCallback(async () => {
     if (!userId) {
       setSaveError("Session non initialisée. Repassez par l'onboarding.");
       return;
     }
-    const amountNum = parseFloat(amount.replace(",", "."));
-    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    if (!isAmountValid) {
       setSaveError("Saisissez un montant valide.");
       return;
     }
-    const catLabel =
-      CATEGORIES.find((c) => c.key === selectedCategory)?.label ?? "";
-    const catId = catIds[catLabel.toLowerCase()];
-    if (!catId) {
-      setSaveError(
-        "Catégorie introuvable côté serveur. Vérifiez le serveur puis relancez."
-      );
+    if (!selectedCategory) {
+      setSaveError("Sélectionnez une catégorie.");
       return;
     }
     setSaving(true);
     setSaveError(null);
     try {
-      await expensesApi.create(userId, {
+      const payload = {
         amount: Math.round(amountNum * 100) / 100,
-        category_id: catId,
+        category_id: selectedCategory,
         expense_date: date,
         note: note.trim() || null,
-      });
+      };
+      if (editingId) {
+        await expensesApi.update(userId, editingId, payload);
+      } else {
+        await expensesApi.create(userId, payload);
+      }
       router.back();
     } catch {
       setSaveError(
@@ -270,12 +649,16 @@ export default function AddExpense() {
     } finally {
       setSaving(false);
     }
-  }
+  }, [userId, isAmountValid, selectedCategory, amountNum, date, note, editingId]);
+
+  /* ---------------------------------------------------------------- */
+  /*  Rendu                                                            */
+  /* ---------------------------------------------------------------- */
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <ScreenHeader
-        title="Nouvelle dépense"
+        title={isEditing ? "Modifier la dépense" : "Nouvelle dépense"}
         right={
           <View style={styles.headerAvatar}>
             <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
@@ -290,42 +673,35 @@ export default function AddExpense() {
       >
         {/* ── Mode selector ── */}
         <View style={styles.modeSwitch}>
-          <Pressable
-            style={[styles.modeBtn, mode === "scan" && styles.modeBtnActive]}
-            onPress={() => setMode("scan")}
-          >
-            <MaterialCommunityIcons
-              color={mode === "scan" ? "#FFFFFF" : colors.primary}
-              name="camera-outline"
-              size={18}
-            />
-            <Text
-              style={[
-                styles.modeBtnText,
-                mode === "scan" && styles.modeBtnTextActive,
-              ]}
-            >
-              Scanner
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.modeBtn, mode === "form" && styles.modeBtnActive]}
-            onPress={() => setMode("form")}
-          >
-            <MaterialCommunityIcons
-              color={mode === "form" ? "#FFFFFF" : colors.primary}
-              name="keyboard-outline"
-              size={18}
-            />
-            <Text
-              style={[
-                styles.modeBtnText,
-                mode === "form" && styles.modeBtnTextActive,
-              ]}
-            >
-              Formulaire
-            </Text>
-          </Pressable>
+          {(
+            [
+              { key: "scan", icon: "camera-outline", label: "Scanner" },
+              { key: "form", icon: "keyboard-outline", label: "Formulaire" },
+            ] as const
+          ).map((m) => {
+            const active = mode === m.key;
+            return (
+              <Pressable
+                key={m.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Mode ${m.label}`}
+                onPress={() => setMode(m.key)}
+                style={[styles.modeBtn, active && styles.modeBtnActive]}
+              >
+                <MaterialCommunityIcons
+                  color={active ? "#FFFFFF" : colors.primary}
+                  name={m.icon}
+                  size={18}
+                />
+                <Text
+                  style={[styles.modeBtnText, active && styles.modeBtnTextActive]}
+                >
+                  {m.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         {mode === "scan" ? (
@@ -335,17 +711,24 @@ export default function AddExpense() {
                 <Image source={{ uri: receiptUri }} style={styles.receiptPreview} />
                 <View style={styles.scanActionsRow}>
                   <Pressable
-                    style={styles.scanBtn}
-                    onPress={startFakeAnalysis}
+                    accessibilityRole="button"
+                    accessibilityLabel="Valider le ticket scanné"
+                    onPress={() => receiptUri && startAnalysis(receiptUri)}
+                    style={({ pressed }) => [styles.scanBtn, pressed && styles.pressed]}
                   >
                     <Text style={styles.scanBtnText}>Valider</Text>
                   </Pressable>
                   <Pressable
-                    style={styles.scanGhostBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Reprendre le scan"
                     onPress={() => {
                       setReceiptUri(null);
                       setCameraVisible(true);
                     }}
+                    style={({ pressed }) => [
+                      styles.scanGhostBtn,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text style={styles.scanGhostText}>Reprendre</Text>
                   </Pressable>
@@ -360,32 +743,41 @@ export default function AddExpense() {
                 />
                 <Text style={styles.scanTitle}>Scannez votre facture</Text>
                 <Text style={styles.scanSubtitle}>
-                  Photographiez votre ticket depuis l'appli ou importez-le
-                  depuis la galerie. Les montants seront pré-remplis.
+                  Photographiez votre ticket depuis l'appli ou importez-le depuis la
+                  galerie. Les montants seront pré-remplis.
                 </Text>
                 <Pressable
-                  style={styles.takeBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Scanner avec l'appareil photo"
                   onPress={() => setCameraVisible(true)}
+                  style={({ pressed }) => [styles.takeBtn, pressed && styles.pressed]}
                 >
                   <MaterialCommunityIcons name="camera" color="#FFFFFF" size={20} />
                   <Text style={styles.takeBtnText}>Scanner avec l'appareil photo</Text>
                 </Pressable>
                 <Pressable
-                  style={styles.galleryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Choisir une image dans la galerie"
                   onPress={pickImageFromGallery}
+                  style={({ pressed }) => [
+                    styles.galleryBtn,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <MaterialCommunityIcons
                     color={colors.primary}
                     name="image-outline"
                     size={20}
                   />
-                  <Text style={styles.galleryBtnText}>
-                    Choisir dans la galerie
-                  </Text>
+                  <Text style={styles.galleryBtnText}>Choisir dans la galerie</Text>
                 </Pressable>
               </View>
             )}
-            {scanError && <Text style={styles.errorText}>{scanError}</Text>}
+            {scanError && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {scanError}
+              </Text>
+            )}
           </View>
         ) : (
           <>
@@ -407,30 +799,35 @@ export default function AddExpense() {
               />
               <Text style={styles.dateRowLabel}>Date de la dépense</Text>
               <Pressable
-                style={styles.datePill}
+                accessibilityRole="button"
+                accessibilityLabel={`Date de la dépense : ${formatDisplayDate(date)}`}
                 onPress={() => setShowDatePicker((v) => !v)}
+                style={styles.datePill}
               >
-                <Text style={styles.datePillText}>{formatDateDisplay(date)}</Text>
+                <Text style={styles.datePillText}>{formatDisplayDate(date)}</Text>
               </Pressable>
             </View>
             {showDatePicker && (
-              <DateTimePicker
-                value={parseISO(date)}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={onDateChange}
-                maximumDate={new Date()}
-                accentColor={colors.primary}
-                themeVariant="light"
-              />
-            )}
-            {Platform.OS === "ios" && showDatePicker && (
-              <Pressable
-                onPress={() => setShowDatePicker(false)}
-                style={styles.pickerDone}
-              >
-                <Text style={styles.pickerDoneText}>OK</Text>
-              </Pressable>
+              <>
+                <DateTimePicker
+                  value={parseISODate(date)}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={onDateChange}
+                  maximumDate={new Date()}
+                  accentColor={colors.primary}
+                  themeVariant="light"
+                />
+                {Platform.OS === "ios" && (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowDatePicker(false)}
+                    style={styles.pickerDone}
+                  >
+                    <Text style={styles.pickerDoneText}>OK</Text>
+                  </Pressable>
+                )}
+              </>
             )}
 
             {/* ── Note ── */}
@@ -446,84 +843,33 @@ export default function AddExpense() {
                 placeholderTextColor={`${colors.textMuted}80`}
                 value={note}
                 onChangeText={setNote}
+                accessibilityLabel="Note (optionnel)"
               />
             </View>
 
             {/* ── Categories ── */}
-            <Text style={styles.catTitle}>Catégorie</Text>
-            <View style={styles.catGrid}>
-              {visibleCategories.map((cat) => {
-                const active = selectedCategory === cat.key;
-                return (
-                  <Pressable
-                    key={cat.key}
-                    style={[styles.catBtn, active && styles.catBtnActive]}
-                    onPress={() => setSelectedCategory(cat.key)}
-                  >
-                    <View style={[styles.catIcon, active && styles.catIconActive]}>
-                      <MaterialCommunityIcons
-                        color={active ? "#FFFFFF" : colors.primary}
-                        name={cat.icon}
-                        size={22}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.catLabel, active && styles.catLabelActive]}
-                    >
-                      {cat.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              <Pressable
-                style={styles.catBtn}
-                onPress={() => setShowMore((v) => !v)}
-              >
-                <View style={styles.catIconMore}>
-                  <MaterialCommunityIcons
-                    color={colors.textMuted}
-                    name={showMore ? "chevron-up" : "dots-horizontal"}
-                    size={22}
-                  />
-                </View>
-                <Text style={styles.catLabelMore}>
-                  {showMore ? "Moins" : "Plus"}
-                </Text>
-              </Pressable>
-            </View>
+            <CategoryPicker
+              categories={categories}
+              selected={selectedCategory}
+              onSelect={setSelectedCategory}
+            />
 
             {/* ── Numpad ── */}
-            <View style={styles.numpad}>
-              {NUMPAD.map((row, ri) =>
-                row.map((val) => (
-                  <Pressable
-                    key={`${ri}-${val}`}
-                    style={[
-                      styles.numpadBtn,
-                      val === "del" && styles.numpadBtnDel,
-                    ]}
-                    onPress={() => handleNumpad(val)}
-                  >
-                    {val === "del" ? (
-                      <MaterialCommunityIcons
-                        color={colors.textMuted}
-                        name="backspace"
-                        size={22}
-                      />
-                    ) : (
-                      <Text style={styles.numpadText}>{val}</Text>
-                    )}
-                  </Pressable>
-                ))
-              )}
-            </View>
+            <Numpad onPress={handleNumpad} />
 
             {/* ── Save ── */}
-            {saveError && <Text style={styles.errorText}>{saveError}</Text>}
+            {saveError && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {saveError}
+              </Text>
+            )}
             <Pressable
-              style={[styles.saveBtn, saving && { opacity: 0.7 }]}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canSave }}
+              accessibilityLabel="Enregistrer la dépense"
+              style={[styles.saveBtn, (!canSave || saving) && { opacity: 0.5 }]}
               onPress={save}
-              disabled={saving}
+              disabled={!canSave}
             >
               {saving ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -543,146 +889,27 @@ export default function AddExpense() {
       </ScrollView>
 
       {/* ── Scanner plein écran ── */}
-      <Modal
+      <ScanModal
         visible={cameraVisible}
-        animationType="fade"
-        onRequestClose={() => {
-          setCameraVisible(false);
-          setCapturedUri(null);
-        }}
-      >
-        <View style={styles.cameraRoot}>
-          {capturedUri ? (
-            <>
-              <Image
-                source={{ uri: capturedUri }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.captureActions}>
-                <Pressable
-                  style={styles.captureGhost}
-                  onPress={() => setCapturedUri(null)}
-                >
-                  <Text style={styles.captureGhostText}>Reprendre</Text>
-                </Pressable>
-                <Pressable style={styles.capturePrimary} onPress={startFakeAnalysis}>
-                  <MaterialCommunityIcons
-                    color="#FFFFFF"
-                    name="check"
-                    size={22}
-                  />
-                  <Text style={styles.capturePrimaryText}>Valider</Text>
-                </Pressable>
-              </View>
-            </>
-          ) : !cameraPermission ? (
-            <View style={styles.cameraLoading}>
-              <ActivityIndicator color="#FFFFFF" />
-            </View>
-          ) : !cameraPermission.granted ? (
-            <View style={styles.cameraPermBox}>
-              <MaterialCommunityIcons
-                color="#FFFFFF"
-                name="camera-off-outline"
-                size={40}
-              />
-              <Text style={styles.cameraPermText}>
-                Autorisez la caméra pour scanner vos factures.
-              </Text>
-              <Pressable
-                style={styles.capturePrimary}
-                onPress={requestCameraPermission}
-              >
-                <Text style={styles.capturePrimaryText}>Autoriser</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <CameraView
-              ref={camRef}
-              style={StyleSheet.absoluteFill}
-              facing="back"
-            >
-              <View style={styles.cameraTop}>
-                <Pressable
-                  style={styles.cameraClose}
-                  hitSlop={8}
-                  onPress={() => setCameraVisible(false)}
-                >
-                  <MaterialCommunityIcons color="#FFFFFF" name="close" size={26} />
-                </Pressable>
-                <Text style={styles.cameraHint}>Placez le ticket dans le cadre</Text>
-                <View style={styles.cameraCloseSpacer} />
-              </View>
+        onClose={() => setCameraVisible(false)}
+        onValidate={startAnalysis}
+      />
 
-              <View style={styles.cameraMiddle}>
-                <View
-                  style={styles.scanFrame}
-                  onLayout={(e) =>
-                    setFrameHeight(e.nativeEvent.layout.height)
-                  }
-                >
-                  <View style={[styles.corner, styles.cornerTL]} />
-                  <View style={[styles.corner, styles.cornerTR]} />
-                  <View style={[styles.corner, styles.cornerBL]} />
-                  <View style={[styles.corner, styles.cornerBR]} />
-                  <Animated.View
-                    style={[
-                      styles.scanBar,
-                      {
-                        transform: [
-                          {
-                            translateY: scanLine.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, Math.max(frameHeight - 28, 0)],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.cameraBottom}>
-                <Pressable style={styles.shutter} onPress={capturePhoto}>
-                  <View style={styles.shutterInner} />
-                </Pressable>
-              </View>
-            </CameraView>
-          )}
-        </View>
-      </Modal>
-
-      {/* ── Analyse IA en cours (semblant) ── */}
-      <Modal visible={analyzing} animationType="fade" transparent>
-        <View style={styles.analyzeBackdrop}>
-          <View style={styles.analyzeCard}>
-            <View style={styles.analyzeIconWrap}>
-              <ActivityIndicator color={colors.primary} size="large" />
-            </View>
-            <Text style={styles.analyzeTitle}>Analyse en cours</Text>
-            <Text style={styles.analyzeStep}>{ANALYZE_STEPS[analyzeStep]}</Text>
-            <View style={styles.analyzeDots}>
-              {ANALYZE_STEPS.map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.analyzeDot,
-                    i <= analyzeStep && styles.analyzeDotDone,
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* ── Analyse du ticket en cours ── */}
+      {analyzing && <AnalyzingOverlay step={analyzeStep} />}
     </SafeAreaView>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Styles                                                             */
+/* ------------------------------------------------------------------ */
+
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scroll: { gap: 16, padding: 16, paddingBottom: 32 },
+
+  pressed: { opacity: 0.75 },
 
   headerAvatar: {
     alignItems: "center",
@@ -875,19 +1102,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 48,
   },
-  catIconActive: {
-    backgroundColor: colors.primary,
-  },
+  catIconActive: { backgroundColor: colors.primary },
   catLabel: {
     color: colors.text,
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",
   },
-  catLabelActive: {
-    color: colors.primary,
-    fontWeight: "700",
-  },
+  catLabelActive: { color: colors.primary, fontWeight: "700" },
   catIconMore: {
     alignItems: "center",
     backgroundColor: "#D3E4FE",
@@ -904,12 +1126,7 @@ const styles = StyleSheet.create({
   },
 
   /* Numpad */
-  numpad: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 8,
-  },
+  numpad: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
   numpadBtn: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
@@ -923,11 +1140,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     width: "30.33%",
   },
-  numpadBtnDel: {
-    backgroundColor: "#E5EEFF",
-    elevation: 0,
-    shadowOpacity: 0,
-  },
+  numpadBtnDel: { backgroundColor: "#E5EEFF", elevation: 0, shadowOpacity: 0 },
   numpadText: { color: colors.text, fontSize: 24, fontWeight: "600" },
 
   /* Error */
@@ -952,11 +1165,7 @@ const styles = StyleSheet.create({
 
   /* Scanner */
   cameraRoot: { backgroundColor: "#000000", flex: 1 },
-  cameraLoading: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-  },
+  cameraLoading: { alignItems: "center", flex: 1, justifyContent: "center" },
   cameraPermBox: {
     alignItems: "center",
     flex: 1,
@@ -1015,11 +1224,7 @@ const styles = StyleSheet.create({
   },
   cameraCloseSpacer: { width: 40 },
   cameraHint: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
-  cameraMiddle: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-  },
+  cameraMiddle: { alignItems: "center", flex: 1, justifyContent: "center" },
   scanFrame: {
     backgroundColor: "rgba(255,255,255,0.05)",
     borderColor: colors.primary,
@@ -1029,21 +1234,11 @@ const styles = StyleSheet.create({
     position: "relative",
     width: "78%",
   },
-  corner: {
-    borderColor: "#FFFFFF",
-    height: 26,
-    position: "absolute",
-    width: 26,
-  },
+  corner: { borderColor: "#FFFFFF", height: 26, position: "absolute", width: 26 },
   cornerTL: { borderLeftWidth: 3, borderTopWidth: 3, left: 10, top: 10 },
   cornerTR: { borderRightWidth: 3, borderTopWidth: 3, right: 10, top: 10 },
   cornerBL: { borderBottomWidth: 3, borderLeftWidth: 3, bottom: 10, left: 10 },
-  cornerBR: {
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    bottom: 10,
-    right: 10,
-  },
+  cornerBR: { borderBottomWidth: 3, borderRightWidth: 3, bottom: 10, right: 10 },
   scanBar: {
     backgroundColor: "rgba(74,124,255,0.25)",
     borderTopColor: colors.primary,
@@ -1054,10 +1249,7 @@ const styles = StyleSheet.create({
     right: 10,
     top: 6,
   },
-  cameraBottom: {
-    alignItems: "center",
-    paddingBottom: 34,
-  },
+  cameraBottom: { alignItems: "center", paddingBottom: 34 },
   shutter: {
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.22)",
@@ -1066,12 +1258,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 76,
   },
-  shutterInner: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 99,
-    height: 58,
-    width: 58,
-  },
+  shutterInner: { backgroundColor: "#FFFFFF", borderRadius: 99, height: 58, width: 58 },
 
   /* Analyse IA */
   analyzeBackdrop: {
@@ -1098,14 +1285,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   analyzeDots: { flexDirection: "row", gap: 6, marginTop: 14 },
-  analyzeDot: {
-    backgroundColor: "#D3D9E8",
-    borderRadius: 99,
-    height: 6,
-    width: 6,
-  },
-  analyzeDotDone: {
-    backgroundColor: colors.primary,
-    width: 18,
-  },
+  analyzeDot: { backgroundColor: "#D3D9E8", borderRadius: 99, height: 6, width: 6 },
+  analyzeDotDone: { backgroundColor: colors.primary, width: 18 },
 });

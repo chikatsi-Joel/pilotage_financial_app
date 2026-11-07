@@ -38,6 +38,9 @@ async def create(user_id: UUID, payload: CategoryCreate, db: AsyncSession) -> Ca
         category_type=CategoryType.EXPENSE,
         essentiality=essentiality,
         optimization_potential=optimization,
+        monthly_budget=payload.monthly_budget,
+        icon=payload.icon,
+        color=payload.color,
     )
     db.add(category)
     await db.commit()
@@ -77,6 +80,12 @@ async def update( user_id: UUID, category_id: UUID, payload: CategoryUpdate, db:
             raise InvalidEnum("Invalid optimization_potential") from exc
     if payload.active is not None:
         category.active = payload.active
+    if "monthly_budget" in payload.model_fields_set:
+        category.monthly_budget = payload.monthly_budget
+    if "icon" in payload.model_fields_set:
+        category.icon = payload.icon
+    if "color" in payload.model_fields_set:
+        category.color = payload.color
 
     await db.commit()
     await db.refresh(category)

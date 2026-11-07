@@ -72,6 +72,7 @@ class Income(Base):
     income_date: Mapped[date] = mapped_column(Date, nullable=False)
     source: Mapped[str] = mapped_column(String(160), nullable=False)
     recurring: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user: Mapped[User] = relationship(back_populates="incomes")
@@ -86,6 +87,9 @@ class Category(Base):
     category_type: Mapped[CategoryType] = mapped_column(Enum(CategoryType), nullable=False, default=CategoryType.EXPENSE)
     essentiality: Mapped[Essentiality] = mapped_column(Enum(Essentiality), nullable=False)
     optimization_potential: Mapped[OptimizationPotential] = mapped_column(Enum(OptimizationPotential), nullable=False)
+    monthly_budget: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    icon: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     user: Mapped[User] = relationship(back_populates="categories")
@@ -124,6 +128,10 @@ class SavingsGoal(Base):
         back_populates="savings_goal", cascade="all, delete-orphan",
         order_by="SavingsContribution.created_at",
     )
+
+    @property
+    def current_amount(self) -> Decimal:
+        return sum((c.amount for c in self.contributions), Decimal(0))
 
 
 class SavingsContribution(Base):

@@ -3,15 +3,84 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import date
 from typing import Any, Protocol
 
 import ollama as _ollama
 
 from app.core.config import settings
-
 from app.services.context.context_promt import SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
+
+
+RECEIPT_SYSTEM_PROMPT = """
+Tu extrais les champs d'un ticket de caisse à partir de son image.
+
+Règles :
+- n'invente aucune valeur, utilise null quand l'information est illisible ;
+- amount : montant total payé, nombre décimal positif ;
+- category : le nom exact d'une catégorie fournie dans le contexte, sinon null ;
+- expense_date : date d'achat au format YYYY-MM-DD, sinon la date du jour ;
+- merchant : nom du commerçant lisible sur le ticket, sinon null ;
+- description : ligne descriptive courte, sinon null.
+
+Retourne uniquement un JSON valide de la forme :
+{"amount": null, "category": null, "expense_date": null, "merchant": null, "description": null}
+"""
+
+
+RECEIPT_FIELDS = (
+    "amount",
+    "category",
+    "expense_date",
+    "merchant",
+    "description",
+)
+
+
+def _empty_receipt(fallback: bool = False) -> dict[str, Any]:
+    return dict.fromkeys(RECEIPT_FIELDS, None) | {"fallback": fallback}
+
+
+def _coerce_receipt(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalise la sortie du modèle dans le schéma ReceiptScanRead."""
+    amount = raw.get("amount")
+    if isinstance(amount, str):
+        amount = amount.replace(",", ".")
+    try:
+        amount = float(amount)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        amount = None
+    else:
+        if amount <= 0:
+            amount = None
+
+    date_value = raw.get("expense_date")
+    if isinstance(date_value, str):
+        try:
+            date.fromisoformat(date_value.strip()[:10])
+        except ValueError:
+            date_value = None
+        else:
+            date_value = date_value.strip()[:10]
+    else:
+        date_value = None
+
+    def _text(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    return {
+        "amount": amount,
+        "category": _text(raw.get("category")),
+        "expense_date": date_value,
+        "merchant": _text(raw.get("merchant")),
+        "description": _text(raw.get("description")),
+        "fallback": False,
+    }
 
 
 class AIAnalysisProvider(Protocol):
@@ -74,6 +143,17 @@ def _build_prompt(context: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_provider: OllamaProvider | None = None
+
+
+def get_provider() -> OllamaProvider | None:
+    """Instance partagée du provider Ollama (créée à la demande)."""
+    global _provider
+    if _provider is None:
+        _provider = OllamaProvider()
+    return _provider
+
+
 class OllamaProvider:
     """Provider V2 : analyse financière via Ollama (Gemma / modèles locaux)."""
 
@@ -85,6 +165,9 @@ class OllamaProvider:
     ):
         self._base_url = base_url or settings.ollama_base_url
         self._model = model or settings.ollama_model
+        self._vision_model = (
+            settings.ollama_vision_model or self._model
+        )
         self._timeout = timeout or settings.ollama_timeout
 
     def _get_client(self) -> _ollama.AsyncClient:
@@ -120,6 +203,46 @@ class OllamaProvider:
         except Exception as exc:
             log.error("Ollama connection error: %s", exc)
             return _fallback_analysis(structured_context, str(exc))
+
+    async def scan_receipt(
+        self, image_b64: str, known_categories: list[str],
+    ) -> dict[str, Any]:
+        """Extrait les champs d'un ticket via un modèle vision."""
+        catalogue = (
+            "\n".join(f"- {name}" for name in known_categories)
+            or "(aucune catégorie enregistrée)"
+        )
+        prompt = (
+            "Catégories disponibles pour cet utilisateur :\n"
+            f"{catalogue}\n\n"
+            "Extrais les champs de ce ticket de caisse."
+        )
+        client = self._get_client()
+        try:
+            response = await client.chat(
+                model=self._vision_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": RECEIPT_SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                        "images": [image_b64],
+                    },
+                ],
+                options={"temperature": 0.1, "format": "json"},
+            )
+            raw = response["message"]["content"]
+            return _coerce_receipt(_parse_response(raw))
+
+        except _ollama.ResponseError as exc:
+            log.error("Ollama vision API error: %s", exc)
+            return _empty_receipt(fallback=True)
+        except Exception as exc:
+            log.error("Ollama vision connection error: %s", exc)
+            return _empty_receipt(fallback=True)
 
 
 def _parse_response(raw: str) -> dict[str, Any]:

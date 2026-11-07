@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,137 +11,301 @@ import Slider from "@react-native-community/slider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ScreenHeader } from "../src/ui/components";
+import { analytics as analyticsApi } from "../src/shared/api/analytics";
+import { budget as budgetApi } from "../src/shared/api/budget";
+import { whatIf as whatIfApi } from "../src/shared/api/whatIf";
+import { useAppStore } from "../src/shared/store";
+import type { CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
+import { formatMoney } from "../src/shared/utils/money";
+import { EmptyState, ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
-interface Scenario {
-  key: string;
-  label: string;
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-  min: number;
-  max: number;
-  step: number;
-  initial: number;
-}
-
-const SCENARIOS: Scenario[] = [
-  { key: "alimentation", label: "Alimentation", icon: "silverware-fork-knife", min: 200, max: 800, step: 10, initial: 450 },
-  { key: "loisirs", label: "Loisirs", icon: "controller", min: 50, max: 500, step: 10, initial: 150 },
-  { key: "transport", label: "Transport", icon: "car", min: 20, max: 300, step: 5, initial: 80 },
-];
-
-function formatEuro(value: number): string {
-  return `${value} \u20AC`;
+function percentLabel(value: number): string {
+  return `${Math.round(value)}%`;
 }
 
 export default function Simulation() {
-  const [values, setValues] = useState<Record<string, number>>(
-    Object.fromEntries(SCENARIOS.map((s) => [s.key, s.initial])),
-  );
-  const [applied, setApplied] = useState(false);
+  const userId = useAppStore((s) => s.userId);
+  const period = useAppStore((s) => s.currentPeriod);
+  const currency = useAppStore((s) => s.currency);
 
-  const projected = useMemo(() => {
-    const total = Object.values(values).reduce((a, b) => a + b, 0);
-    const base = SCENARIOS.reduce((a, s) => a + s.initial, 0);
-    return 840 + (base - total);
-  }, [values]);
+  const [categories, setCategories] = useState<CategoryAnalytics[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [percent, setPercent] = useState(20);
+  const [result, setResult] = useState<WhatIfResult | null>(null);
+  const [currentSavings, setCurrentSavings] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [simulating, setSimulating] = useState(false);
+
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [deciding, setDeciding] = useState(false);
+
+  const selected = useMemo(
+    () => categories.find((c) => c.category_id === selectedId) ?? null,
+    [categories, selectedId],
+  );
+
+  const load = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const [cats, dash, recs] = await Promise.all([
+        analyticsApi.categories(userId, period),
+        analyticsApi.dashboard(userId, period),
+        budgetApi.listRecommendations(userId, period).catch(() => null),
+      ]);
+
+      setCategories(cats);
+      setCurrentSavings(dash.savings);
+      setSelectedId((prev) =>
+        prev && cats.some((c) => c.category_id === prev) ? prev : (cats[0]?.category_id ?? null),
+      );
+      setRecommendation(
+        recs?.items.find((r) => r.status === "PROPOSED") ?? recs?.items[0] ?? null,
+      );
+    } catch {
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, period]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!userId || !selectedId) {
+      setResult(null);
+      return;
+    }
+    const categoryId = selectedId;
+    let cancelled = false;
+    setSimulating(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await whatIfApi.simulate(userId, period, {
+          category_id: categoryId,
+          reduction_percent: percent,
+        });
+        if (!cancelled) setResult(res);
+      } catch {
+        if (!cancelled) setResult(null);
+      } finally {
+        if (!cancelled) setSimulating(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [userId, period, selectedId, percent]);
+
+  const projected = (currentSavings ?? 0) + (result?.monthly_saving ?? 0);
+  const gain = result?.monthly_saving ?? 0;
+
+  const decide = useCallback(
+    async (status: "ACCEPTED" | "REJECTED") => {
+      if (!userId || !recommendation) return;
+      setDeciding(true);
+      try {
+        const updated = await budgetApi.updateRecommendationStatus(
+          userId,
+          recommendation.id,
+          status,
+        );
+        setRecommendation(updated);
+      } catch {
+        /* silencieux : la carte reste dans son état précédent */
+      } finally {
+        setDeciding(false);
+      }
+    },
+    [userId, recommendation],
+  );
+
+  if (!userId) {
+    return (
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <ScreenHeader title="Simulation" />
+        <EmptyState title="Aucune session active" subtitle="Lancez l'inscription pour simuler." />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      {/* Header */}
-      <ScreenHeader title="Budget" />
+      <ScreenHeader title="Simulation" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hero card */}
         <View style={styles.hero}>
           <View style={styles.heroDeco1} />
           <View style={styles.heroDeco2} />
-          <Text style={styles.heroLabel}>Epargne Projetee (Fin de mois)</Text>
+          <Text style={styles.heroLabel}>Épargne projetée (fin de mois)</Text>
           <View style={styles.heroRow}>
-            <Text style={styles.heroAmount}>{formatEuro(projected)}</Text>
-            <View style={styles.heroBadge}>
-              <MaterialCommunityIcons color="#FFFFFF" name="trending-up" size={14} />
-              <Text style={styles.heroBadgeText}>
-                +{Math.round(((projected - 840) / 840) * 100)}%
-              </Text>
-            </View>
+            <Text style={styles.heroAmount}>{formatMoney(projected, currency)}</Text>
+            {gain > 0 ? (
+              <View style={styles.heroBadge}>
+                <MaterialCommunityIcons color="#FFFFFF" name="trending-up" size={14} />
+                <Text style={styles.heroBadgeText}>+{formatMoney(gain, currency)}</Text>
+              </View>
+            ) : null}
           </View>
+          {simulating ? (
+            <ActivityIndicator color="#FFFFFF" style={styles.heroSpinner} />
+          ) : null}
         </View>
 
         {/* Scenarios */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Testez vos scenarios</Text>
+          <Text style={styles.sectionTitle}>Testez vos scénarios</Text>
           <Text style={styles.sectionDesc}>
-            Ajustez vos depenses prevues pour voir l&apos;impact sur votre epargne.
+            Choisissez une catégorie et ajustez la réduction pour mesurer l&apos;impact sur votre
+            épargne.
           </Text>
-          <View style={styles.card}>
-            {SCENARIOS.map((s, i) => (
-              <View key={s.key}>
-                <View style={styles.sliderHead}>
-                  <View style={styles.sliderLabel}>
-                    <MaterialCommunityIcons color={colors.textMuted} name={s.icon} size={20} />
-                    <Text style={styles.sliderLabelText}>{s.label}</Text>
-                  </View>
-                  <Text style={styles.sliderVal}>{formatEuro(values[s.key])}</Text>
-                </View>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={s.min}
-                  maximumValue={s.max}
-                  step={s.step}
-                  value={values[s.key]}
-                  onValueChange={(v) => setValues((p) => ({ ...p, [s.key]: v as number }))}
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.border}
-                  thumbTintColor="#FFFFFF"
-                />
-                <View style={styles.sliderRange}>
-                  <Text style={styles.sliderRangeText}>{formatEuro(s.min)}</Text>
-                  <Text style={styles.sliderRangeText}>{formatEuro(s.max)}</Text>
-                </View>
-                {i < SCENARIOS.length - 1 && <View style={styles.divider} />}
+
+          {loading ? (
+            <View style={styles.card}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : categories.length === 0 ? (
+            <View style={styles.card}>
+              <EmptyState
+                title="Aucune catégorie"
+                subtitle="Ajoutez des dépenses pour obtenir des projections."
+              />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <View style={styles.chipRow}>
+                {categories.map((c) => {
+                  const active = c.category_id === selectedId;
+                  return (
+                    <Pressable
+                      key={c.category_id}
+                      onPress={() => setSelectedId(c.category_id)}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            ))}
-          </View>
+
+              <View style={styles.sliderHead}>
+                <View style={styles.sliderLabel}>
+                  <MaterialCommunityIcons
+                    color={colors.textMuted}
+                    name="arrow-collapse-down"
+                    size={20}
+                  />
+                  <Text style={styles.sliderLabelText}>Réduction</Text>
+                </View>
+                <Text style={styles.sliderVal}>{percentLabel(percent)}</Text>
+              </View>
+              <Slider
+                style={styles.slider}
+                minimumValue={0}
+                maximumValue={50}
+                step={5}
+                value={percent}
+                onValueChange={(v) => setPercent(v as number)}
+                minimumTrackTintColor={colors.primary}
+                maximumTrackTintColor={colors.border}
+                thumbTintColor="#FFFFFF"
+              />
+              <View style={styles.sliderRange}>
+                <Text style={styles.sliderRangeText}>0%</Text>
+                <Text style={styles.sliderRangeText}>50%</Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.resultRow}>
+                <ResultCell
+                  label="Actuel"
+                  value={formatMoney(selected?.current_amount ?? 0, currency)}
+                />
+                <ResultCell
+                  label="Nouvelle cible"
+                  value={formatMoney(result?.new_target ?? 0, currency)}
+                />
+              </View>
+              <View style={[styles.resultRow, styles.resultRowLast]}>
+                <ResultCell
+                  label="Économie mensuelle"
+                  value={formatMoney(result?.monthly_saving ?? 0, currency)}
+                />
+                <ResultCell
+                  label="Économie annuelle"
+                  value={formatMoney(result?.annual_saving ?? 0, currency)}
+                />
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* AI Reco */}
-        <View style={styles.reco}>
-          <View style={styles.recoTop}>
-            <View style={styles.recoIcon}>
-              <MaterialCommunityIcons color={colors.primary} name="star-four-points" size={20} />
+        {/* Recommandation */}
+        {recommendation ? (
+          <View style={styles.reco}>
+            <View style={styles.recoTop}>
+              <View style={styles.recoIcon}>
+                <MaterialCommunityIcons
+                  color={colors.primary}
+                  name="star-four-points"
+                  size={20}
+                />
+              </View>
+              <View style={styles.recoCopy}>
+                <Text style={styles.recoTitle}>{recommendation.category_name}</Text>
+                <Text style={styles.recoDesc}>{recommendation.justification}</Text>
+                <Text style={styles.recoImpact}>
+                  Impact estimé : {formatMoney(recommendation.impact_estimated, currency)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.recoCopy}>
-              <Text style={styles.recoTitle}>Suggestion d&apos;optimisation</Text>
-              <Text style={styles.recoDesc}>
-                En reduisant vos depenses &quot;Loisirs&quot; de 30 euros ce mois-ci, vous pourriez
-                atteindre votre objectif d&apos;epargne de 1000 euros pour vos vacances plus
-                rapidement.
-              </Text>
+            <View style={styles.recoBtns}>
+              <Pressable
+                disabled={deciding || recommendation.status === "REJECTED"}
+                style={styles.btnIgnore}
+                onPress={() => decide("REJECTED")}
+              >
+                <Text style={styles.btnIgnoreText}>
+                  {recommendation.status === "REJECTED" ? "Rejetée" : "Ignorer"}
+                </Text>
+              </Pressable>
+              <Pressable
+                disabled={deciding || recommendation.status === "ACCEPTED"}
+                style={[
+                  styles.btnApply,
+                  (deciding || recommendation.status === "ACCEPTED") && { opacity: 0.6 },
+                ]}
+                onPress={() => decide("ACCEPTED")}
+              >
+                <Text style={styles.btnApplyText}>
+                  {recommendation.status === "ACCEPTED" ? "Acceptée" : "Appliquer"}
+                </Text>
+                <MaterialCommunityIcons color="#FFFFFF" name="check" size={18} />
+              </Pressable>
             </View>
           </View>
-          <View style={styles.recoBtns}>
-            <Pressable style={styles.btnIgnore}>
-              <Text style={styles.btnIgnoreText}>Ignorer</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.btnApply, applied && { opacity: 0.6 }]}
-              onPress={() => {
-                setValues((p) => ({ ...p, loisirs: Math.max(50, p.loisirs - 30) }));
-                setApplied(true);
-              }}
-            >
-              <Text style={styles.btnApplyText}>Appliquer</Text>
-              <MaterialCommunityIcons color="#FFFFFF" name="check" size={18} />
-            </Pressable>
-          </View>
-        </View>
+        ) : null}
 
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const ResultCell = ({ label, value }: { label: string; value: string }) => (
+  <View style={styles.resultCell}>
+    <Text style={styles.resultLabel}>{label}</Text>
+    <Text style={styles.resultValue}>{value}</Text>
+  </View>
+);
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
@@ -174,7 +339,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 96,
     left: -32,
-    position: "absolute",
     bottom: -32,
     width: 96,
   },
@@ -186,7 +350,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   heroRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  heroAmount: { color: "#FFFFFF", fontSize: 48, fontWeight: "700", letterSpacing: -2, lineHeight: 56 },
+  heroAmount: { color: "#FFFFFF", fontSize: 40, fontWeight: "700", letterSpacing: -1.5, lineHeight: 48, flexShrink: 1 },
   heroBadge: {
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.15)",
@@ -198,6 +362,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   heroBadgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
+  heroSpinner: { marginTop: 4 },
 
   section: { gap: 4, marginTop: 28 },
   sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "600", paddingHorizontal: 16 },
@@ -215,6 +380,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
+  chip: { backgroundColor: colors.surfaceMuted, borderRadius: 99, paddingHorizontal: 14, paddingVertical: 8 },
+  chipActive: { backgroundColor: colors.primary },
+  chipText: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  chipTextActive: { color: "#FFFFFF" },
+
   sliderHead: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   sliderLabel: { alignItems: "center", flexDirection: "row", gap: 8 },
   sliderLabelText: { color: colors.text, fontSize: 14, fontWeight: "500" },
@@ -223,6 +394,12 @@ const styles = StyleSheet.create({
   sliderRange: { flexDirection: "row", justifyContent: "space-between" },
   sliderRangeText: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
   divider: { backgroundColor: colors.border, height: 1, marginVertical: 12 },
+
+  resultRow: { flexDirection: "row", gap: 12 },
+  resultRowLast: { marginTop: 12 },
+  resultCell: { flex: 1, gap: 2 },
+  resultLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  resultValue: { color: colors.text, fontSize: 16, fontWeight: "800" },
 
   reco: {
     backgroundColor: "#DCE9FF",
@@ -244,6 +421,7 @@ const styles = StyleSheet.create({
   recoCopy: { flex: 1, gap: 4 },
   recoTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
   recoDesc: { color: colors.textMuted, fontSize: 16, lineHeight: 24 },
+  recoImpact: { color: colors.primary, fontSize: 14, fontWeight: "700" },
   recoBtns: { flexDirection: "row", gap: 12 },
   btnIgnore: {
     backgroundColor: colors.surface,

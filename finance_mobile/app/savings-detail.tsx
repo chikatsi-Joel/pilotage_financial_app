@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Svg, {
   Circle,
   Defs,
@@ -22,51 +22,19 @@ import Svg, {
 } from "react-native-svg";
 
 import { BackButton } from "../src/ui/components";
+import { savings as savingsApi } from "../src/shared/api/savings";
+import { useAppStore } from "../src/shared/store";
+import type { SavingsGoal } from "../src/shared/types";
+import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
 //  Helpers
 /* ------------------------------------------------------------------ */
 
-const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(n)} €`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const monthLabel = (iso: string) =>
   cap(new Date(iso).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
-
-/* ------------------------------------------------------------------ */
-//  Données mockées (à remplacer par ton API)
-/* ------------------------------------------------------------------ */
-
-type Contribution = { id: string; amount: number; created_at: string };
-
-const MOCK = {
-  goal: {
-    name: "Achat Appartement",
-    icon: "office-building",
-    current: 18500,
-    target: 40000,
-    deadline: "2026-05-31",
-  },
-  analysis: {
-    trendLabel: "↗ En hausse",
-    trendSub: "Versements réguliers",
-    accelerationMonths: 4,
-    gainPerMonth: 125,
-    rationale:
-      "Vos versements sont réguliers et en hausse. En optimisant vos abonnements et en plaçant sur un Livret A, vous pourriez atteindre votre objectif 4 mois plus tôt.",
-  },
-  contributions: [
-    { id: "c1", amount: 2500, created_at: "2025-01-15T10:30:00" },
-    { id: "c2", amount: 2000, created_at: "2025-02-10T14:00:00" },
-    { id: "c3", amount: 3000, created_at: "2025-03-05T09:15:00" },
-    { id: "c4", amount: 1500, created_at: "2025-03-20T18:45:00" },
-    { id: "c5", amount: 2500, created_at: "2025-04-12T11:00:00" },
-    { id: "c6", amount: 1500, created_at: "2025-04-28T08:30:00" },
-    { id: "c7", amount: 2000, created_at: "2025-05-15T16:20:00" },
-    { id: "c8", amount: 1500, created_at: "2025-06-02T12:10:00" },
-    { id: "c9", amount: 2000, created_at: "2025-06-18T15:40:00" },
-  ] satisfies Contribution[],
-} as const;
 
 /* ------------------------------------------------------------------ */
 //  Animation d'entrée
@@ -112,7 +80,7 @@ const FadeIn = ({
 //  Graphique SVG
 /* ------------------------------------------------------------------ */
 
-const TrajectoryChart = () => {
+const TrajectoryChart = ({ target = 0 }: { target?: number }) => {
   const pathOpacity = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -162,7 +130,7 @@ const TrajectoryChart = () => {
           {/* Cible */}
           <Line x1="0" y1="12" x2="300" y2="12" stroke={colors.textMuted} strokeDasharray="4 4" strokeWidth="1.5" />
           <SvgText x="4" y="24" fill={colors.textMuted} fontSize="9">
-            Cible 40k
+            Cible {target > 0 ? `${Math.round(target / 1000)}k` : "—"}
           </SvgText>
 
           {/* Trajectoire actuelle (trait plein, en dessous) */}
@@ -193,6 +161,7 @@ const TrajectoryChart = () => {
 /* ------------------------------------------------------------------ */
 
 type DetailParams = {
+  id?: string;
   goal?: string;
   current?: string;
   target?: string;
@@ -200,33 +169,66 @@ type DetailParams = {
 };
 
 export default function SavingsDetail() {
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [showAll, setShowAll] = React.useState(false);
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1200);
-  }, []);
-
   const params = useLocalSearchParams<DetailParams>();
-  const goal = {
-    ...MOCK.goal,
-    name: params.goal ?? MOCK.goal.name,
-    current: params.current ? Number(params.current) : MOCK.goal.current,
-    target: params.target ? Number(params.target) : MOCK.goal.target,
-    deadline: params.deadline ?? MOCK.goal.deadline,
-  };
-  const contributions = MOCK.contributions;
+  const userId = useAppStore((s) => s.userId);
+  const currency = useAppStore((s) => s.currency);
 
-  const pct = Math.round((goal.current / goal.target) * 100);
-  const remainder = goal.target - goal.current;
-  const deadlineLabel = monthLabel(goal.deadline);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [goal, setGoal] = useState<SavingsGoal | null>(null);
+
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (!userId) return;
+      const res = await savingsApi.list(userId, { limit: 100 });
+      const match =
+        res.items.find((g) => g.id === params.id) ??
+        res.items.find((g) => g.name === params.goal) ??
+        res.items[0] ??
+        null;
+      setGoal(match);
+    } catch {
+      setGoal(null);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userId, params.id, params.goal]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const onRefresh = useCallback(() => {
+    load();
+  }, [load]);
+
+  const contributions = goal?.contributions ?? [];
+  const pct = goal
+    ? Math.round((goal.current_amount / goal.target_amount) * 100)
+    : 0;
+  const remainder = goal ? goal.target_amount - goal.current_amount : 0;
+  const deadlineLabel = goal ? monthLabel(goal.deadline) : "";
   const contributionCount = contributions.length;
+
+  const recentAvg = useMemo(() => {
+    if (contributions.length === 0) return 0;
+    const last = contributions
+      .slice(-3)
+      .reduce((s, c) => s + c.amount, 0);
+    return Math.round(last / Math.min(3, contributions.length));
+  }, [contributions]);
+
+  const rationale = goal
+    ? `Vos versements vers "${goal.name}" sont ${contributions.length > 0 ? "réguliers et constatés" : "à venir"}. Au rythme actuel (≈ ${formatMoney(recentAvg, currency)}/mois), poursuivez cet effort pour atteindre votre objectif plus tôt.`
+    : "Aucun objectif d'épargne trouvé pour ce compte.";
 
   const MAX_VISIBLE = 6;
 
   const monthGroups = useMemo(() => {
-    const map = new Map<string, { month: string; items: typeof contributions }>();
+    const map = new Map<string, { month: string; items: SavingsGoal["contributions"] }>();
     for (const c of contributions) {
       const key = c.created_at.slice(0, 7);
       const existing = map.get(key);
@@ -276,12 +278,11 @@ export default function SavingsDetail() {
             <BackButton size={24} />
             <View style={styles.headerMeta}>
               <View style={styles.headerCategoryRow}>
-                <MaterialCommunityIcons name={goal.icon as any} size={16} color={colors.primary} />
+                <MaterialCommunityIcons name="piggy-bank" size={16} color={colors.primary} />
                 <Text style={[styles.headerCategory, { color: colors.primary }]}>Objectif d'épargne</Text>
               </View>
               <Text style={styles.headerAmount}>
-                {new Intl.NumberFormat("fr-FR").format(goal.current)}{" "}
-                <Text style={styles.headerCurrency}>€</Text>
+                {formatMoney(goal?.current_amount ?? 0, currency)}
               </Text>
               <View style={[styles.trendBadge, { backgroundColor: `${colors.success}12` }]}>
                 <MaterialCommunityIcons name="arrow-up" size={14} color={colors.success} />
@@ -299,12 +300,49 @@ export default function SavingsDetail() {
               <MaterialCommunityIcons name="piggy-bank" size={18} color={colors.primary} />
             </View>
             <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Bonne dynamique</Text>
+              <Text style={styles.alertTitle}>
+                {contributionCount > 0 ? "Bonne dynamique" : "Commencez à épargner"}
+              </Text>
               <Text style={styles.alertDesc}>
-                Versements réguliers et en hausse chaque mois depuis janvier 2025.
+                {contributionCount > 0
+                  ? `Versements réguliers enregistrés sur "${goal?.name}".`
+                  : "Ajoutez des versements réguliers pour visualiser votre trajectoire."}
               </Text>
             </View>
           </View>
+        </FadeIn>
+
+        {/* ── Verser de l'argent ── */}
+        <FadeIn delay={150}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Verser de l'argent sur ${goal?.name ?? "l'objectif"}`}
+            disabled={!goal}
+            onPress={() =>
+              goal &&
+              router.push({
+                pathname: "/add-contribution",
+                params: {
+                  goalId: goal.id,
+                  goal: goal.name,
+                  current: String(goal.current_amount),
+                  target: String(goal.target_amount),
+                },
+              })
+            }
+            style={({ pressed }) => [
+              styles.contributeBtn,
+              pressed && { opacity: 0.75 },
+              !goal && { opacity: 0.5 },
+            ]}
+          >
+            <MaterialCommunityIcons
+              color="#FFFFFF"
+              name="bank-transfer-in"
+              size={22}
+            />
+            <Text style={styles.contributeText}>Verser de l'argent</Text>
+          </Pressable>
         </FadeIn>
 
         {/* ── Grille 2 cols ── */}
@@ -315,7 +353,7 @@ export default function SavingsDetail() {
                 <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textMuted} />
                 <Text style={styles.gridLabel}>Cible</Text>
               </View>
-              <Text style={styles.gridValue}>{eur(goal.target)}</Text>
+              <Text style={styles.gridValue}>{formatMoney(goal?.target_amount ?? 0, currency)}</Text>
               <Text style={styles.gridSub}>Avant {deadlineLabel}</Text>
             </View>
 
@@ -325,14 +363,14 @@ export default function SavingsDetail() {
                 <Text style={styles.gridLabel}>Versements</Text>
               </View>
               <Text style={styles.gridValue}>{contributionCount}</Text>
-              <Text style={styles.gridSub}>{MOCK.analysis.trendSub}</Text>
+              <Text style={styles.gridSub}>Historique constaté</Text>
             </View>
           </View>
         </FadeIn>
 
         {/* ── Graphique ── */}
         <FadeIn delay={300}>
-          <TrajectoryChart />
+          <TrajectoryChart target={goal?.target_amount ?? 0} />
         </FadeIn>
 
         {/* ── Perspectives ── */}
@@ -344,20 +382,20 @@ export default function SavingsDetail() {
                 <Text style={styles.perspectiveLabel}>Reste à épargner</Text>
                 <MaterialCommunityIcons name="clock-outline" size={18} color={colors.primary} />
               </View>
-              <Text style={styles.perspectiveValue}>≈ {eur(remainder)}</Text>
+              <Text style={styles.perspectiveValue}>≈ {formatMoney(remainder, currency)}</Text>
             </View>
 
             <View style={[styles.perspectiveCard, styles.perspectiveHighlight]}>
               <View style={styles.perspectiveHeader}>
-                <Text style={styles.perspectiveLabel}>Gain estimé</Text>
+                <Text style={styles.perspectiveLabel}>Rythme constaté</Text>
                 <MaterialCommunityIcons name="flash" size={18} color={colors.primary} />
               </View>
               <Text style={[styles.perspectiveValue, { color: colors.primary }]}>
-                +{eur(MOCK.analysis.gainPerMonth)}/mois
+                ≈ {formatMoney(recentAvg, currency)}/mois
               </Text>
               <View style={styles.perspectiveBadge}>
                 <Text style={styles.perspectiveBadgeText}>
-                  {MOCK.analysis.accelerationMonths} mois gagnés
+                  {contributionCount > 0 ? "Moyenne récente" : "En attente de versements"}
                 </Text>
               </View>
             </View>
@@ -379,7 +417,7 @@ export default function SavingsDetail() {
                   <Text style={styles.dayLabel}>{g.month}</Text>
                   {g.complete && (
                     <Text style={styles.dayTotal}>
-                      +{eur(g.items.reduce((s, c) => s + c.amount, 0))}
+                      +{formatMoney(g.items.reduce((s, c) => s + c.amount, 0), currency)}
                     </Text>
                   )}
                 </View>
@@ -391,10 +429,10 @@ export default function SavingsDetail() {
                       </View>
                       <View style={styles.txContent}>
                         <Text style={styles.txTitle} numberOfLines={1}>Versement</Text>
-                        <Text style={styles.txCategory} numberOfLines={1}>{goal.name}</Text>
+                        <Text style={styles.txCategory} numberOfLines={1}>{goal?.name}</Text>
                       </View>
                       <View style={styles.txRight}>
-                        <Text style={[styles.txAmount, { color: colors.primary }]}>+{eur(c.amount)}</Text>
+                        <Text style={[styles.txAmount, { color: colors.primary }]}>+{formatMoney(c.amount, currency)}</Text>
                         <View style={[styles.txPill, { backgroundColor: "#DCE9FF" }]}>
                           <Text style={[styles.txPillText, { color: colors.text }]}>Cotisation</Text>
                         </View>
@@ -424,7 +462,7 @@ export default function SavingsDetail() {
                 <MaterialCommunityIcons name="auto-fix" size={20} color={colors.primary} />
               </View>
               <View style={styles.insightContent}>
-                <Text style={styles.insightText}>{MOCK.analysis.rationale}</Text>
+                <Text style={styles.insightText}>{rationale}</Text>
                 <Pressable accessibilityLabel="Comprendre avec l'IA" accessibilityRole="button">
                   <View style={styles.insightBtn}>
                     <MaterialCommunityIcons name="chat-processing" size={16} color="#FFFFFF" />
@@ -489,6 +527,24 @@ const styles = StyleSheet.create({
   alertContent: { flex: 1, gap: 2 },
   alertTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
   alertDesc: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+
+  /* Versement */
+  contributeBtn: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    elevation: 4,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    marginTop: 16,
+    paddingVertical: 15,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  contributeText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
 
   /* Grille */
   grid: { flexDirection: "row", gap: 12, marginTop: 16 },

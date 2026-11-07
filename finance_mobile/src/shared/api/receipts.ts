@@ -15,7 +15,10 @@ export const receipts = {
       .post<ReceiptScan>(
         buildPath("/users/{user_id}/receipts/scan", { user_id: userId }),
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 90000,
+        },
       )
       .then((r) => r.data);
   },

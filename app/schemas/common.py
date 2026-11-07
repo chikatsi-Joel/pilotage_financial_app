@@ -46,12 +46,24 @@ class IncomeRead(ORMModel):
     income_date: date
     source: str
     recurring: bool
+    active: bool
+
+
+class IncomeUpdate(BaseModel):
+    amount: Decimal | None = Field(default=None, gt=0)
+    income_date: date | None = None
+    source: str | None = Field(default=None, min_length=1, max_length=160)
+    recurring: bool | None = None
+    active: bool | None = None
 
 
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     essentiality: str
     optimization_potential: str
+    monthly_budget: Decimal | None = Field(default=None, ge=0)
+    icon: str | None = Field(default=None, max_length=80)
+    color: str | None = Field(default=None, max_length=16)
 
 
 class CategoryRead(ORMModel):
@@ -60,6 +72,9 @@ class CategoryRead(ORMModel):
     category_type: str
     essentiality: str
     optimization_potential: str
+    monthly_budget: float | None
+    icon: str | None
+    color: str | None
     active: bool
 
 
@@ -67,6 +82,9 @@ class CategoryUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     essentiality: str | None = None
     optimization_potential: str | None = None
+    monthly_budget: Decimal | None = None
+    icon: str | None = None
+    color: str | None = None
     active: bool | None = None
 
 
@@ -212,6 +230,15 @@ class WhatIfRead(BaseModel):
     projected_savings_rate: float | None
 
 
+class ReceiptScanRead(BaseModel):
+    amount: float | None
+    category: str | None
+    expense_date: date | None
+    merchant: str | None
+    description: str | None
+    fallback: bool = False
+
+
 class WeeklyExpenseRead(BaseModel):
     label: str
     prevu: float
@@ -230,6 +257,8 @@ class DashboardRead(BaseModel):
     income: float
     expenses: float
     savings: float
+    remaining_balance: float = 0.0
+    contributions: float = 0.0
     savings_rate: float
     categories_in_drift: int
     potential_savings: float
