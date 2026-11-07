@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import (
@@ -10,7 +10,6 @@ from app.schemas.common import (
     PaginatedResponse,
 )
 from app.services import category_service
-from app.services.category_service import InvalidEnum, NotFound
 
 router = APIRouter(
     prefix="/users/{user_id}/categories",
@@ -30,16 +29,9 @@ async def create_category(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await category_service.create(
-            user.id, payload, db
-        )
-    except InvalidEnum as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
-
-
+    return await category_service.create(
+        user.id, payload, db
+    )
 @router.get("", response_model=PaginatedResponse[CategoryRead])
 async def list_categories(
     user: UserDep,
@@ -66,15 +58,6 @@ async def update_category(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await category_service.update(
-            user.id, category_id, payload, db
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
-    except InvalidEnum as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+    return await category_service.update(
+        user.id, category_id, payload, db
+    )

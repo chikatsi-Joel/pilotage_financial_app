@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from app.services.savings_service import _contribution_regularity, _monthly_periods
+from app.services.periods import recent_periods
+from app.services.savings_service import _contribution_regularity
 from app.utils.savings_goal import (
     SavingsContributionTrend,
     get_contribution_trend,
@@ -8,7 +9,7 @@ from app.utils.savings_goal import (
 
 
 def test_goal_analysis_uses_six_calendar_months() -> None:
-    assert _monthly_periods("2026-01") == [
+    assert recent_periods("2026-01") == [
         "2025-08",
         "2025-09",
         "2025-10",

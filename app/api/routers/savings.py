@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import (
@@ -12,7 +12,6 @@ from app.schemas.common import (
     SavingsGoalRead,
 )
 from app.services import savings_service
-from app.services.savings_service import BusinessRule, NotFound
 
 router = APIRouter(
     prefix="/users/{user_id}/savings-goals",
@@ -63,11 +62,6 @@ async def contribute(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await savings_service.contribute(
-            user.id, goal_id, payload.amount, db
-        )
-    except NotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except BusinessRule as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return await savings_service.contribute(
+        user.id, goal_id, payload.amount, db
+    )

@@ -9,11 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Category, Expense
 from app.schemas.common import ExpenseCreate
 from app.services.analytics_service import invalidate_snapshots
+from app.services.errors import NotFound
+from app.services.periods import period_of
 from app.services.pagination import paginate
-
-
-class NotFound(Exception):
-    pass
 
 
 async def create(user_id: UUID, payload: ExpenseCreate, db: AsyncSession) -> Expense:
@@ -25,7 +23,7 @@ async def create(user_id: UUID, payload: ExpenseCreate, db: AsyncSession) -> Exp
     db.add(expense)
     await db.flush()
 
-    period = f"{expense.expense_date.year}-{expense.expense_date.month:02d}"
+    period = period_of(expense.expense_date)
     await invalidate_snapshots(user_id, period, db)
     await db.commit()
     await db.refresh(expense)
@@ -66,13 +64,13 @@ async def update(
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
-    old_period = f"{expense.expense_date.year}-{expense.expense_date.month:02d}"
+    old_period = period_of(expense.expense_date)
 
     for key, value in payload.model_dump().items():
         setattr(expense, key, value)
     await db.flush()
 
-    new_period = f"{expense.expense_date.year}-{expense.expense_date.month:02d}"
+    new_period = period_of(expense.expense_date)
     await invalidate_snapshots(user_id, old_period, db)
     if new_period != old_period:
         await invalidate_snapshots(user_id, new_period, db)
@@ -93,7 +91,7 @@ async def delete(user_id: UUID, expense_id: UUID, db: AsyncSession) -> None:
     if not expense:
         raise NotFound("Expense not found")
 
-    period = f"{expense.expense_date.year}-{expense.expense_date.month:02d}"
+    period = period_of(expense.expense_date)
     await db.delete(expense)
     await db.flush()
 

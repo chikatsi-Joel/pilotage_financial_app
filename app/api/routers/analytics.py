@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import (
@@ -6,7 +6,6 @@ from app.schemas.common import (
     DashboardRead,
 )
 from app.services import analytics_service
-from app.services.analytics_service import InvalidPeriod
 
 router = APIRouter(
     prefix="/users/{user_id}/analytics",
@@ -23,14 +22,9 @@ async def category_analytics(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        analytics = await analytics_service.get_category_analytics_snapshot(
-            user.id, period, db
-        )
-    except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+    analytics = await analytics_service.get_category_analytics_snapshot(
+        user.id, period, db
+    )
     return analytics
 
 
@@ -40,27 +34,15 @@ async def dashboard(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await analytics_service.get_dashboard_snapshot(
-            user.id, period, db
-        )
-    except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
-
-
+    return await analytics_service.get_dashboard_snapshot(
+        user.id, period, db
+    )
 @router.post("/refresh")
 async def refresh_analytics(
     period: str,
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await analytics_service.refresh_analytics(
-            user.id, period, db
-        )
-    except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+    return await analytics_service.refresh_analytics(
+        user.id, period, db
+    )

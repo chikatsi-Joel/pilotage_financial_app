@@ -15,6 +15,7 @@ from app.api.routers import (
     users,
     what_if,
 )
+from app.api.errors import register_error_handlers
 from app.core.config import settings
 from app.db.session import get_engine
 
@@ -23,6 +24,7 @@ app = FastAPI(
     version="1.0.0",
     description="Backend FastAPI du pilotage personnalisé des finances personnelles.",
 )
+register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

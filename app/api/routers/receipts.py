@@ -6,7 +6,6 @@ from app.api.deps import DbSession, UserDep
 from app.core.config import settings
 from app.schemas.common import ReceiptScanRead
 from app.services import receipt_service
-from app.services.receipt_service import InvalidImage
 
 router = APIRouter(
     prefix="/users/{user_id}/receipts", tags=["receipts"]
@@ -35,9 +34,5 @@ async def scan_receipt(
         return await receipt_service.scan_receipt(
             user.id, content, file.content_type, db,
         )
-    except InvalidImage as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
     finally:
         await file.close()

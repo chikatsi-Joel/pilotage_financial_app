@@ -1,13 +1,11 @@
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import IncomeCreate, IncomeRead, IncomeUpdate, PaginatedResponse
 from app.services import income_service
-from app.services.income_service import NotFound
 from typing import Annotated
-from fastapi import Query
 
 
 router = APIRouter(
@@ -57,7 +55,4 @@ async def update_income(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await income_service.update(user.id, income_id, payload, db)
-    except NotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return await income_service.update(user.id, income_id, payload, db)

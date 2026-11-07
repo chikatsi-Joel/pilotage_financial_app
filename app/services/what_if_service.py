@@ -9,12 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Category, Expense
 from app.schemas.common import WhatIfRead
 from app.services.analytics import money
-from app.services.analytics_service import get_period_totals, month_bounds
+from app.services.analytics_service import get_period_totals
+from app.services.errors import NotFound
+from app.services.periods import month_bounds
 from app.services.what_if import simulate_what_if
-
-
-class NotFound(Exception):
-    pass
 
 
 async def simulate( user_id: UUID, period: str, category_id: UUID, reduction_percent: Decimal,

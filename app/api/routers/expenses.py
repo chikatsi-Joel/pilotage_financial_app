@@ -1,12 +1,11 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import DbSession, UserDep
 from app.schemas.common import ExpenseCreate, ExpenseRead, PaginatedResponse
 from app.services import expense_service
-from app.services.expense_service import NotFound
 
 router = APIRouter(
     prefix="/users/{user_id}/expenses", tags=["expenses"]
@@ -26,16 +25,9 @@ async def create_expense(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await expense_service.create(
-            user.id, payload, db
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
-
-
+    return await expense_service.create(
+        user.id, payload, db
+    )
 @router.get("", response_model=PaginatedResponse[ExpenseRead])
 async def list_expenses(
     user: UserDep,
@@ -66,16 +58,9 @@ async def update_expense(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await expense_service.update(
-            user.id, expense_id, payload, db
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
-
-
+    return await expense_service.update(
+        user.id, expense_id, payload, db
+    )
 @router.delete(
     "/{expense_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -86,11 +71,6 @@ async def delete_expense(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        await expense_service.delete(
-            user.id, expense_id, db
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
+    await expense_service.delete(
+        user.id, expense_id, db
+    )

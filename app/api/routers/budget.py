@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import DbSession, UserDep
 from app.models import RecommendationStatus
@@ -9,12 +9,6 @@ from app.schemas.common import (
     RecommendationRead,
 )
 from app.services import budget_service
-from app.services.analytics_service import InvalidPeriod
-from app.services.budget_service import (
-    BusinessRule,
-    Conflict,
-    NotFound,
-)
 
 router = APIRouter(prefix="/users/{user_id}", tags=["budget"])
 
@@ -30,16 +24,9 @@ async def recommend_budget(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await budget_service.recommend_budget(
-            user.id, period, db
-        )
-    except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
-
-
+    return await budget_service.recommend_budget(
+        user.id, period, db
+    )
 @router.get(
     "/budget/recommendations",
     response_model=PaginatedResponse[RecommendationRead],
@@ -71,20 +58,9 @@ async def update_recommendation_status(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await budget_service.update_recommendation_status(
-            user.id, recommendation_id, status, db
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
-    except Conflict as exc:
-        raise HTTPException(
-            status_code=409, detail=str(exc)
-        ) from exc
-
-
+    return await budget_service.update_recommendation_status(
+        user.id, recommendation_id, status, db
+    )
 @router.get(
     "/budget",
     response_model=dict,
@@ -95,16 +71,9 @@ async def get_budget(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await budget_service.get_budget(
-            user.id, period, db
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
-
-
+    return await budget_service.get_budget(
+        user.id, period, db
+    )
 @router.put(
     "/budget/decision",
     response_model=dict,
@@ -116,23 +85,10 @@ async def decide_budget(
     user: UserDep,
     db: DbSession,
 ):
-    try:
-        return await budget_service.decide_budget(
-            user.id,
-            period,
-            payload.accepted_total,
-            payload.accepted_savings,
-            db,
-        )
-    except NotFound as exc:
-        raise HTTPException(
-            status_code=404, detail=str(exc)
-        ) from exc
-    except InvalidPeriod as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
-    except BusinessRule as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+    return await budget_service.decide_budget(
+        user.id,
+        period,
+        payload.accepted_total,
+        payload.accepted_savings,
+        db,
+    )

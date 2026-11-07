@@ -17,21 +17,11 @@ from app.schemas.common import (
 from app.services.analytics import money
 from app.services.analytics_service import (
     compute_category_analytics,
-    get_period_totals, month_bounds,
+    get_period_totals,
 )
+from app.services.errors import BusinessRule, Conflict, NotFound
+from app.services.periods import month_bounds
 from app.services.budget import generate_budget
-
-
-class NotFound(Exception):
-    pass
-
-
-class Conflict(Exception):
-    pass
-
-
-class BusinessRule(Exception):
-    pass
 
 
 async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> BudgetRead:

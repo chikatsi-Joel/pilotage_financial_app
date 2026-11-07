@@ -9,11 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Income
 from app.schemas.common import IncomeCreate, IncomeUpdate
 from app.services.analytics_service import invalidate_snapshots
+from app.services.errors import NotFound
+from app.services.periods import period_of
 from app.services.pagination import paginate
-
-
-class NotFound(Exception):
-    pass
 
 
 async def create(user_id: UUID, payload: IncomeCreate, db: AsyncSession) ->  Income:
@@ -21,7 +19,7 @@ async def create(user_id: UUID, payload: IncomeCreate, db: AsyncSession) ->  Inc
     db.add(income)
     await db.flush()
 
-    period = f"{income.income_date.year}-{income.income_date.month:02d}"
+    period = period_of(income.income_date)
     await invalidate_snapshots(user_id, period, db)
     await db.commit()
     await db.refresh(income)
@@ -35,14 +33,14 @@ async def update(
     if not income or income.user_id != user_id:
         raise NotFound("Income not found")
 
-    old_period = f"{income.income_date.year}-{income.income_date.month:02d}"
+    old_period = period_of(income.income_date)
 
     for field in ("amount", "income_date", "source", "recurring", "active"):
         if field in payload.model_fields_set:
             setattr(income, field, getattr(payload, field))
 
     await db.flush()
-    new_period = f"{income.income_date.year}-{income.income_date.month:02d}"
+    new_period = period_of(income.income_date)
     for period in {old_period, new_period}:
         await invalidate_snapshots(user_id, period, db)
     await db.commit()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from uuid import UUID
 
 from sqlalchemy import select
@@ -12,25 +13,23 @@ from app.models import (
     OptimizationPotential,
 )
 from app.schemas.common import CategoryCreate, CategoryUpdate
+from app.services.errors import InvalidEnum, NotFound
 from app.services.pagination import paginate
 
 
-class NotFound(Exception):
-    pass
-
-
-class InvalidEnum(Exception):
-    pass
+def _parse_enum[E: Enum](enum_cls: type[E], value: str, label: str) -> E:
+    """Convertit une saisie (insensible à la casse) en membre d'énumération."""
+    try:
+        return enum_cls(value.upper())
+    except ValueError as exc:
+        raise InvalidEnum(f"Invalid {label}") from exc
 
 
 async def create(user_id: UUID, payload: CategoryCreate, db: AsyncSession) -> Category:
-    try:
-        essentiality = Essentiality(payload.essentiality.upper())
-        optimization = OptimizationPotential(payload.optimization_potential.upper())
-    except ValueError as exc:
-        raise InvalidEnum(
-            "Invalid essentiality or optimization_potential"
-        ) from exc
+    essentiality = _parse_enum(Essentiality, payload.essentiality, "essentiality")
+    optimization = _parse_enum(
+        OptimizationPotential, payload.optimization_potential, "optimization_potential"
+    )
 
     category = Category(
         user_id=user_id,
@@ -67,17 +66,15 @@ async def update( user_id: UUID, category_id: UUID, payload: CategoryUpdate, db:
     if payload.name is not None:
         category.name = payload.name.strip()
     if payload.essentiality is not None:
-        try:
-            category.essentiality = Essentiality(payload.essentiality.upper())
-        except ValueError as exc:
-            raise InvalidEnum("Invalid essentiality") from exc
+        category.essentiality = _parse_enum(
+            Essentiality, payload.essentiality, "essentiality"
+        )
     if payload.optimization_potential is not None:
-        try:
-            category.optimization_potential = OptimizationPotential(
-                payload.optimization_potential.upper()
-            )
-        except ValueError as exc:
-            raise InvalidEnum("Invalid optimization_potential") from exc
+        category.optimization_potential = _parse_enum(
+            OptimizationPotential,
+            payload.optimization_potential,
+            "optimization_potential",
+        )
     if payload.active is not None:
         category.active = payload.active
     if "monthly_budget" in payload.model_fields_set:
