@@ -40,7 +40,8 @@
         {
           "cameraPermission": "L'accès à la caméra permet de photographier vos factures."
         }
-      ]
+      ],
+      "expo-status-bar"
     ]
   }
 }

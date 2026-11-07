@@ -1,5 +1,6 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,12 @@ import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
+import { ai as aiApi } from "../src/shared/api/ai";
+import { budget as budgetApi } from "../src/shared/api/budget";
+import { system as systemApi } from "../src/shared/api/system";
+import { useAppStore } from "../src/shared/store";
+import type { AIAnalysis, AIHealth, Recommendation } from "../src/shared/types";
+import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
@@ -40,38 +47,83 @@ type ActionItem = {
 
 /* ------------------------------------------------------------------ */
 //  Layout Animation (Android)
-/* ------------------------------------------------------------------ */
+// ------------------------------------------------------------------ */
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 /* ------------------------------------------------------------------ */
-//  Données
-/* ------------------------------------------------------------------ */
+//  Mapping API -> UI
+// ------------------------------------------------------------------ */
 
-const DEVIATIONS: Deviation[] = [
-  {
-    title: "Abonnements Dormants",
-    cost: "+45€/mois",
-    costColor: colors.danger,
-    iconBg: "#FFDAD6",
-    iconColor: "#93000A",
-    icon: "subscriptions",
-    desc: "L'IA détecte 3 services de streaming facturés mensuellement mais dont l'activité (connexion/visionnage) est quasi-nulle depuis 6 semaines.",
-    detail: "Netflix Premium, Spotify Family et Disney+ n'ont été utilisés que 4h au total ce mois-ci.",
-  },
-  {
-    title: "Frais de Livraison",
-    cost: "+120€/mois",
-    costColor: colors.accent,
-    iconBg: "#865DD2",
-    iconColor: "#FFFBFF",
-    icon: "restaurant",
-    desc: "Hausse de 40% des commandes de repas livrés le jeudi et vendredi soir par rapport au trimestre précédent, impactant directement votre budget \"Sorties\".",
-    detail: "12 commandes ce mois via UberEats et Deliveroo, totalisant 148€ de frais de livraison et service.",
-  },
-];
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function mapAlerts(alerts: Record<string, unknown>[]): Deviation[] {
+  return alerts.slice(0, 5).map((alert, index) => {
+    const category = asText(alert.category) ?? "Dérive détectée";
+    const variation = asNumber(alert.variation_percentage);
+    const drift = asNumber(alert.drift_score);
+    const cost =
+      variation != null
+        ? `${variation > 0 ? "+" : ""}${Math.round(variation)}%`
+        : drift != null
+          ? `dérive ${drift.toFixed(2)}`
+          : "à surveiller";
+
+    const facts = [
+      variation != null ? `variation ${Math.round(variation)}%` : null,
+      drift != null ? `drift_score ${drift.toFixed(2)}` : null,
+      asNumber(alert.anomaly_score) != null
+        ? `anomaly_score ${asNumber(alert.anomaly_score)!.toFixed(2)}`
+        : null,
+    ].filter(Boolean);
+
+    return {
+      title: category,
+      cost,
+      costColor: index === 0 ? colors.danger : colors.accent,
+      iconBg: index === 0 ? "#FFDAD6" : "#EADDFF",
+      iconColor: index === 0 ? "#93000A" : "#160066",
+      icon: (asText(alert.icon) ?? "trending-up") as Deviation["icon"],
+      desc:
+        asText(alert.message) ??
+        asText(alert.description) ??
+        "Écart détecté par le moteur analytique sur cette catégorie.",
+      detail: asText(alert.detail) ?? (facts.length ? facts.join(" · ") : undefined),
+    };
+  });
+}
+
+function mapRecommendations(recs: Record<string, unknown>[], currency: string): ActionItem[] {
+  return recs.slice(0, 5).map((rec, index) => {
+    const action = asText(rec.action);
+    const justification = asText(rec.justification);
+    const impact = asNumber(rec.impact) ?? asNumber(rec.potential_saving);
+    return {
+      title: action ?? `Action ${index + 1}`,
+      desc:
+        justification ??
+        "Réduisez cette dépense pour augmenter votre capacité d'épargne mensuelle.",
+      impact:
+        impact != null
+          ? formatMoney(impact, currency)
+          : (asText(rec.category) ?? undefined),
+    };
+  });
+}
+
 
 const ACTIONS: ActionItem[] = [
   {
@@ -310,13 +362,61 @@ const AdviceItem = ({
 /* ------------------------------------------------------------------ */
 
 export default function AnalyseDetail() {
+  const userId = useAppStore((s) => s.userId);
+  const period = useAppStore((s) => s.currentPeriod);
+  const currency = useAppStore((s) => s.currency);
+
+  const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
+  const [health, setHealth] = useState<AIHealth | null>(null);
+  const [serverStatus, setServerStatus] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [appliedActions, setAppliedActions] = useState<Set<number>>(new Set());
+
+  const load = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    try {
+      const [aiResult, aiHealth, recs, sysHealth] = await Promise.all([
+        aiApi.analyze(userId, period),
+        aiApi.health(userId).catch(() => null),
+        budgetApi.listRecommendations(userId, period).catch(() => null),
+        systemApi.health().catch(() => null),
+      ]);
+      setAnalysis(aiResult);
+      setHealth(aiHealth);
+      setRecommendations(recs?.items ?? []);
+      setServerStatus(sysHealth?.status ?? null);
+    } catch {
+      setError("Analyse indisponible. Vérifiez la connexion au serveur.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [userId, period]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1500);
-  }, []);
+    void load();
+  }, [load]);
+
+  const deviations = useMemo(
+    () => mapAlerts(analysis?.alerts ?? []),
+    [analysis],
+  );
+  const actions = useMemo(
+    () => mapRecommendations(analysis?.recommendations ?? [], currency),
+    [analysis, currency],
+  );
 
   const toggleAction = (index: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -328,7 +428,30 @@ export default function AnalyseDetail() {
     });
   };
 
-  const allApplied = appliedActions.size === ACTIONS.length;
+  const allApplied = actions.length > 0 && appliedActions.size === actions.length;
+
+  const applyAll = useCallback(() => {
+    if (allApplied) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAppliedActions(new Set(actions.map((_, i) => i)));
+    if (!userId) return;
+    void (async () => {
+      const updated = await Promise.all(
+        recommendations
+          .filter((r) => r.status === "PROPOSED")
+          .map((r) =>
+            budgetApi
+              .updateRecommendationStatus(userId, r.id, "ACCEPTED")
+              .catch(() => null),
+          ),
+      );
+      const ok = updated.filter((r): r is Recommendation => r !== null);
+      if (ok.length) {
+        const byId = new Map(ok.map((r) => [r.id, r]));
+        setRecommendations((prev) => prev.map((r) => byId.get(r.id) ?? r));
+      }
+    })();
+  }, [allApplied, actions, recommendations, userId]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -353,17 +476,31 @@ export default function AnalyseDetail() {
                 size={24}
               />
               <Text style={styles.summaryTitle}>
-                Synthèse de l'Analyse                                                         Gemma 2.0
+                Synthèse de l'Analyse {health?.configured_model ? `· ${health.configured_model}` : ""}
               </Text>
+              {serverStatus === "ok" ? (
+                <MaterialCommunityIcons
+                  color={colors.success}
+                  name="cloud-check"
+                  size={18}
+                />
+              ) : null}
             </View>
-            <Text style={styles.summaryText}>
-              L'analyse de vos habitudes financières sur le dernier trimestre
-              révèle une tendance globale saine, avec une capacité d'épargne
-              maintenue à 15%. Cependant, le modèle identifie des micro-fuites
-              récurrentes dans la catégorie "Loisirs" (abonnements sous-utilisés
-              et achats d'impulsion le week-end) qui limitent votre potentiel de
-              croissance de patrimoine à moyen terme.
-            </Text>
+            {loading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={styles.summaryText}>
+                {analysis?.summary ?? error ?? "Aucune analyse disponible pour cette période."}
+              </Text>
+            )}
+            {analysis?.fallback ? (
+              <Text style={styles.fallbackBadge}>Analyse locale — IA indisponible</Text>
+            ) : null}
+            {analysis?.number_warnings?.length ? (
+              <Text style={styles.warningBadge}>
+                {analysis.number_warnings.length} chiffre(s) non vérifié(s) par le moteur
+              </Text>
+            ) : null}
           </View>
         </FadeIn>
 
@@ -372,9 +509,15 @@ export default function AnalyseDetail() {
           <Text style={styles.sectionLabel}>Points de Dérive Principaux</Text>
         </FadeIn>
         <View style={styles.deviationList}>
-          {DEVIATIONS.map((d, i) => (
-            <DeviationCard key={d.title} item={d} index={i} />
-          ))}
+          {deviations.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Aucune alerte détectée sur cette période.
+            </Text>
+          ) : (
+            deviations.map((d, i) => (
+              <DeviationCard key={`${d.title}-${i}`} item={d} index={i} />
+            ))
+          )}
         </View>
 
         {/* ── Optimization Advice ── */}
@@ -389,15 +532,21 @@ export default function AnalyseDetail() {
               <Text style={styles.adviceTitle}>Conseils d'Optimisation</Text>
             </View>
             <View style={styles.adviceList}>
-              {ACTIONS.map((a, i) => (
-                <AdviceItem
-                  key={i}
-                  item={a}
-                  index={i}
-                  applied={appliedActions.has(i)}
-                  onToggle={() => toggleAction(i)}
-                />
-              ))}
+              {actions.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  Aucune recommandation pour le moment.
+                </Text>
+              ) : (
+                actions.map((a, i) => (
+                  <AdviceItem
+                    key={`${a.title}-${i}`}
+                    item={a}
+                    index={i}
+                    applied={appliedActions.has(i)}
+                    onToggle={() => toggleAction(i)}
+                  />
+                ))
+              )}
             </View>
           </View>
         </FadeIn>
@@ -405,14 +554,7 @@ export default function AnalyseDetail() {
         {/* ── CTA ── */}
         <FadeIn delay={700}>
           <ScalePress
-            onPress={() => {
-              if (!allApplied) {
-                LayoutAnimation.configureNext(
-                  LayoutAnimation.Presets.easeInEaseOut
-                );
-                setAppliedActions(new Set(ACTIONS.map((_, i) => i)));
-              }
-            }}
+            onPress={applyAll}
             accessibilityLabel={
               allApplied
                 ? "Toutes les recommandations sont appliquées"
@@ -532,6 +674,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
+  },
+  fallbackBadge: {
+    color: colors.warning,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  warningBadge: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontStyle: "italic",
+    paddingVertical: 8,
   },
 
   /* Deviations */

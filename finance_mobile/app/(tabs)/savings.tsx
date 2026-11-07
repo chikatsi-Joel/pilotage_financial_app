@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,20 +13,26 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, router } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
+import { EmptyState } from "../../src/ui/components";
 import { savings as savingsApi } from "../../src/shared/api/savings";
 import { useAppStore } from "../../src/shared/store";
+import { formatMoney } from "../../src/shared/utils/money";
+
+type Contribution = { id: string; amount: number; created_at: string };
 
 type Goal = {
+  id: string;
   name: string;
   sub: string;
   icon: string;
   current: number;
   target: number;
   deadline: string;
+  contributions: Contribution[];
 };
 
 const dateInMonths = (months: number) => {
@@ -38,33 +44,6 @@ const dateInMonths = (months: number) => {
   return `${y}-${m}-${day}`;
 };
 
-const GOALS: Goal[] = [
-  {
-    name: "Achat Appartement",
-    sub: "Apport personnel",
-    icon: "home",
-    current: 18500,
-    target: 40000,
-    deadline: dateInMonths(18),
-  },
-  {
-    name: "Vacances Japon",
-    sub: "Prévu en Octobre",
-    icon: "flight-takeoff",
-    current: 2250,
-    target: 3000,
-    deadline: dateInMonths(6),
-  },
-  {
-    name: "Fonds d'urgence",
-    sub: "Sécurité",
-    icon: "health-and-safety",
-    current: 1700,
-    target: 5000,
-    deadline: dateInMonths(12),
-  },
-];
-
 const GOAL_ICONS = [
   "home",
   "flight-takeoff",
@@ -75,9 +54,6 @@ const GOAL_ICONS = [
   "school",
   "directions-car",
 ] as const;
-
-const formatEur = (n: number) =>
-  new Intl.NumberFormat("fr-FR").format(n) + " €";
 
 const goalPct = (g: { current: number; target: number }) => {
   if (g.target <= 0) return 0;
@@ -211,7 +187,11 @@ function WaveProgressBar({
 }
 
 export default function Savings() {
-  const [goals, setGoals] = useState<Goal[]>(GOALS);
+  const userId = useAppStore((s) => s.userId);
+  const currency = useAppStore((s) => s.currency);
+  const period = useAppStore((s) => s.currentPeriod);
+
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editTarget, setEditTarget] = useState("");
   const [createVisible, setCreateVisible] = useState(false);
@@ -221,7 +201,52 @@ export default function Savings() {
   const [newIcon, setNewIcon] = useState<string>(GOAL_ICONS[0]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const userId = useAppStore((s) => s.userId);
+
+  const formatEur = useCallback(
+    (n: number) => formatMoney(n, currency),
+    [currency]
+  );
+
+  const load = useCallback(async () => {
+    try {
+      if (!userId) return;
+      const result = await savingsApi.list(userId, { limit: 50 });
+      setGoals(
+        result.items.map((g, index) => ({
+          id: g.id,
+          name: g.name,
+          sub: g.description || "Objectif d'épargne",
+          icon: GOAL_ICONS[index % GOAL_ICONS.length],
+          current: g.current_amount,
+          target: g.target_amount,
+          deadline: g.deadline,
+          contributions: g.contributions,
+        }))
+      );
+    } catch {
+      setGoals([]);
+    }
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const totalSavings = goals.reduce((s, g) => s + g.current, 0);
+  const totalTarget = goals.reduce((s, g) => s + g.target, 0);
+  const globalPct =
+    totalTarget > 0 ? Math.min(totalSavings / totalTarget, 1) : 0;
+  const monthSavings = goals.reduce((s, g) => {
+    const inPeriod = g.contributions.reduce(
+      (sum, c) =>
+        String(c.created_at).startsWith(period) ? sum + c.amount : sum,
+      0
+    );
+    return s + inPeriod;
+  }, 0);
+  const insightGoal = goals.length ? goals[0].name : "votre prochain objectif";
 
   const editing = editIndex !== null ? goals[editIndex] : null;
   const editAmount = parseFloat(editTarget.replace(",", "."));
@@ -268,12 +293,14 @@ export default function Savings() {
       });
       setGoals((prev) => [
         {
+          id: created.id,
           name: created.name,
           sub: created.description || "Nouvel objectif",
           icon: newIcon,
           current: Number(created.current_amount) || 0,
           target: Number(created.target_amount),
           deadline: created.deadline,
+          contributions: created.contributions,
         },
         ...prev,
       ]);
@@ -296,14 +323,16 @@ export default function Savings() {
         {/* ── Total savings ── */}
         <View style={styles.totalSection}>
           <Text style={styles.totalLabel}>Épargne totale</Text>
-          <Text style={styles.totalAmount}>22 450 €</Text>
+          <Text style={styles.totalAmount}>{formatEur(totalSavings)}</Text>
           <View style={styles.totalPill}>
             <MaterialCommunityIcons
               color={colors.primary}
               name="trending-up"
               size={16}
             />
-            <Text style={styles.totalPillText}>+450 € ce mois</Text>
+            <Text style={styles.totalPillText}>
+              +{formatEur(monthSavings)} ce mois
+            </Text>
           </View>
         </View>
 
@@ -311,9 +340,11 @@ export default function Savings() {
         <View style={styles.progressCard}>
           <View style={styles.progressLeft}>
             <Text style={styles.progressTitle}>Progression globale</Text>
-            <Text style={styles.progressSub}>45% de l'objectif total</Text>
+            <Text style={styles.progressSub}>
+              {Math.round(globalPct * 100)}% de l'objectif total
+            </Text>
           </View>
-          <DonutProgress pct={0.45} />
+          <DonutProgress pct={globalPct} />
         </View>
 
         {/* ── Goals ── */}
@@ -334,70 +365,102 @@ export default function Savings() {
             <Text style={styles.addGoalText}>Ajouter</Text>
           </Pressable>
         </View>
-        <View style={styles.goalsList}>
-          {goals.map((g, i) => (
-            <Link
-              key={g.name}
-              asChild
-              href={{
-                pathname: "/savings-detail",
-                params: {
-                  goal: g.name,
-                  current: g.current.toString(),
-                  target: g.target.toString(),
-                  deadline: g.deadline,
-                },
-              }}
-            >
-              <Pressable>
-                <View style={styles.goalCard}>
-                  <View style={styles.goalTop}>
-                    <View style={styles.goalLeft}>
-                      <View style={styles.goalIcon}>
-                        <MaterialIcons
-                          color={colors.primary}
-                          name={g.icon as any}
-                          size={20}
-                        />
+        {goals.length === 0 ? (
+          <EmptyState
+            icon="piggy-bank-outline"
+            title="Aucun objectif d'épargne"
+            subtitle="Créez un objectif pour commencer à épargner régulièrement."
+          />
+        ) : (
+          <View style={styles.goalsList}>
+            {goals.map((g, i) => (
+              <Link
+                key={g.name}
+                asChild
+                href={{
+                  pathname: "/savings-detail",
+                  params: {
+                    id: g.id,
+                    goal: g.name,
+                    current: g.current.toString(),
+                    target: g.target.toString(),
+                    deadline: g.deadline,
+                  },
+                }}
+              >
+                <Pressable>
+                  <View style={styles.goalCard}>
+                    <View style={styles.goalTop}>
+                      <View style={styles.goalLeft}>
+                        <View style={styles.goalIcon}>
+                          <MaterialIcons
+                            color={colors.primary}
+                            name={g.icon as any}
+                            size={20}
+                          />
+                        </View>
+                        <View>
+                          <Text style={styles.goalName}>{g.name}</Text>
+                          <Text style={styles.goalSub}>{g.sub}</Text>
+                        </View>
                       </View>
-                      <View>
-                        <Text style={styles.goalName}>{g.name}</Text>
-                        <Text style={styles.goalSub}>{g.sub}</Text>
+                      <View style={styles.goalTopActions}>
+                        <View style={styles.goalPctBadge}>
+                          <Text style={styles.goalPctText}>{goalPct(g)}%</Text>
+                        </View>
+                        <Pressable
+                          onPress={() =>
+                            router.push({
+                              pathname: "/add-contribution",
+                              params: {
+                                goalId: g.id,
+                                goal: g.name,
+                                current: g.current.toString(),
+                                target: g.target.toString(),
+                              },
+                            })
+                          }
+                          hitSlop={8}
+                          accessibilityLabel={`Verser de l'argent sur ${g.name}`}
+                          accessibilityRole="button"
+                          style={styles.contributeQuickBtn}
+                        >
+                          <MaterialCommunityIcons
+                            name="bank-transfer-in"
+                            size={16}
+                            color={colors.primary}
+                          />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => openEdit(i)}
+                          hitSlop={8}
+                          accessibilityLabel={`Augmenter l'objectif ${g.name}`}
+                          accessibilityRole="button"
+                        >
+                          <MaterialCommunityIcons
+                            name="pencil-outline"
+                            size={18}
+                            color={colors.textMuted}
+                          />
+                        </Pressable>
                       </View>
                     </View>
-                    <View style={styles.goalTopActions}>
-                      <View style={styles.goalPctBadge}>
-                        <Text style={styles.goalPctText}>{goalPct(g)}%</Text>
+                    <View style={styles.goalBottom}>
+                      <WaveProgressBar
+                        pct={goalPctNum(g)}
+                        gradId={`wave-grad-${i}`}
+                      />
+                      <View style={styles.goalAmounts}>
+                        <Text style={styles.goalCurrent}>{formatEur(g.current)}</Text>
+                        <Text style={styles.goalTarget}>{formatEur(g.target)}</Text>
                       </View>
-                      <Pressable
-                        onPress={() => openEdit(i)}
-                        hitSlop={8}
-                        accessibilityLabel={`Augmenter l'objectif ${g.name}`}
-                        accessibilityRole="button"
-                      >
-                        <MaterialCommunityIcons
-                          name="pencil-outline"
-                          size={18}
-                          color={colors.textMuted}
-                        />
-                      </Pressable>
                     </View>
                   </View>
-                  <View style={styles.goalBottom}>
-                    <WaveProgressBar
-                      pct={goalPctNum(g)}
-                      gradId={`wave-grad-${i}`}
-                    />
-                    <View style={styles.goalAmounts}>
-                      <Text style={styles.goalCurrent}>{formatEur(g.current)}</Text>
-                      <Text style={styles.goalTarget}>{formatEur(g.target)}</Text>
-                    </View>
-                  </View>
-                </View>
-              </Pressable>
-            </Link>
-          ))}
-        </View>
+                </Pressable>
+              </Link>
+            ))}
+          </View>
+        )}
 
         {/* ── AI Insight ── */}
         <View style={styles.insightCard}>
@@ -414,8 +477,8 @@ export default function Savings() {
               Astuce IA <Text style={styles.insightDot}>●</Text>
             </Text>
             <Text style={styles.insightText}>
-              Transférez 50€ automatiquement chaque mois pour finir "Vacances
-              Japon" en juin.
+              Versez automatiquement chaque mois pour rester sur la bonne
+              voie vers {insightGoal}.
             </Text>
             <Pressable style={styles.insightBtn}>
               <Text style={styles.insightBtnText}>
@@ -728,6 +791,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  contributeQuickBtn: {
+    alignItems: "center",
+    backgroundColor: `${colors.primary}1A`,
+    borderRadius: 8,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
   },
   goalTopActions: {
     alignItems: "center",

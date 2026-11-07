@@ -21,6 +21,7 @@ export interface Income {
   income_date: string;
   source: string;
   recurring: boolean;
+  active: boolean;
 }
 
 export interface IncomeCreate {
@@ -30,12 +31,23 @@ export interface IncomeCreate {
   recurring?: boolean;
 }
 
+export interface IncomeUpdate {
+  amount?: number;
+  income_date?: string;
+  source?: string;
+  recurring?: boolean;
+  active?: boolean;
+}
+
 export interface Category {
   id: string;
   name: string;
   category_type: "EXPENSE";
   essentiality: "ESSENTIAL" | "NON_ESSENTIAL";
   optimization_potential: "LOW" | "MEDIUM" | "HIGH";
+  monthly_budget: number | null;
+  icon: string | null;
+  color: string | null;
   active: boolean;
 }
 
@@ -43,12 +55,18 @@ export interface CategoryCreate {
   name: string;
   essentiality: Essentiality;
   optimization_potential: OptimizationPotential;
+  monthly_budget?: number | null;
+  icon?: string | null;
+  color?: string | null;
 }
 
 export interface CategoryUpdate {
   name?: string;
   essentiality?: Essentiality;
   optimization_potential?: OptimizationPotential;
+  monthly_budget?: number | null;
+  icon?: string | null;
+  color?: string | null;
   active?: boolean;
 }
 
@@ -167,6 +185,8 @@ export interface Dashboard {
   income: number;
   expenses: number;
   savings: number;
+  remaining_balance: number;
+  contributions: number;
   savings_rate: number;
   categories_in_drift: number;
   potential_savings: number;

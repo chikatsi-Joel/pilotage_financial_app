@@ -38,6 +38,13 @@ export const useAppStore = create<AppState>()(
     {
       name: "finance-app-storage",
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const actual = currentMonth();
+        if (state.currentPeriod !== actual) {
+          state.setPeriod(actual);
+        }
+      },
     }
   )
 );

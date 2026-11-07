@@ -1,8 +1,20 @@
 import api, { buildPath } from "./client";
-import type { Income, IncomeCreate, PaginatedResponse } from "../types";
+import type {
+  Income,
+  IncomeCreate,
+  IncomeUpdate,
+  PaginatedResponse,
+} from "../types";
 
 function path(userId: string) {
   return buildPath("/users/{user_id}/incomes", { user_id: userId });
+}
+
+function itemPath(userId: string, incomeId: string) {
+  return buildPath("/users/{user_id}/incomes/{income_id}", {
+    user_id: userId,
+    income_id: incomeId,
+  });
 }
 
 export const incomes = {
@@ -22,4 +34,6 @@ export const incomes = {
       .then((r) => r.data),
   create: (userId: string, data: IncomeCreate) =>
     api.post<Income>(path(userId), data).then((r) => r.data),
+  update: (userId: string, incomeId: string, data: IncomeUpdate) =>
+    api.put<Income>(itemPath(userId, incomeId), data).then((r) => r.data),
 };

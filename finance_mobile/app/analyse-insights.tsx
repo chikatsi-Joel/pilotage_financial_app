@@ -1,93 +1,55 @@
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { BackButton, Card, Pill, SectionTitle } from "../src/ui/components";
+import { analytics as analyticsApi } from "../src/shared/api/analytics";
+import { budget as budgetApi } from "../src/shared/api/budget";
+import { whatIf as whatIfApi } from "../src/shared/api/whatIf";
+import { ai as aiApi } from "../src/shared/api/ai";
+import { useAppStore } from "../src/shared/store";
+import type { AIAnalysisStored, CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
+import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-interface DriftCategory {
-  name: string;
-  icon: IconName;
-  current: string;
-  baseline: string;
-  variation: string;
-  score: number;
-  tone: string;
-}
+/* ------------------------------------------------------------------ */
+//  Helpers
+/* ------------------------------------------------------------------ */
 
-interface WhatIfData {
-  category: string;
-  current: string;
-  reduction: string;
-  monthlySaving: string;
-  annualSaving: string;
-}
-
-interface Recommendation {
-  title: string;
-  impact: string;
-  dotColor: string;
-}
-
-const DRIFT_CATEGORIES: DriftCategory[] = [
-  {
-    name: "Restaurants",
-    icon: "food-outline",
-    current: "87 000",
-    baseline: "62 000",
-    variation: "+40 %",
-    score: 0.82,
-    tone: colors.warning,
-  },
-  {
-    name: "Transport",
-    icon: "car-outline",
-    current: "48 000",
-    baseline: "45 000",
-    variation: "+7 %",
-    score: 0.31,
-    tone: colors.success,
-  },
-  {
-    name: "Abonnements",
-    icon: "wifi",
-    current: "25 000",
-    baseline: "18 000",
-    variation: "+39 %",
-    score: 0.71,
-    tone: colors.warning,
-  },
-];
-
-const WHAT_IF_DATA: WhatIfData = {
-  category: "Restaurants",
-  current: "87 000",
-  reduction: "20 %",
-  monthlySaving: "17 400",
-  annualSaving: "208 800",
+const CATEGORY_ICONS: Record<string, IconName> = {
+  Alimentation: "cart-outline",
+  "Logement & Charges": "home-outline",
+  Transports: "car-outline",
+  Santé: "medical-bag",
+  Loisirs: "movie-open-outline",
+  Abonnements: "wifi",
+  Shopping: "shopping-outline",
+  Éducation: "school-outline",
+  Épargne: "piggy-bank-outline",
+  Impôts: "cash-multiple",
+  Autres: "credit-card-outline",
 };
 
-const RECOMMENDATIONS: Recommendation[] = [
-  {
-    title: "Limiter les restaurants à 2/semaine",
-    impact: "Impact : − 17 400 FCFA/mois",
-    dotColor: colors.warning,
-  },
-  {
-    title: "Revoir les abonnements streaming",
-    impact: "Impact : − 10 000 FCFA/mois",
-    dotColor: colors.accent,
-  },
-];
+const categoryIcon = (name: string) =>
+  CATEGORY_ICONS[name] ?? "credit-card-outline";
 
-// ═══════════════════════════════════════════════════════════
-//  SOUS-COMPOSANTS
-// ═══════════════════════════════════════════════════════════
+const toneFromScore = (score: number) =>
+  score >= 0.6 ? colors.warning : colors.success;
 
-function AiSummaryCard() {
+/* ------------------------------------------------------------------ */
+//  Sous-composants
+/* ------------------------------------------------------------------ */
+
+interface AiCardProps {
+  summary: string;
+}
+
+function AiSummaryCard({ summary }: AiCardProps) {
   return (
     <Card style={aiStyles.card}>
       <View style={aiStyles.header}>
@@ -100,11 +62,7 @@ function AiSummaryCard() {
         </View>
       </View>
 
-      <Text style={aiStyles.summary}>
-        Votre mois d'août montre une hausse des dépenses non essentielles,
-        principalement drivée par les restaurants. L'épargne reste correcte
-        mais un ajustement sur 2 catégories pourrait libérer 35 000 FCFA.
-      </Text>
+      <Text style={aiStyles.summary}>{summary}</Text>
 
       <Pressable
         style={aiStyles.button}
@@ -163,33 +121,42 @@ const aiStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-function DriftCategoryCard({ category }: { category: DriftCategory }) {
+interface DriftCardProps {
+  cat: CategoryAnalytics;
+  currency: string;
+}
+
+function DriftCategoryCard({ cat, currency }: DriftCardProps) {
+  const tone = toneFromScore(cat.opportunity_score);
   return (
     <Card style={driftStyles.card}>
       <View style={driftStyles.row}>
         <View
           style={[
             driftStyles.icon,
-            { backgroundColor: `${category.tone}18` },
+            { backgroundColor: `${tone}18` },
           ]}
         >
           <MaterialCommunityIcons
-            color={category.tone}
-            name={category.icon}
+            color={tone}
+            name={categoryIcon(cat.name)}
             size={22}
           />
         </View>
 
         <View style={driftStyles.copy}>
           <View style={driftStyles.titleRow}>
-            <Text style={driftStyles.name}>{category.name}</Text>
-            <Pill label={category.variation} tone="warning" />
+            <Text style={driftStyles.name}>{cat.name}</Text>
+            <Pill
+              label={cat.variation_percentage >= 0 ? `+${Math.round(cat.variation_percentage)}%` : `${Math.round(cat.variation_percentage)}%`}
+              tone={cat.variation_percentage >= 0 ? "warning" : "success"}
+            />
           </View>
 
           <View style={driftStyles.amounts}>
-            <Text style={driftStyles.current}>{category.current} FCFA</Text>
+            <Text style={driftStyles.current}>{formatMoney(cat.current_amount, currency)}</Text>
             <Text style={driftStyles.sep}>·</Text>
-            <Text style={driftStyles.baseline}>moy. {category.baseline}</Text>
+            <Text style={driftStyles.baseline}>moy. {formatMoney(cat.baseline_amount, currency)}</Text>
           </View>
 
           <View style={driftStyles.scoreRail}>
@@ -197,8 +164,8 @@ function DriftCategoryCard({ category }: { category: DriftCategory }) {
               style={[
                 driftStyles.scoreFill,
                 {
-                  backgroundColor: category.tone,
-                  width: `${category.score * 100}%`,
+                  backgroundColor: tone,
+                  width: `${Math.min(cat.opportunity_score * 100, 100)}%`,
                 },
               ]}
             />
@@ -241,7 +208,21 @@ const driftStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-function WhatIfCard() {
+interface WhatIfCardProps {
+  result: WhatIfResult | null;
+  currency: string;
+}
+
+function WhatIfCard({ result, currency }: WhatIfCardProps) {
+  if (!result) {
+    return (
+      <Card style={whatIfStyles.card}>
+        <Text style={whatIfStyles.title}>Simulateur indisponible</Text>
+        <Text style={whatIfStyles.subtitle}>Ajoutez des catégories pour activer la simulation.</Text>
+      </Card>
+    );
+  }
+
   return (
     <Card style={whatIfStyles.card}>
       <View style={whatIfStyles.header}>
@@ -261,17 +242,17 @@ function WhatIfCard() {
       </View>
 
       <View style={whatIfStyles.example}>
-        <WhatIfRow label="Catégorie" value={WHAT_IF_DATA.category} />
-        <WhatIfRow label="Réduction" value={WHAT_IF_DATA.reduction} />
+        <WhatIfRow label="Catégorie" value={result.category_name} />
+        <WhatIfRow label="Réduction" value={`${result.reduction_percent}%`} />
         <View style={whatIfStyles.divider} />
         <WhatIfRow
           label="Économie/mois"
-          value={`${WHAT_IF_DATA.monthlySaving} FCFA`}
+          value={`${formatMoney(result.monthly_saving, currency)}`}
           highlight
         />
         <WhatIfRow
           label="Économie/an"
-          value={`${WHAT_IF_DATA.annualSaving} FCFA`}
+          value={`${formatMoney(result.annual_saving, currency)}`}
           highlight
         />
       </View>
@@ -354,13 +335,21 @@ const whatIfStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-function RecommendationCard({ reco }: { reco: Recommendation }) {
+function RecommendationCard({ reco, currency }: { reco: Recommendation; currency: string }) {
+  const dotColor =
+    reco.status === "ACCEPTED"
+      ? colors.success
+      : reco.status === "REJECTED"
+        ? colors.danger
+        : colors.primary;
   return (
     <View style={recoStyles.card}>
-      <View style={[recoStyles.dot, { backgroundColor: reco.dotColor }]} />
+      <View style={[recoStyles.dot, { backgroundColor: dotColor }]} />
       <View style={recoStyles.copy}>
-        <Text style={recoStyles.title}>{reco.title}</Text>
-        <Text style={recoStyles.impact}>{reco.impact}</Text>
+        <Text style={recoStyles.title}>{reco.category_name}</Text>
+        <Text style={recoStyles.impact}>
+          {reco.justification || `Impact estimé : −${formatMoney(reco.impact_estimated, currency)}/mois`}
+        </Text>
       </View>
     </View>
   );
@@ -383,8 +372,46 @@ const recoStyles = StyleSheet.create({
   impact: { color: colors.textMuted, fontSize: 12 },
 });
 
+// ─────────────────────────────────────────────────────────
+
+function AnalysisHistoryRow({ analysis }: { analysis: AIAnalysisStored }) {
+  return (
+    <View style={histStyles.card}>
+      <View style={histStyles.dot} />
+      <View style={histStyles.copy}>
+        <Text style={histStyles.title}>{monthLabel(analysis.period)}</Text>
+        <Text style={histStyles.summary} numberOfLines={2}>
+          {analysis.summary}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const histStyles = StyleSheet.create({
+  card: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  dot: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 6,
+    height: 10,
+    width: 10,
+  },
+  copy: { flex: 1, gap: 3 },
+  title: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  summary: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+});
+
 // ═══════════════════════════════════════════════════════════
-//  SEASONALITY — SIMPLE AVEC FLÈCHE DANS LA BARRE
+//  SEASONALITY — PLACEHOLDER (no multi-month backend series)
 // ═══════════════════════════════════════════════════════════
 
 const SEASON_TREND = [62, 64, 61, 68, 72, 85];
@@ -394,12 +421,11 @@ function SeasonalityCard() {
 
   return (
     <Card style={seasonStyles.card}>
-      <Text style={seasonStyles.title}>Tendance Août</Text>
+      <Text style={seasonStyles.title}>Tendance saisonnière</Text>
       <Text style={seasonStyles.subtitle}>
-        Vos dépenses augmentent habituellement ce mois-ci.
+        Vos dépenses augmentent habituellement sur cette période.
       </Text>
 
-      {/* Graphe : flèche dans la dernière barre */}
       <View style={seasonStyles.chart}>
         {SEASON_TREND.map((val, i) => {
           const isLast = i === SEASON_TREND.length - 1;
@@ -428,18 +454,17 @@ function SeasonalityCard() {
         <Text style={seasonStyles.label}>Août</Text>
       </View>
 
-      {/* 3 chiffres */}
       <View style={seasonStyles.metrics}>
         <View style={seasonStyles.metric}>
-          <Text style={seasonStyles.metricValue}>82 %</Text>
+          <Text style={seasonStyles.metricValue}>—</Text>
           <Text style={seasonStyles.metricLabel}>Fiabilité</Text>
         </View>
         <View style={seasonStyles.metric}>
-          <Text style={seasonStyles.metricValue}>+15 %</Text>
+          <Text style={seasonStyles.metricValue}>—</Text>
           <Text style={seasonStyles.metricLabel}>Hausse</Text>
         </View>
         <View style={seasonStyles.metric}>
-          <Text style={seasonStyles.metricValue}>6 mois</Text>
+          <Text style={seasonStyles.metricValue}>—</Text>
           <Text style={seasonStyles.metricLabel}>Historique</Text>
         </View>
       </View>
@@ -468,7 +493,6 @@ const seasonStyles = StyleSheet.create({
     marginTop: -10,
   },
 
-  /* Graphe */
   chart: {
     alignItems: "flex-end",
     flexDirection: "row",
@@ -488,7 +512,7 @@ const seasonStyles = StyleSheet.create({
   },
   barActive: {
     backgroundColor: colors.primary,
-    borderRadius: 10, // ← plus arrondi
+    borderRadius: 10,
   },
   arrow: {
     alignItems: "center",
@@ -512,7 +536,6 @@ const seasonStyles = StyleSheet.create({
     fontSize: 11,
   },
 
-  /* Métriques */
   metrics: {
     borderTopColor: colors.border,
     borderTopWidth: 1,
@@ -539,7 +562,90 @@ const seasonStyles = StyleSheet.create({
 //  COMPOSANT PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const monthLabel = (iso: string) =>
+  cap(new Date(`${iso}-01`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+
 export default function Insights() {
+  const userId = useAppStore((s) => s.userId);
+  const currency = useAppStore((s) => s.currency);
+  const period = useAppStore((s) => s.currentPeriod);
+
+  const [loading, setLoading] = useState(true);
+  const [driftCats, setDriftCats] = useState<CategoryAnalytics[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [whatIfResult, setWhatIfResult] = useState<WhatIfResult | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>(
+    "Analyse IA en cours de chargement…"
+  );
+  const [history, setHistory] = useState<AIAnalysisStored[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        setLoading(true);
+        try {
+          if (!userId) return;
+          const [catsRes, recos, stored] = await Promise.all([
+            analyticsApi.categories(userId, period),
+            budgetApi.listRecommendations(userId, period).catch(() => ({ items: [] as Recommendation[] })),
+            aiApi.listAnalyses(userId, { limit: 10 }).catch(() => ({ items: [] as AIAnalysisStored[] })),
+          ]);
+
+          if (cancelled) return;
+          setDriftCats(catsRes.filter((c) => Math.abs(c.variation_percentage) > 5));
+          setRecommendations(recos.items);
+          setHistory(stored.items);
+
+          // run what-if on top opportunity category with 20% reduction
+          const topCat = catsRes.reduce(
+            (best, c) =>
+              c.opportunity_score > (best?.opportunity_score ?? -1) ? c : best,
+            null as CategoryAnalytics | null
+          );
+          if (topCat) {
+            try {
+              const res = await whatIfApi.simulate(userId, period, {
+                category_id: topCat.category_id,
+                reduction_percent: 20,
+              });
+              if (!cancelled) setWhatIfResult(res);
+            } catch {
+              /* leave null */
+            }
+          }
+
+          // AI summary
+          try {
+            const aiRes = await aiApi.analyze(userId, period);
+            if (!cancelled && aiRes?.summary) setAiSummary(aiRes.summary);
+          } catch {
+            if (!cancelled)
+              setAiSummary("Analyse IA indisponible pour ce mois-ci.");
+          }
+        } catch {
+          // graceful fallback to empty
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [userId, period])
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <ScrollView
@@ -561,31 +667,53 @@ export default function Insights() {
               name="calendar-month-outline"
               size={20}
             />
-            <Text style={styles.periodText}>Août 2026</Text>
+            <Text style={styles.periodText}>{monthLabel(period)}</Text>
           </View>
         </View>
 
         {/* ── Analyse IA ── */}
-        <AiSummaryCard />
+        <AiSummaryCard summary={aiSummary} />
+
+        {/* ── Historique des analyses ── */}
+        {history.length > 0 && (
+          <>
+            <SectionTitle title="Historique des analyses" />
+            <View style={styles.listGap}>
+              {history
+                .filter((h) => h.period !== period)
+                .map((h) => (
+                  <AnalysisHistoryRow key={h.id} analysis={h} />
+                ))}
+            </View>
+          </>
+        )}
 
         {/* ── Catégories à surveiller ── */}
         <SectionTitle action="Tout voir" title="Catégories à surveiller" />
         <View style={styles.listGap}>
-          {DRIFT_CATEGORIES.map((cat) => (
-            <DriftCategoryCard key={cat.name} category={cat} />
-          ))}
+          {driftCats.length > 0 ? (
+            driftCats.map((cat) => (
+              <DriftCategoryCard key={cat.category_id} cat={cat} currency={currency} />
+            ))
+          ) : (
+            <Text style={styles.emptyText}>Aucune dérive significative détectée ce mois-ci.</Text>
+          )}
         </View>
 
         {/* ── Simulateur ── */}
         <SectionTitle title="Simulateur" />
-        <WhatIfCard />
+        <WhatIfCard result={whatIfResult} currency={currency} />
 
         {/* ── Recommandations ── */}
         <SectionTitle action="Voir tout" title="Recommandations" />
         <View style={styles.listGap}>
-          {RECOMMENDATIONS.map((reco, index) => (
-            <RecommendationCard key={index} reco={reco} />
-          ))}
+          {recommendations.length > 0 ? (
+            recommendations.map((reco) => (
+              <RecommendationCard key={reco.id} reco={reco} currency={currency} />
+            ))
+          ) : (
+            <Text style={styles.emptyText}>Aucune recommandation active pour {monthLabel(period)}.</Text>
+          )}
         </View>
 
         {/* ── Tendance saisonnière ── */}
@@ -636,4 +764,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   listGap: { gap: 10 },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 16,
+  },
+  loadingWrap: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
 });
