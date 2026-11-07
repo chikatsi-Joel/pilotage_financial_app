@@ -1,10 +1,11 @@
 from datetime import date
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import DbSession, UserDep
-from app.schemas.common import IncomeCreate, IncomeRead, PaginatedResponse
+from app.schemas.common import IncomeCreate, IncomeRead, IncomeUpdate, PaginatedResponse
 from app.services import income_service
+from app.services.income_service import NotFound
 from typing import Annotated
 from fastapi import Query
 
@@ -47,3 +48,16 @@ async def list_incomes(
         limit=limit,
     )
     return PaginatedResponse(items=items, next_cursor=next_cursor, has_more=has_more)
+
+
+@router.put("/{income_id}", response_model=IncomeRead)
+async def update_income(
+    income_id,
+    payload: IncomeUpdate,
+    user: UserDep,
+    db: DbSession,
+):
+    try:
+        return await income_service.update(user.id, income_id, payload, db)
+    except NotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
