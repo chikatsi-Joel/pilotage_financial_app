@@ -6,7 +6,7 @@ const test = require("node:test");
 const ts = require("typescript");
 
 function loadClientModule() {
-  const clientPath = path.resolve(__dirname, "../src/shared/api/client.ts");
+  const clientPath = path.resolve(__dirname, "../src/shared/api/path.ts");
   const source = fs.readFileSync(clientPath, "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {

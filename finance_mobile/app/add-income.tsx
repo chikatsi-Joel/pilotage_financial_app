@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -21,31 +21,13 @@ import { colors } from "../src/ui/theme";
 import { incomes as incomesApi } from "../src/shared/api/incomes";
 import { useAppStore } from "../src/shared/store";
 import { formatMoney } from "../src/shared/utils/money";
+import { Numpad } from "../src/ui/Numpad";
+import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
+import { formatDisplayDate, parseISODate, toISODate } from "../src/shared/utils/date";
 
 /* ------------------------------------------------------------------ */
 /*  Types & constantes                                                 */
 /* ------------------------------------------------------------------ */
-
-type NumpadKey =
-  | "1"
-  | "2"
-  | "3"
-  | "4"
-  | "5"
-  | "6"
-  | "7"
-  | "8"
-  | "9"
-  | ","
-  | "0"
-  | "del";
-
-const NUMPAD_KEYS: readonly NumpadKey[] = [
-  "1", "2", "3",
-  "4", "5", "6",
-  "7", "8", "9",
-  ",", "0", "del",
-];
 
 const MAX_AMOUNT_DIGITS = 9;
 
@@ -74,38 +56,6 @@ const IS_RECURRING_DEFAULT: Record<SourceKey, boolean> = {
 /*  Utilitaires purs                                                   */
 /* ------------------------------------------------------------------ */
 
-function toISODate(d: Date): string {
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-function parseISODate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-function formatDisplayDate(iso: string): string {
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(parseISODate(iso));
-}
-
-function updateAmountInput(prev: string, key: NumpadKey): string {
-  if (key === "del") return prev.length > 1 ? prev.slice(0, -1) : "0";
-  if (key === ",") return prev.includes(",") ? prev : prev + ",";
-  const decimals = prev.split(",")[1];
-  if (decimals && decimals.length >= 2) return prev;
-  if (prev.replace(/[^\d]/g, "").length >= MAX_AMOUNT_DIGITS) return prev;
-  return prev === "0" ? key : prev + key;
-}
-
-function parseAmount(raw: string): number {
-  return Number(raw.replace(",", "."));
-}
-
 function sourceToKey(source: string | undefined): SourceKey {
   if (source === "Salaire") return "salary";
   if (source === "Remboursement de prêt") return "loan";
@@ -116,42 +66,6 @@ function sourceToKey(source: string | undefined): SourceKey {
 /* ------------------------------------------------------------------ */
 /*  Sous-composants                                                    */
 /* ------------------------------------------------------------------ */
-
-const Numpad = memo(function Numpad({
-  onPress,
-}: {
-  onPress: (key: NumpadKey) => void;
-}) {
-  return (
-    <View style={styles.numpad}>
-      {NUMPAD_KEYS.map((key) => (
-        <Pressable
-          key={key}
-          accessibilityLabel={
-            key === "del" ? "Effacer" : key === "," ? "Virgule" : key
-          }
-          accessibilityRole="button"
-          onPress={() => onPress(key)}
-          style={({ pressed }) => [
-            styles.numpadBtn,
-            key === "del" && styles.numpadBtnDel,
-            pressed && styles.pressed,
-          ]}
-        >
-          {key === "del" ? (
-            <MaterialCommunityIcons
-              color={colors.textMuted}
-              name="backspace"
-              size={22}
-            />
-          ) : (
-            <Text style={styles.numpadText}>{key}</Text>
-          )}
-        </Pressable>
-      ))}
-    </View>
-  );
-});
 
 /* ------------------------------------------------------------------ */
 /*  Écran principal                                                    */
@@ -203,7 +117,7 @@ export default function AddIncome() {
     !!userId;
 
   const handleNumpad = useCallback((key: NumpadKey) => {
-    setAmount((prev) => updateAmountInput(prev, key));
+    setAmount((prev) => updateAmountInput(prev, key, MAX_AMOUNT_DIGITS));
   }, []);
 
   const selectSource = useCallback((key: SourceKey) => {
@@ -611,24 +525,6 @@ const styles = StyleSheet.create({
   datePillText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   pickerDone: { alignSelf: "flex-end", paddingVertical: 4 },
   pickerDoneText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
-
-  /* Numpad */
-  numpad: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
-  numpadBtn: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    elevation: 1,
-    height: 56,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    width: "30.33%",
-  },
-  numpadBtnDel: { backgroundColor: "#E5EEFF", elevation: 0, shadowOpacity: 0 },
-  numpadText: { color: colors.text, fontSize: 24, fontWeight: "600" },
 
   /* Aperçu */
   previewCard: {

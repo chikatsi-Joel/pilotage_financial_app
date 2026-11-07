@@ -15,19 +15,6 @@ const api = axios.create({
   timeout: 30000,
 });
 
-export type PathParameters = Record<string, string | number>;
-
-export function buildPath(
-  template: string,
-  parameters: PathParameters,
-): string {
-  return template.replace(/\{([^}]+)\}/g, (_placeholder, name: string) => {
-    const value = parameters[name];
-    if (value === undefined || value === null || value === "") {
-      throw new Error(`Missing path parameter '${name}' for ${template}`);
-    }
-    return encodeURIComponent(String(value));
-  });
-}
+export { buildPath, type PathParameters } from "./path";
 
 export default api;

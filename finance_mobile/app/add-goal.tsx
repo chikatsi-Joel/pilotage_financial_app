@@ -20,16 +20,11 @@ import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
 import { ScreenHeader } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
-
-const MONTH_NAMES = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-];
+import { monthLabel } from "../src/shared/utils/date";
 
 function formatDateDisplay(dateStr: string): string {
   if (!dateStr) return "";
-  const [y, m] = dateStr.split("-").map(Number);
-  return `${MONTH_NAMES[m - 1]} ${y}`;
+  return monthLabel(dateStr);
 }
 
 function computeMonthlyEstimate(amount: string, date: string): number {

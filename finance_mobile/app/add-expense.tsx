@@ -28,6 +28,9 @@ import { categories as categoriesApi } from "../src/shared/api/categories";
 import { expenses as expensesApi } from "../src/shared/api/expenses";
 import { receipts as receiptsApi } from "../src/shared/api/receipts";
 import { useAppStore } from "../src/shared/store";
+import { Numpad } from "../src/ui/Numpad";
+import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
+import { formatDisplayDate, parseISODate, toISODate } from "../src/shared/utils/date";
 
 /* ------------------------------------------------------------------ */
 /*  Types & constantes                                                 */
@@ -40,8 +43,6 @@ interface Category {
 }
 
 type Mode = "scan" | "form";
-type NumpadKey = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "," | "0" | "del";
-
 const ICON_RULES: readonly { match: RegExp; icon: Category["icon"] }[] = [
   { match: /alimentation|nourriture|courses|supermarch|restaurant|restauration/i, icon: "silverware-fork-knife" },
   { match: /transport|carburant|taxi|uber|bus|train|avion/i, icon: "car" },
@@ -61,13 +62,6 @@ function iconFor(label: string): Category["icon"] {
   return "shape-outline";
 }
 
-const NUMPAD_KEYS: readonly NumpadKey[] = [
-  "1", "2", "3",
-  "4", "5", "6",
-  "7", "8", "9",
-  ",", "0", "del",
-];
-
 const MAX_AMOUNT_DIGITS = 7;
 
 const ANALYZE_STEPS = [
@@ -82,43 +76,6 @@ const ANALYZE_STEP_DURATION = 900;
 /* ------------------------------------------------------------------ */
 /*  Utilitaires purs (testables, hors composant)                       */
 /* ------------------------------------------------------------------ */
-
-function toISODate(d: Date): string {
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-function parseISODate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-function formatDisplayDate(iso: string): string {
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(parseISODate(iso));
-}
-
-/** Saisie clavier numérique : max 2 décimales, pas de "0" superflu. */
-export function updateAmountInput(prev: string, key: NumpadKey): string {
-  if (key === "del") {
-    return prev.length > 1 ? prev.slice(0, -1) : "0";
-  }
-  if (key === ",") {
-    return prev.includes(",") ? prev : prev + ",";
-  }
-  const decimals = prev.split(",")[1];
-  if (decimals && decimals.length >= 2) return prev;
-  if (prev.replace(/[^\d]/g, "").length >= MAX_AMOUNT_DIGITS) return prev;
-  return prev === "0" ? key : prev + key;
-}
-
-function parseAmount(raw: string): number {
-  return Number(raw.replace(",", "."));
-}
 
 /* ------------------------------------------------------------------ */
 /*  Hooks                                                              */
@@ -159,36 +116,6 @@ function useCategories(userId: string | null) {
 /* ------------------------------------------------------------------ */
 /*  Sous-composants                                                    */
 /* ------------------------------------------------------------------ */
-
-const Numpad = memo(function Numpad({
-  onPress,
-}: {
-  onPress: (key: NumpadKey) => void;
-}) {
-  return (
-    <View style={styles.numpad}>
-      {NUMPAD_KEYS.map((key) => (
-        <Pressable
-          key={key}
-          accessibilityLabel={key === "del" ? "Effacer" : key === "," ? "Virgule" : key}
-          accessibilityRole="button"
-          onPress={() => onPress(key)}
-          style={({ pressed }) => [
-            styles.numpadBtn,
-            key === "del" && styles.numpadBtnDel,
-            pressed && styles.pressed,
-          ]}
-        >
-          {key === "del" ? (
-            <MaterialCommunityIcons color={colors.textMuted} name="backspace" size={22} />
-          ) : (
-            <Text style={styles.numpadText}>{key}</Text>
-          )}
-        </Pressable>
-      ))}
-    </View>
-  );
-});
 
 const CategoryPicker = memo(function CategoryPicker({
   categories,
@@ -578,7 +505,7 @@ export default function AddExpense() {
   /* ---------------------------------------------------------------- */
 
   const handleNumpad = useCallback((key: NumpadKey) => {
-    setAmount((prev) => updateAmountInput(prev, key));
+    setAmount((prev) => updateAmountInput(prev, key, MAX_AMOUNT_DIGITS));
   }, []);
 
   const pickImageFromGallery = useCallback(async () => {
@@ -1124,24 +1051,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
   },
-
-  /* Numpad */
-  numpad: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
-  numpadBtn: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    elevation: 1,
-    height: 56,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    width: "30.33%",
-  },
-  numpadBtnDel: { backgroundColor: "#E5EEFF", elevation: 0, shadowOpacity: 0 },
-  numpadText: { color: colors.text, fontSize: 24, fontWeight: "600" },
 
   /* Error */
   errorText: { color: colors.danger, fontSize: 13, fontWeight: "600" },

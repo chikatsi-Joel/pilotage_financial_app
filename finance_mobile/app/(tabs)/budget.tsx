@@ -25,6 +25,7 @@ import { useAppStore } from "../../src/shared/store";
 import type { Budget, BudgetCategoryLine, BudgetSummary } from "../../src/shared/types";
 import { formatMoney } from "../../src/shared/utils/money";
 import { router, useFocusEffect } from "expo-router";
+import { monthLabel } from "../../src/shared/utils/date";
 
 /* ------------------------------------------------------------------ */
 //  Types
@@ -107,17 +108,6 @@ function optOfPotential(potential: string): OptLevel {
   if (potential === "HIGH") return "high";
   if (potential === "LOW") return "low";
   return "medium";
-}
-
-const MONTHS_FR = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-];
-
-function monthLabel(period: string): string {
-  const [y, m] = period.split("-").map(Number);
-  const month = MONTHS_FR[(m ?? 1) - 1] ?? "";
-  return `${month} ${y ?? ""}`.trim();
 }
 
 /* ------------------------------------------------------------------ */

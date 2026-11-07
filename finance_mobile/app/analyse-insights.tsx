@@ -14,6 +14,7 @@ import { useAppStore } from "../src/shared/store";
 import type { AIAnalysisStored, CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
+import { capitalize } from "../src/shared/utils/format";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -562,9 +563,8 @@ const seasonStyles = StyleSheet.create({
 //  COMPOSANT PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const monthLabel = (iso: string) =>
-  cap(new Date(`${iso}-01`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+  capitalize(new Date(`${iso}-01`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
 
 export default function Insights() {
   const userId = useAppStore((s) => s.userId);

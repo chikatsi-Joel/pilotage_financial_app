@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,42 +16,11 @@ import { colors } from "../src/ui/theme";
 import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
 import { formatMoney } from "../src/shared/utils/money";
-
-type NumpadKey =
-  | "1"
-  | "2"
-  | "3"
-  | "4"
-  | "5"
-  | "6"
-  | "7"
-  | "8"
-  | "9"
-  | ","
-  | "0"
-  | "del";
-
-const NUMPAD_KEYS: readonly NumpadKey[] = [
-  "1", "2", "3",
-  "4", "5", "6",
-  "7", "8", "9",
-  ",", "0", "del",
-];
+import { Numpad } from "../src/ui/Numpad";
+import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
 
 const MAX_AMOUNT_DIGITS = 9;
-
-function updateAmountInput(prev: string, key: NumpadKey): string {
-  if (key === "del") return prev.length > 1 ? prev.slice(0, -1) : "0";
-  if (key === ",") return prev.includes(",") ? prev : prev + ",";
-  const decimals = prev.split(",")[1];
-  if (decimals && decimals.length >= 2) return prev;
-  if (prev.replace(/[^\d]/g, "").length >= MAX_AMOUNT_DIGITS) return prev;
-  return prev === "0" ? key : prev + key;
-}
-
-function parseAmount(raw: string): number {
-  return Number(raw.replace(",", "."));
-}
+const NUMPAD_STYLE = { marginTop: 4 } as const;
 
 function apiErrorDetail(err: unknown): string | null {
   const detail =
@@ -64,42 +33,6 @@ function apiErrorDetail(err: unknown): string | null {
   }
   return null;
 }
-
-const Numpad = memo(function Numpad({
-  onPress,
-}: {
-  onPress: (key: NumpadKey) => void;
-}) {
-  return (
-    <View style={styles.numpad}>
-      {NUMPAD_KEYS.map((key) => (
-        <Pressable
-          key={key}
-          accessibilityLabel={
-            key === "del" ? "Effacer" : key === "," ? "Virgule" : key
-          }
-          accessibilityRole="button"
-          onPress={() => onPress(key)}
-          style={({ pressed }) => [
-            styles.numpadBtn,
-            key === "del" && styles.numpadBtnDel,
-            pressed && styles.pressed,
-          ]}
-        >
-          {key === "del" ? (
-            <MaterialCommunityIcons
-              color={colors.textMuted}
-              name="backspace"
-              size={22}
-            />
-          ) : (
-            <Text style={styles.numpadText}>{key}</Text>
-          )}
-        </Pressable>
-      ))}
-    </View>
-  );
-});
 
 export default function AddContribution() {
   const userId = useAppStore((s) => s.userId);
@@ -127,7 +60,7 @@ export default function AddContribution() {
   const canSave = isAmountValid && !saving && !!userId && !!goalId;
 
   const handleNumpad = useCallback((key: NumpadKey) => {
-    setAmount((prev) => updateAmountInput(prev, key));
+    setAmount((prev) => updateAmountInput(prev, key, MAX_AMOUNT_DIGITS));
   }, []);
 
   const save = useCallback(async () => {
@@ -200,7 +133,7 @@ export default function AddContribution() {
           </View>
         </View>
 
-        <Numpad onPress={handleNumpad} />
+        <Numpad onPress={handleNumpad} style={NUMPAD_STYLE} />
 
         {/* ── Aperçu ── */}
         <View style={styles.previewCard}>
@@ -315,24 +248,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     marginLeft: 8,
   },
-
-  /* Numpad */
-  numpad: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
-  numpadBtn: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    elevation: 1,
-    height: 56,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    width: "30.33%",
-  },
-  numpadBtnDel: { backgroundColor: "#E5EEFF", elevation: 0, shadowOpacity: 0 },
-  numpadText: { color: colors.text, fontSize: 24, fontWeight: "600" },
 
   /* Aperçu */
   previewCard: {

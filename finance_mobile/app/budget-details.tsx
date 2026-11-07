@@ -26,6 +26,7 @@ import { useAppStore } from "../src/shared/store";
 import type { CategoryAnalytics, Expense } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
+import { formatPct } from "../src/shared/utils/format";
 
 /* ------------------------------------------------------------------ */
 //  Types
@@ -48,11 +49,6 @@ function optFromScore(cat: CategoryAnalytics): OptLevel {
   if (cat.opportunity_score >= 0.6) return "high";
   if (cat.opportunity_score >= 0.35) return "medium";
   return "low";
-}
-
-function formatPct(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${Math.round(Math.abs(value))}%`;
 }
 
 function txDate(iso: string): string {

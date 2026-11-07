@@ -27,14 +27,14 @@ import { useAppStore } from "../src/shared/store";
 import type { SavingsGoal } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
+import { capitalize } from "../src/shared/utils/format";
 
 /* ------------------------------------------------------------------ */
 //  Helpers
 /* ------------------------------------------------------------------ */
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const monthLabel = (iso: string) =>
-  cap(new Date(iso).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+  capitalize(new Date(iso).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
 
 /* ------------------------------------------------------------------ */
 //  Animation d'entrée

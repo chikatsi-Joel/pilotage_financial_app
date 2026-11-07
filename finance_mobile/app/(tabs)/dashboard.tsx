@@ -24,6 +24,8 @@ import type {
   WeeklyExpense,
 } from "../../src/shared/types";
 import { formatMoney } from "../../src/shared/utils/money";
+import { formatPct } from "../../src/shared/utils/format";
+import { MONTHS_FR } from "../../src/shared/utils/date";
 
 // ═══════════════════════════════════════════════════════════
 //  TYPES & AIDES
@@ -70,16 +72,6 @@ const SOURCE_ICON: Record<
 
 function sourceIcon(name: string) {
   return SOURCE_ICON[name] ?? "plus-circle-outline";
-}
-
-const MONTHS_FR = [
-  "janvier", "février", "mars", "avril", "mai", "juin",
-  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-];
-
-function formatPct(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${Math.round(Math.abs(value))}%`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -520,7 +512,7 @@ export default function Dashboard() {
 
   const [year, month] = period.split("-").map(Number);
   const lastDay = new Date(year, month, 0).getDate();
-  const projectedDate = `${lastDay} ${MONTHS_FR[month - 1]} ${year}`;
+  const projectedDate = `${lastDay} ${MONTHS_FR[month - 1].toLowerCase()} ${year}`;
 
   const goal = data?.savings_goal ?? null;
   const trackMax = Math.max(goal?.target_amount ?? 0, solde, 1);
