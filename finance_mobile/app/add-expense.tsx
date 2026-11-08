@@ -82,9 +82,19 @@ const ANALYZE_STEP_DURATION = 900;
 /* ------------------------------------------------------------------ */
 
 /** Charge les catégories actives depuis l'API et les adapte à l'affichage. */
+/** Une date lue par OCR n'est retenue que si elle est récente (≤ 35 jours) et pas dans le futur. */
+function isPlausibleReceiptDate(iso: string): boolean {
+  const d = parseISODate(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  const ageDays = (now.getTime() - d.getTime()) / 86_400_000;
+  return ageDays >= -1 && ageDays <= 35;
+}
+
 function useCategories(userId: string | null) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -92,6 +102,7 @@ function useCategories(userId: string | null) {
       return;
     }
     setLoading(true);
+    setFailed(false);
     try {
       const res = await categoriesApi.list(userId, { limit: 100 });
       setCategories(
@@ -101,6 +112,7 @@ function useCategories(userId: string | null) {
       );
     } catch {
       setCategories([]);
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -110,7 +122,7 @@ function useCategories(userId: string | null) {
     void load();
   }, [load]);
 
-  return { categories, loading };
+  return { categories, loading, failed, reload: load };
 }
 
 /* ------------------------------------------------------------------ */
@@ -385,7 +397,8 @@ function AnalyzingOverlay({ step }: { step: number }) {
 
 export default function AddExpense() {
   const userId = useAppStore((s) => s.userId);
-  const { categories } = useCategories(userId);
+  const { categories, loading: categoriesLoading, failed: categoriesFailed } =
+    useCategories(userId);
   const params = useLocalSearchParams<{
     id?: string;
     amount?: string;
@@ -429,6 +442,19 @@ export default function AddExpense() {
   const isAmountValid = Number.isFinite(amountNum) && amountNum > 0;
   const canSave = isAmountValid && !saving && !!userId && !!selectedCategory;
 
+  /* Pourquoi « Enregistrer » est grisé (sinon l'échec est silencieux) */
+  const blockReason = !userId
+    ? "Session non initialisée. Repassez par l'onboarding."
+    : categoriesFailed
+      ? "Impossible de charger les catégories. Vérifiez le serveur."
+      : !categoriesLoading && categories.length === 0
+        ? "Aucune catégorie active. Créez-en une avant d'ajouter une dépense."
+        : !isAmountValid
+          ? "Saisissez un montant valide."
+          : !selectedCategory
+            ? "Sélectionnez une catégorie."
+            : null;
+
   useEffect(() => {
     if (selectedCategory || categories.length === 0) return;
     setSelectedCategory(categories[0].key);
@@ -466,11 +492,20 @@ export default function AddExpense() {
             )
           : undefined;
         if (match) setSelectedCategory(match.key);
-        if (scan.expense_date) setDate(scan.expense_date);
+        let dateNote: string | null = null;
+        if (scan.expense_date) {
+          if (isPlausibleReceiptDate(scan.expense_date)) {
+            setDate(scan.expense_date);
+          } else {
+            dateNote = `Date du ticket (${scan.expense_date}) jugée incohérente : date du jour conservée.`;
+          }
+        }
         const detail = [scan.merchant, scan.description].filter(Boolean).join(" · ");
         if (detail) setNote(detail);
         if (scan.amount == null) {
           setScanError("Ticket lu mais montant illisible. Saisissez-le à la main.");
+        } else if (dateNote) {
+          setScanError(dateNote);
         }
 
         setAnalyzing(false);
@@ -785,6 +820,11 @@ export default function AddExpense() {
             <Numpad onPress={handleNumpad} />
 
             {/* ── Save ── */}
+            {!canSave && !saving && blockReason && !saveError && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {blockReason}
+              </Text>
+            )}
             {saveError && (
               <Text style={styles.errorText} accessibilityLiveRegion="polite">
                 {saveError}
