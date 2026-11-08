@@ -15,12 +15,10 @@ import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
 import { analytics } from "../../src/shared/api/analytics";
-import { incomes as incomesApi } from "../../src/shared/api/incomes";
 import { useAppStore } from "../../src/shared/store";
 import type {
   CategoryAnalytics,
   Dashboard,
-  Income,
   WeeklyExpense,
 } from "../../src/shared/types";
 import { formatMoney } from "../../src/shared/utils/money";
@@ -59,19 +57,6 @@ const CATEGORY_ICON: Record<
 
 function categoryIcon(name: string) {
   return CATEGORY_ICON[name] ?? "tag-outline";
-}
-
-const SOURCE_ICON: Record<
-  string,
-  React.ComponentProps<typeof MaterialCommunityIcons>["name"]
-> = {
-  Salaire: "cash-multiple",
-  "Remboursement de prêt": "hand-coin-outline",
-  Dividende: "trending-up",
-};
-
-function sourceIcon(name: string) {
-  return SOURCE_ICON[name] ?? "plus-circle-outline";
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -427,7 +412,6 @@ export default function Dashboard() {
   const period = useAppStore((s) => s.currentPeriod);
 
   const [data, setData] = useState<Dashboard | null>(null);
-  const [incomeSources, setIncomeSources] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -437,16 +421,10 @@ export default function Dashboard() {
     setError(null);
     try {
       if (!userId) throw new Error("no-session");
-      const [result, incomesRes] = await Promise.all([
-        analytics.dashboard(userId, period),
-        incomesApi.list(userId, { limit: 100 }),
-      ]);
-      setData(result);
-      setIncomeSources(incomesRes.items);
+      setData(await analytics.dashboard(userId, period));
     } catch {
       if (!opts?.silent) {
         setData(null);
-        setIncomeSources([]);
         setError(
           userId
             ? "Serveur injoignable. Vérifiez que le backend est démarré."
@@ -479,22 +457,6 @@ export default function Dashboard() {
   const solde = data
     ? data.remaining_balance ?? data.income - data.expenses
     : 0;
-
-  const recurringIncomes = incomeSources.filter(
-    (i) => i.active && i.recurring
-  );
-
-  const editIncome = (income: Income) =>
-    router.push({
-      pathname: "/add-income",
-      params: {
-        incomeId: income.id,
-        amount: String(income.amount),
-        source: income.source,
-        date: income.income_date,
-        recurring: String(income.recurring),
-      },
-    });
 
   const alerts: AlertItem[] =
     data?.top_drift_categories.slice(0, 4).map(
@@ -634,56 +596,6 @@ export default function Dashboard() {
             </Pressable>
           )}
         </View>
-
-        {/* ── Revenus récurrents ── */}
-        {recurringIncomes.length > 0 && (
-          <>
-            <View style={styles.incomeSectionHeader}>
-              <Text style={styles.sectionTitle}>Revenus récurrents</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Voir toutes les sources de revenus"
-                onPress={() => router.push("/income-sources")}
-                hitSlop={8}
-              >
-                <Text style={styles.incomeSectionLink}>Tout voir</Text>
-              </Pressable>
-            </View>
-            {recurringIncomes.map((income) => (
-              <Pressable
-                key={income.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Modifier ${income.source}`}
-                onPress={() => editIncome(income)}
-                style={({ pressed }) => [
-                  styles.incomeCard,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <View style={styles.incomeIcon}>
-                  <MaterialCommunityIcons
-                    color={colors.primary}
-                    name={sourceIcon(income.source)}
-                    size={20}
-                  />
-                </View>
-                <View style={styles.incomeCopy}>
-                  <Text style={styles.incomeLabel} numberOfLines={1}>
-                    {income.source}
-                  </Text>
-                  <Text style={styles.incomeValue}>
-                    {formatMoney(income.amount, currency)}
-                  </Text>
-                </View>
-                <MaterialCommunityIcons
-                  color={colors.textMuted}
-                  name="chevron-right"
-                  size={22}
-                />
-              </Pressable>
-            ))}
-          </>
-        )}
 
         {/* ── Vigilance Budgétaire ── */}
         {alerts.length > 0 && (
@@ -922,35 +834,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-
-  /* Revenus */
-  incomeSectionHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  incomeSectionLink: { color: colors.primary, fontSize: 14, fontWeight: "700" },
-  incomeCard: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-  },
-  incomeIcon: {
-    alignItems: "center",
-    backgroundColor: `${colors.primary}1A`,
-    borderRadius: 12,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  incomeCopy: { flex: 1, gap: 2 },
-  incomeLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  incomeValue: { color: colors.text, fontSize: 18, fontWeight: "800" },
 
   /* Vigilance */
   sectionTitle: {

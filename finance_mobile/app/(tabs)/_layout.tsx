@@ -1,44 +1,56 @@
 import { Tabs } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "../../src/ui/theme";
 
-const icons = {
-  dashboard: "view-dashboard-outline",
-  analyse: "receipt-text-outline",
-  budget: "wallet-outline",
-  savings: "piggy-bank-outline",
-} as const;
+type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
+
+/** Icône pleine quand l'onglet est actif, contour sinon. */
+const icons: Record<string, { active: IconName; idle: IconName }> = {
+  dashboard: { active: "view-dashboard", idle: "view-dashboard-outline" },
+  analyse: { active: "receipt-text", idle: "receipt-text-outline" },
+  budget: { active: "wallet", idle: "wallet-outline" },
+  savings: { active: "piggy-bank", idle: "piggy-bank-outline" },
+};
+
+const FALLBACK: { active: IconName; idle: IconName } = {
+  active: "circle",
+  idle: "circle-outline",
+};
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
+        // Fond clair derrière la barre flottante (sinon le thème système sombre transparaît).
+        sceneStyle: { backgroundColor: colors.background },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: "#777888",
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: "transparent",
-          borderRadius: 28,
-          height: 64,
-          marginHorizontal: 16,
-          marginBottom: 12,
-          paddingTop: 7,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 0,
+        tabBarInactiveTintColor: "#8A8B9E",
+        tabBarHideOnKeyboard: true,
+        tabBarLabelStyle: styles.label,
+        tabBarItemStyle: styles.item,
+        tabBarStyle: [
+          styles.bar,
+          // Reste au-dessus de la barre système / indicateur d'accueil.
+          { marginBottom: Math.max(insets.bottom, 12) },
+        ],
+        tabBarIcon: ({ color, focused }) => {
+          const set = icons[route.name] ?? FALLBACK;
+          return (
+            <View style={[styles.pill, focused && styles.pillActive]}>
+              <MaterialCommunityIcons
+                color={String(color)}
+                name={focused ? set.active : set.idle}
+                size={22}
+              />
+            </View>
+          );
         },
-        tabBarIcon: ({ color, size }) => (
-          <MaterialCommunityIcons
-            color={color}
-            name={icons[route.name as keyof typeof icons]}
-            size={size}
-          />
-        ),
       })}
     >
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
@@ -48,3 +60,39 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 0,
+    borderRadius: 28,
+    height: 68,
+    marginHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    shadowColor: "#1B1464",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  item: {
+    // Cible tactile pleine hauteur, icône et libellé centrés.
+    justifyContent: "center",
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  pill: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 30,
+    justifyContent: "center",
+    width: 54,
+  },
+  pillActive: {
+    backgroundColor: colors.primarySoft,
+  },
+});
