@@ -598,32 +598,35 @@ export default function Insights() {
           setRecommendations(recos.items);
           setHistory(stored.items);
 
-          // run what-if on top opportunity category with 20% reduction
+          // La page s'affiche dès que les données de base sont là : la
+          // simulation et l'analyse IA (lente) se chargent ensuite en arrière-plan.
+          setLoading(false);
+
           const topCat = catsRes.reduce(
             (best, c) =>
               c.opportunity_score > (best?.opportunity_score ?? -1) ? c : best,
             null as CategoryAnalytics | null
           );
-          if (topCat) {
-            try {
+
+          await Promise.allSettled([
+            (async () => {
+              if (!topCat) return;
               const res = await whatIfApi.simulate(userId, period, {
                 category_id: topCat.category_id,
                 reduction_percent: 20,
               });
               if (!cancelled) setWhatIfResult(res);
-            } catch {
-              /* leave null */
-            }
-          }
-
-          // AI summary
-          try {
-            const aiRes = await aiApi.analyze(userId, period);
-            if (!cancelled && aiRes?.summary) setAiSummary(aiRes.summary);
-          } catch {
-            if (!cancelled)
-              setAiSummary("Analyse IA indisponible pour ce mois-ci.");
-          }
+            })(),
+            (async () => {
+              try {
+                const aiRes = await aiApi.analyze(userId, period);
+                if (!cancelled && aiRes?.summary) setAiSummary(aiRes.summary);
+              } catch {
+                if (!cancelled)
+                  setAiSummary("Analyse IA indisponible pour ce mois-ci.");
+              }
+            })(),
+          ]);
         } catch {
           // graceful fallback to empty
         } finally {

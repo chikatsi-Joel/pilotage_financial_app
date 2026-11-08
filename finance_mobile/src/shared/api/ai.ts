@@ -15,6 +15,8 @@ export const ai = {
     api
       .post<AIAnalysis>(`${path(userId)}/analyze`, null, {
         params: { period },
+        // Le modèle cloud peut mettre jusqu'à ~60 s (timeout serveur) : on laisse de la marge.
+        timeout: 90000,
       })
       .then((r) => r.data),
   listAnalyses: (userId: string, opts?: { cursor?: string; limit?: number }) =>
