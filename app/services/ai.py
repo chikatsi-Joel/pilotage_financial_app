@@ -23,10 +23,15 @@ Règles :
 - category : le nom exact d'une catégorie fournie dans le contexte, sinon null ;
 - expense_date : date d'achat au format YYYY-MM-DD, sinon la date du jour ;
 - merchant : nom du commerçant lisible sur le ticket, sinon null ;
-- description : ligne descriptive courte, sinon null.
+- description : ligne descriptive courte, sinon null ;
+- items : liste des lignes d'achat lisibles du ticket (un élément par produit
+  ou service). Chaque élément a un label court, un amount (prix de la ligne,
+  nombre décimal positif) et une category (nom exact d'une catégorie fournie,
+  sinon null). Liste vide si les lignes sont illisibles ou s'il n'y a qu'un achat.
 
 Retourne uniquement un JSON valide de la forme :
-{"amount": null, "category": null, "expense_date": null, "merchant": null, "description": null}
+{"amount": null, "category": null, "expense_date": null, "merchant": null, "description": null,
+ "items": [{"label": "Lait", "amount": 1.5, "category": null}]}
 """
 
 
@@ -40,7 +45,34 @@ RECEIPT_FIELDS = (
 
 
 def _empty_receipt(fallback: bool = False) -> dict[str, Any]:
-    return dict.fromkeys(RECEIPT_FIELDS, None) | {"fallback": fallback}
+    return dict.fromkeys(RECEIPT_FIELDS, None) | {"items": [], "fallback": fallback}
+
+
+MAX_RECEIPT_ITEMS = 50
+
+
+def _coerce_items(raw_items: Any, text: Any) -> list[dict[str, Any]]:
+    """Garde uniquement les lignes exploitables (libellé + montant > 0)."""
+    if not isinstance(raw_items, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for entry in raw_items[:MAX_RECEIPT_ITEMS]:
+        if not isinstance(entry, dict):
+            continue
+        amount = entry.get("amount")
+        if isinstance(amount, str):
+            amount = amount.replace(",", ".")
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            continue
+        label = text(entry.get("label"))
+        if not label or amount <= 0:
+            continue
+        items.append(
+            {"label": label, "amount": amount, "category": text(entry.get("category"))}
+        )
+    return items
 
 
 def _coerce_receipt(raw: dict[str, Any]) -> dict[str, Any]:
@@ -74,6 +106,7 @@ def _coerce_receipt(raw: dict[str, Any]) -> dict[str, Any]:
         return cleaned or None
 
     return {
+        "items": _coerce_items(raw.get("items"), _text),
         "amount": amount,
         "category": _text(raw.get("category")),
         "expense_date": date_value,

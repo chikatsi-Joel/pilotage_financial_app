@@ -4,7 +4,12 @@ from uuid import UUID
 from fastapi import APIRouter, Query, status
 
 from app.api.deps import DbSession, UserDep
-from app.schemas.common import ExpenseCreate, ExpenseRead, PaginatedResponse
+from app.schemas.common import (
+    ExpenseBulkCreate,
+    ExpenseCreate,
+    ExpenseRead,
+    PaginatedResponse,
+)
 from app.services import expense_service
 
 router = APIRouter(
@@ -28,6 +33,20 @@ async def create_expense(
     return await expense_service.create(
         user.id, payload, db
     )
+@router.post(
+    "/bulk",
+    response_model=list[ExpenseRead],
+    status_code=status.HTTP_201_CREATED,
+    responses=_NOT_FOUND,
+)
+async def create_expenses_bulk(
+    payload: ExpenseBulkCreate,
+    user: UserDep,
+    db: DbSession,
+):
+    return await expense_service.create_many(user.id, payload.items, db)
+
+
 @router.get("", response_model=PaginatedResponse[ExpenseRead])
 async def list_expenses(
     user: UserDep,

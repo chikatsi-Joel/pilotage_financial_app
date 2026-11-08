@@ -30,6 +30,33 @@ async def create(user_id: UUID, payload: ExpenseCreate, db: AsyncSession) -> Exp
     return expense
 
 
+async def create_many(
+    user_id: UUID, payloads: list[ExpenseCreate], db: AsyncSession
+) -> list[Expense]:
+    """Crée toutes les dépenses ou aucune : une seule transaction."""
+    category_ids = {p.category_id for p in payloads}
+    found = (
+        await db.execute(
+            select(Category.id).where(
+                Category.user_id == user_id, Category.id.in_(category_ids)
+            )
+        )
+    ).scalars().all()
+    if len(set(found)) != len(category_ids):
+        raise NotFound("Category not found")
+
+    expenses = [Expense(user_id=user_id, **p.model_dump()) for p in payloads]
+    db.add_all(expenses)
+    await db.flush()
+
+    for period in {period_of(e.expense_date) for e in expenses}:
+        await invalidate_snapshots(user_id, period, db)
+    await db.commit()
+    for expense in expenses:
+        await db.refresh(expense)
+    return expenses
+
+
 async def list_by_user(
     user_id: UUID, db: AsyncSession, from_date: date | None = None,
     to_date: date | None = None, category_id: UUID | None = None,

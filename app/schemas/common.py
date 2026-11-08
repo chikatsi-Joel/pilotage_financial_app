@@ -95,6 +95,12 @@ class ExpenseCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class ExpenseBulkCreate(BaseModel):
+    """Plusieurs dépenses enregistrées en une seule transaction (tout ou rien)."""
+
+    items: list[ExpenseCreate] = Field(min_length=1, max_length=100)
+
+
 class ExpenseRead(ORMModel):
     id: UUID
     category_id: UUID
@@ -230,7 +236,14 @@ class WhatIfRead(BaseModel):
     projected_savings_rate: float | None
 
 
+class ReceiptItemRead(BaseModel):
+    label: str
+    amount: float
+    category: str | None = None
+
+
 class ReceiptScanRead(BaseModel):
+    items: list[ReceiptItemRead] = Field(default_factory=list)
     amount: float | None
     category: str | None
     expense_date: date | None

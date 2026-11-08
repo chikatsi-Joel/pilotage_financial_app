@@ -20,6 +20,7 @@ EMPTY_SCAN: dict[str, object] = {
     "expense_date": None,
     "merchant": None,
     "description": None,
+    "items": [],
     "fallback": False,
 }
 
@@ -75,7 +76,13 @@ async def scan_receipt(
         log.exception("Receipt scan failed for user %s", user_id)
         return {**EMPTY_SCAN, "fallback": True}
 
+    items = [
+        {**item, "category": _match_category(item.get("category"), known)}
+        for item in result.get("items") or []
+    ]
+
     return {
+        "items": items,
         "amount": result.get("amount"),
         "category": _match_category(result.get("category"), known),
         "expense_date": result.get("expense_date") or date.today().isoformat(),

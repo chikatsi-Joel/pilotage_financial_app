@@ -115,3 +115,61 @@ async def test_scan_receipt_falls_back_when_no_provider():
             result = await scan_receipt(uuid4(), b"img", "image/png", AsyncMock())
 
     assert result == {**EMPTY_SCAN, "fallback": True}
+
+
+# ─────────────────────────────────────────────────────────
+#  Lignes d'achat (items)
+# ─────────────────────────────────────────────────────────
+
+
+def test_coerce_receipt_keeps_only_valid_items():
+    from app.services.ai import _coerce_receipt
+
+    out = _coerce_receipt({
+        "amount": 10,
+        "items": [
+            {"label": " Lait ", "amount": "1,5", "category": "Alimentation"},
+            {"label": "Gratuit", "amount": 0},
+            {"label": "", "amount": 3},
+            {"label": "Pain", "amount": "abc"},
+            "pas un dict",
+            {"label": "Savon", "amount": 2.25, "category": None},
+        ],
+    })
+
+    assert out["items"] == [
+        {"label": "Lait", "amount": 1.5, "category": "Alimentation"},
+        {"label": "Savon", "amount": 2.25, "category": None},
+    ]
+
+
+def test_coerce_receipt_items_default_to_empty_list():
+    from app.services.ai import _coerce_receipt
+
+    assert _coerce_receipt({"amount": 5})["items"] == []
+    assert _coerce_receipt({"items": "n'importe quoi"})["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_scan_receipt_matches_item_categories():
+    provider = _provider({
+        "amount": 4.0,
+        "category": None,
+        "expense_date": "2026-03-05",
+        "merchant": None,
+        "description": None,
+        "items": [
+            {"label": "Lait", "amount": 1.5, "category": "aliment"},
+            {"label": "Savon", "amount": 2.5, "category": "Inconnue"},
+        ],
+        "fallback": False,
+    })
+    with _patch_categories(["Alimentation", "Hygiène"]):
+        result = await scan_receipt(
+            uuid4(), b"img", "image/png", AsyncMock(), provider=provider,
+        )
+
+    assert result["items"] == [
+        {"label": "Lait", "amount": 1.5, "category": "Alimentation"},
+        {"label": "Savon", "amount": 2.5, "category": None},
+    ]
