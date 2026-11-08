@@ -1,7 +1,5 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +18,7 @@ import Svg, {
 } from "react-native-svg";
 
 import { BackButton } from "../src/ui/components";
+import { AiExplain } from "../src/ui/AiExplain";
 import { analytics as analyticsApi } from "../src/shared/api/analytics";
 import { expenses as expensesApi } from "../src/shared/api/expenses";
 import { useAppStore } from "../src/shared/store";
@@ -643,21 +642,7 @@ export default function BudgetDetail() {
               </View>
               <View style={styles.insightContent}>
                 <Text style={styles.insightText}>{rationale}</Text>
-                <Pressable
-                  accessibilityLabel="Comprendre avec l'IA"
-                  accessibilityRole="button"
-                >
-                  <View style={styles.insightBtn}>
-                    <MaterialCommunityIcons
-                      name="chat-processing"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.insightBtnText}>
-                      Comprendre avec l'IA
-                    </Text>
-                  </View>
-                </Pressable>
+                <AiExplain period={period} focus={category} />
               </View>
             </View>
           </View>

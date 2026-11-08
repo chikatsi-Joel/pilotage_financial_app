@@ -88,7 +88,14 @@ export interface ExpenseCreate {
   note?: string | null;
 }
 
+export interface ReceiptItem {
+  label: string;
+  amount: number;
+  category: string | null;
+}
+
 export interface ReceiptScan {
+  items?: ReceiptItem[];
   amount: number | null;
   category: string | null;
   expense_date: string | null;

@@ -55,3 +55,55 @@ test("formatPct and capitalize", () => {
   assert.equal(formatPct(-3.2), "3%");
   assert.equal(capitalize("mars"), "Mars");
 });
+
+const { pickRelevantPoints } = load("src/shared/utils/aiPoints.ts");
+const {
+  toDraftLines,
+  linesTotal,
+  totalGap,
+  toExpensePayloads,
+  isLineValid,
+} = load("src/shared/utils/receiptItems.ts");
+
+test("pickRelevantPoints keeps only points mentioning the focus", () => {
+  const analysis = {
+    alerts: [{ message: "Alimentation en hausse" }, { message: "Loisirs stables" }],
+    recommendations: [{ title: "Réduire", category: "alimentation" }],
+  };
+  assert.deepEqual(pickRelevantPoints(analysis, "Alimentation"), [
+    "Alimentation en hausse",
+    "Réduire",
+  ]);
+  assert.equal(pickRelevantPoints(analysis).length, 3);
+  assert.deepEqual(pickRelevantPoints(analysis, "Transport"), []);
+});
+
+test("receipt lines: draft, total, validation and payloads", () => {
+  const cats = [{ key: "c1", label: "Alimentation" }, { key: "c2", label: "Hygiène" }];
+  const lines = toDraftLines(
+    [
+      { label: "Lait", amount: 1.5, category: "alimentation" },
+      { label: "Savon", amount: 2.5, category: null },
+    ],
+    cats,
+    "c2",
+  );
+  assert.deepEqual(lines.map((l) => [l.amount, l.categoryKey]), [["1,5", "c1"], ["2,5", "c2"]]);
+  assert.equal(linesTotal(lines), 4);
+
+  lines.push({ id: "x", label: "vide", amount: "0", categoryKey: "c1" });
+  assert.equal(isLineValid(lines[2]), false);
+  assert.equal(linesTotal(lines), 4);
+
+  const payloads = toExpensePayloads(lines, "2026-03-05");
+  assert.equal(payloads.length, 2);
+  assert.deepEqual(payloads[0], {
+    amount: 1.5, category_id: "c1", expense_date: "2026-03-05", note: "Lait",
+  });
+});
+
+test("totalGap flags only a significant difference with the ticket total", () => {
+  assert.equal(totalGap(100, 100.5), null);
+  assert.equal(totalGap(80, 100), 20);
+  assert.equal(totalGap(80, null), null);
+});

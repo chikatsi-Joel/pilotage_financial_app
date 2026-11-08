@@ -32,6 +32,11 @@ export const expenses = {
       .then((r) => r.data),
   create: (userId: string, data: ExpenseCreate) =>
     api.post<Expense>(path(userId), data).then((r) => r.data),
+  /** Crée toutes les dépenses en une transaction (tout ou rien). */
+  createMany: (userId: string, items: ExpenseCreate[]) =>
+    api
+      .post<Expense[]>(`${path(userId)}/bulk`, { items })
+      .then((r) => r.data),
   update: (userId: string, expenseId: string, data: ExpenseCreate) =>
     api
       .put<Expense>(

@@ -29,6 +29,12 @@ import { expenses as expensesApi } from "../src/shared/api/expenses";
 import { receipts as receiptsApi } from "../src/shared/api/receipts";
 import { useAppStore } from "../src/shared/store";
 import { Numpad } from "../src/ui/Numpad";
+import { ReceiptItemsReview } from "../src/ui/ReceiptItemsReview";
+import {
+  type DraftLine,
+  toDraftLines,
+  toExpensePayloads,
+} from "../src/shared/utils/receiptItems";
 import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
 import { formatDisplayDate, parseISODate, toISODate } from "../src/shared/utils/date";
 
@@ -42,7 +48,7 @@ interface Category {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 }
 
-type Mode = "scan" | "form";
+type Mode = "scan" | "form" | "items";
 const ICON_RULES: readonly { match: RegExp; icon: Category["icon"] }[] = [
   { match: /alimentation|nourriture|courses|supermarch|restaurant|restauration/i, icon: "silverware-fork-knife" },
   { match: /transport|carburant|taxi|uber|bus|train|avion/i, icon: "car" },
@@ -71,7 +77,8 @@ const ANALYZE_STEPS = [
   "Catégorisation automatique…",
 ] as const;
 
-const ANALYZE_STEP_DURATION = 900;
+const ANALYZE_STEP_DURATION = 1400;
+const ANALYZE_PREVIEW_HEIGHT = 190;
 
 /* ------------------------------------------------------------------ */
 /*  Utilitaires purs (testables, hors composant)                       */
@@ -366,25 +373,116 @@ function ScanModal({
   );
 }
 
-/** Overlay d'analyse (simulation IA) avec progression par étapes. */
-function AnalyzingOverlay({ step }: { step: number }) {
+/** Overlay d'analyse : aperçu du ticket balayé par un trait lumineux + étapes. */
+function AnalyzingOverlay({ step, uri }: { step: number; uri: string | null }) {
+  const sweep = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    sweep.setValue(0);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sweep, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sweep, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [sweep]);
+
+  const progress = Math.min(step + 1, ANALYZE_STEPS.length) / ANALYZE_STEPS.length;
+  const lastStep = step >= ANALYZE_STEPS.length - 1;
+
   return (
     <Modal visible animationType="fade" transparent>
       <View style={styles.analyzeBackdrop}>
         <View style={styles.analyzeCard}>
-          <View style={styles.analyzeIconWrap}>
-            <ActivityIndicator color={colors.primary} size="large" />
-          </View>
-          <Text style={styles.analyzeTitle}>Analyse en cours</Text>
-          <Text style={styles.analyzeStep}>{ANALYZE_STEPS[step]}</Text>
-          <View style={styles.analyzeDots}>
-            {ANALYZE_STEPS.map((_, i) => (
-              <View
-                key={i}
-                style={[styles.analyzeDot, i <= step && styles.analyzeDotDone]}
+          <View style={styles.analyzePreview}>
+            {uri ? (
+              <Image source={{ uri }} style={styles.analyzeImage} resizeMode="cover" />
+            ) : (
+              <MaterialCommunityIcons
+                color={colors.primary}
+                name="receipt-text-outline"
+                size={56}
               />
-            ))}
+            )}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.analyzeSweep,
+                {
+                  transform: [
+                    {
+                      translateY: sweep.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, ANALYZE_PREVIEW_HEIGHT - 4],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <View pointerEvents="none" style={[styles.analyzeCorner, styles.analyzeCornerTL]} />
+            <View pointerEvents="none" style={[styles.analyzeCorner, styles.analyzeCornerTR]} />
+            <View pointerEvents="none" style={[styles.analyzeCorner, styles.analyzeCornerBL]} />
+            <View pointerEvents="none" style={[styles.analyzeCorner, styles.analyzeCornerBR]} />
           </View>
+
+          <Text style={styles.analyzeTitle}>Analyse du ticket</Text>
+
+          <View style={styles.analyzeSteps}>
+            {ANALYZE_STEPS.map((label, i) => {
+              const done = i < step;
+              const current = i === step;
+              return (
+                <View key={label} style={styles.analyzeStepRow}>
+                  {done ? (
+                    <MaterialCommunityIcons
+                      color={colors.success}
+                      name="check-circle"
+                      size={18}
+                    />
+                  ) : current ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <MaterialCommunityIcons
+                      color="#C5CBDC"
+                      name="circle-outline"
+                      size={18}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.analyzeStepText,
+                      current && styles.analyzeStepCurrent,
+                      done && styles.analyzeStepDone,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          <View style={styles.analyzeTrack}>
+            <View style={[styles.analyzeFill, { width: `${progress * 100}%` }]} />
+          </View>
+          {lastStep && (
+            <Text style={styles.analyzeHint}>
+              Presque terminé, cela peut prendre quelques secondes de plus…
+            </Text>
+          )}
         </View>
       </View>
     </Modal>
@@ -397,6 +495,7 @@ function AnalyzingOverlay({ step }: { step: number }) {
 
 export default function AddExpense() {
   const userId = useAppStore((s) => s.userId);
+  const currency = useAppStore((s) => s.currency);
   const { categories, loading: categoriesLoading, failed: categoriesFailed } =
     useCategories(userId);
   const params = useLocalSearchParams<{
@@ -429,6 +528,11 @@ export default function AddExpense() {
   /* Analyse */
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeStep, setAnalyzeStep] = useState(0);
+
+  /* Ticket multi-produits */
+  const [reviewLines, setReviewLines] = useState<DraftLine[] | null>(null);
+  const [scanTotal, setScanTotal] = useState<number | null>(null);
+  const [scanMerchant, setScanMerchant] = useState<string | null>(null);
 
   /* Sauvegarde */
   const [saving, setSaving] = useState(false);
@@ -508,6 +612,17 @@ export default function AddExpense() {
           setScanError(dateNote);
         }
 
+        const scanItems = scan.items ?? [];
+        if (scanItems.length >= 2) {
+          setReviewLines(toDraftLines(scanItems, categories, categories[0]?.key ?? ""));
+          setScanTotal(scan.amount);
+          setScanMerchant(scan.merchant);
+          setAnalyzing(false);
+          setMode("items");
+          return;
+        }
+
+        setReviewLines(null);
         setAnalyzing(false);
         setMode("form");
       } catch {
@@ -520,19 +635,27 @@ export default function AddExpense() {
     [userId, categories, receiptMime],
   );
 
+  /* Le scan démarre tout de suite ; les étapes ne sont qu'un habillage visuel
+     (elles restent sur la dernière tant que le serveur n'a pas répondu). */
+  const scanStartedFor = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!analyzing) return;
-    const uri = receiptUri;
-    setAnalyzeStep(0);
-    const timers = ANALYZE_STEPS.map((_, i) =>
-      setTimeout(() => setAnalyzeStep(i), i * ANALYZE_STEP_DURATION)
-    );
-    if (uri) {
-      timers.push(
-        setTimeout(() => applyScan(uri), ANALYZE_STEPS.length * ANALYZE_STEP_DURATION),
-      );
+    if (!analyzing) {
+      scanStartedFor.current = null;
+      return;
     }
+    setAnalyzeStep(0);
+    const timers = ANALYZE_STEPS.slice(1).map((_, i) =>
+      setTimeout(() => setAnalyzeStep(i + 1), (i + 1) * ANALYZE_STEP_DURATION),
+    );
     return () => timers.forEach(clearTimeout);
+  }, [analyzing]);
+
+  useEffect(() => {
+    if (!analyzing || !receiptUri) return;
+    if (scanStartedFor.current === receiptUri) return;
+    scanStartedFor.current = receiptUri;
+    void applyScan(receiptUri);
   }, [analyzing, applyScan, receiptUri]);
 
   /* ---------------------------------------------------------------- */
@@ -613,6 +736,25 @@ export default function AddExpense() {
     }
   }, [userId, isAmountValid, selectedCategory, amountNum, date, note, editingId]);
 
+  const saveItems = useCallback(async () => {
+    if (!userId || !reviewLines) return;
+    const payloads = toExpensePayloads(reviewLines, date);
+    if (payloads.length === 0) {
+      setSaveError("Ajoutez au moins une ligne valide (montant et catégorie).");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await expensesApi.createMany(userId, payloads);
+      router.back();
+    } catch {
+      setSaveError("Impossible d'enregistrer les dépenses. Aucune n'a été créée, réessayez.");
+    } finally {
+      setSaving(false);
+    }
+  }, [userId, reviewLines, date]);
+
   /* ---------------------------------------------------------------- */
   /*  Rendu                                                            */
   /* ---------------------------------------------------------------- */
@@ -666,7 +808,21 @@ export default function AddExpense() {
           })}
         </View>
 
-        {mode === "scan" ? (
+        {mode === "items" && reviewLines ? (
+          <ReceiptItemsReview
+            lines={reviewLines}
+            onChange={setReviewLines}
+            categories={categories}
+            defaultCategoryKey={categories[0]?.key ?? ""}
+            currency={currency}
+            scanTotal={scanTotal}
+            merchant={scanMerchant}
+            saving={saving}
+            error={saveError}
+            onConfirm={saveItems}
+            onUseTotal={() => setMode("form")}
+          />
+        ) : mode === "scan" ? (
           <View style={styles.scanSection}>
             {receiptUri ? (
               <>
@@ -863,7 +1019,7 @@ export default function AddExpense() {
       />
 
       {/* ── Analyse du ticket en cours ── */}
-      {analyzing && <AnalyzingOverlay step={analyzeStep} />}
+      {analyzing && <AnalyzingOverlay step={analyzeStep} uri={receiptUri} />}
     </SafeAreaView>
   );
 }
@@ -1212,7 +1368,7 @@ const styles = StyleSheet.create({
   /* Analyse IA */
   analyzeBackdrop: {
     alignItems: "center",
-    backgroundColor: "rgba(11,28,48,0.55)",
+    backgroundColor: "rgba(11,28,48,0.6)",
     flex: 1,
     justifyContent: "center",
     padding: 24,
@@ -1220,20 +1376,56 @@ const styles = StyleSheet.create({
   analyzeCard: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    gap: 6,
-    padding: 28,
+    borderRadius: 24,
+    gap: 14,
+    padding: 24,
     width: "100%",
   },
-  analyzeIconWrap: { height: 64, justifyContent: "center", marginBottom: 6 },
-  analyzeTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
-  analyzeStep: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
-    marginTop: 2,
+  analyzePreview: {
+    alignItems: "center",
+    backgroundColor: colors.primarySoft,
+    borderRadius: 16,
+    height: ANALYZE_PREVIEW_HEIGHT,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 150,
   },
-  analyzeDots: { flexDirection: "row", gap: 6, marginTop: 14 },
-  analyzeDot: { backgroundColor: "#D3D9E8", borderRadius: 99, height: 6, width: 6 },
-  analyzeDotDone: { backgroundColor: colors.primary, width: 18 },
+  analyzeImage: { height: "100%", width: "100%" },
+  analyzeSweep: {
+    backgroundColor: colors.primary,
+    height: 3,
+    left: 0,
+    opacity: 0.85,
+    position: "absolute",
+    right: 0,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    top: 0,
+  },
+  analyzeCorner: {
+    borderColor: "#FFFFFF",
+    height: 18,
+    position: "absolute",
+    width: 18,
+  },
+  analyzeCornerTL: { borderLeftWidth: 3, borderTopWidth: 3, borderTopLeftRadius: 8, left: 8, top: 8 },
+  analyzeCornerTR: { borderRightWidth: 3, borderTopWidth: 3, borderTopRightRadius: 8, right: 8, top: 8 },
+  analyzeCornerBL: { borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8, bottom: 8, left: 8 },
+  analyzeCornerBR: { borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8, bottom: 8, right: 8 },
+  analyzeTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  analyzeSteps: { alignSelf: "stretch", gap: 10 },
+  analyzeStepRow: { alignItems: "center", flexDirection: "row", gap: 10 },
+  analyzeStepText: { color: "#8A8B9E", fontSize: 14, fontWeight: "500" },
+  analyzeStepCurrent: { color: colors.text, fontWeight: "700" },
+  analyzeStepDone: { color: colors.textMuted },
+  analyzeTrack: {
+    alignSelf: "stretch",
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 99,
+    height: 6,
+    overflow: "hidden",
+  },
+  analyzeFill: { backgroundColor: colors.primary, borderRadius: 99, height: 6 },
+  analyzeHint: { color: colors.textMuted, fontSize: 12, textAlign: "center" },
 });

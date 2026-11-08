@@ -22,6 +22,7 @@ import Svg, {
 } from "react-native-svg";
 
 import { BackButton } from "../src/ui/components";
+import { AiExplain } from "../src/ui/AiExplain";
 import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
 import type { SavingsGoal } from "../src/shared/types";
@@ -172,6 +173,7 @@ export default function SavingsDetail() {
   const params = useLocalSearchParams<DetailParams>();
   const userId = useAppStore((s) => s.userId);
   const currency = useAppStore((s) => s.currency);
+  const period = useAppStore((s) => s.currentPeriod);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -463,12 +465,7 @@ export default function SavingsDetail() {
               </View>
               <View style={styles.insightContent}>
                 <Text style={styles.insightText}>{rationale}</Text>
-                <Pressable accessibilityLabel="Comprendre avec l'IA" accessibilityRole="button">
-                  <View style={styles.insightBtn}>
-                    <MaterialCommunityIcons name="chat-processing" size={16} color="#FFFFFF" />
-                    <Text style={styles.insightBtnText}>Comprendre avec l'IA</Text>
-                  </View>
-                </Pressable>
+                <AiExplain period={period} focus={goal?.name} />
               </View>
             </View>
           </View>
