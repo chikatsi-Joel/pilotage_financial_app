@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import AuthSession, User
 from app.schemas.common import LoginRequest, RegisterRequest, ResendRequest, VerifyRequest
 from app.services import mailer
-from app.services.errors import Conflict, EmailNotVerified, TooManyRequests, Unauthorized
+from app.services.errors import Conflict, EmailDeliveryError, EmailNotVerified, TooManyRequests, Unauthorized
 
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
 _LAST_USED_REFRESH = timedelta(hours=1)
@@ -87,6 +87,16 @@ async def _send_code(user: User, db: AsyncSession) -> None:
     user.email_code_attempts = 0
     user.email_code_sent_at = now
     await db.commit()
+    try:
+        await _deliver_code(user, code)
+    except EmailDeliveryError:
+        # Rien n'est parti : on libère le délai d'attente pour permettre de réessayer tout de suite.
+        user.email_code_sent_at = None
+        await db.commit()
+        raise
+
+
+async def _deliver_code(user: User, code: str) -> None:
     await mailer.send_email(
         user.email or "",
         "Votre code de vérification Pilotage",

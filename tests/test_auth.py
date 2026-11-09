@@ -190,3 +190,24 @@ async def test_requires_token_and_blocks_other_users(client, outbox) -> None:
 async def test_weak_password_rejected(client) -> None:
     res = await client.post("/api/v1/auth/register", json={**ME, "password": "short"})
     assert res.status_code == 422
+
+
+async def test_failed_delivery_does_not_lock_the_resend_cooldown(client, outbox, monkeypatch) -> None:
+    from app.services.errors import EmailDeliveryError
+
+    monkeypatch.setattr(auth_service, "RESEND_COOLDOWN", timedelta(minutes=1))
+
+    async def broken(to: str, subject: str, body: str) -> None:
+        raise EmailDeliveryError("down")
+
+    monkeypatch.setattr(mailer, "send_email", broken)
+    first = await client.post("/api/v1/auth/register", json=ME)
+    assert first.status_code == 502
+    # Le serveur SMTP est rétabli : on peut réessayer immédiatement, sans attendre 60 s.
+    monkeypatch.setattr(mailer, "send_email", lambda to, subject, body: _record(outbox, to, subject, body))
+    retry = await client.post("/api/v1/auth/register", json=ME)
+    assert retry.status_code == 202
+
+
+async def _record(outbox, to, subject, body) -> None:
+    outbox.append({"to": to, "subject": subject, "body": body})
