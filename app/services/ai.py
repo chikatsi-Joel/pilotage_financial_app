@@ -232,7 +232,7 @@ class OllamaProvider:
 
         except _ollama.ResponseError as exc:
             log.error("Ollama API error: %s", exc)
-            return _fallback_analysis(structured_context, str(exc))
+            return _fallback_analysis(structured_context, _explain_ollama_error(exc))
         except Exception as exc:
             log.error("Ollama connection error: %s", exc)
             return _fallback_analysis(structured_context, str(exc))
@@ -276,6 +276,14 @@ class OllamaProvider:
         except Exception as exc:
             log.error("Ollama vision connection error: %s", exc)
             return _empty_receipt(fallback=True)
+
+
+def _explain_ollama_error(exc: Exception) -> str:
+    """Message lisible pour l'utilisateur ; le détail brut reste dans les logs."""
+    status = getattr(exc, "status_code", None)
+    if status in (401, 403):
+        return "Clé API Ollama absente ou invalide (vérifiez OLLAMA_API_KEY côté serveur)"
+    return str(exc)
 
 
 def _parse_response(raw: str) -> dict[str, Any]:
