@@ -1,5 +1,6 @@
 from app.models.entities import (
     AIAnalysis,
+    AuthSession,
     Budget,
     Category,
     CategoryAnalytics,
@@ -21,6 +22,7 @@ from app.models.entities import (
 
 __all__ = [
     "AIAnalysis",
+    "AuthSession",
     "Budget",
     "Category",
     "CategoryAnalytics",

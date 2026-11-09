@@ -22,15 +22,31 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
-    currency: str = Field(default="XAF", min_length=3, max_length=3)
-
-
 class UserRead(ORMModel):
     id: UUID
     name: str
     currency: str
+    email: str | None = None
+
+
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+
+
+class RegisterRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    email: str = Field(max_length=254, pattern=EMAIL_PATTERN)
+    password: str = Field(min_length=8, max_length=128)
+    currency: str = Field(default="XAF", min_length=3, max_length=3)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserRead
 
 
 class IncomeCreate(BaseModel):

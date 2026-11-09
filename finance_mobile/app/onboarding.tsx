@@ -1,178 +1,234 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { router } from "expo-router";
 import {
-  Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { users } from "../src/shared/api/users";
+import { auth } from "../src/shared/api/auth";
+import { saveToken } from "../src/shared/auth/session";
+import { authErrorMessage, validateAuthForm } from "../src/shared/utils/authForm";
 import { useAppStore } from "../src/shared/store";
 import { BrandMark } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
-import type { User } from "../src/shared/types";
 
+type Mode = "login" | "register";
+
+/** Connexion / création de compte. La session est ensuite conservée jusqu'à la déconnexion. */
 export default function Onboarding() {
   const setAuth = useAppStore((s) => s.setAuth);
-  const [creating, setCreating] = useState(false);
-  const [existing, setExisting] = useState<User[]>([]);
-  const [loadingExisting, setLoadingExisting] = useState(true);
+  const [mode, setMode] = useState<Mode>("register");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    users
-      .list()
-      .then((res) => {
-        if (!cancelled) setExisting(res);
-      })
-      .catch(() => {
-        if (!cancelled) setExisting([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingExisting(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const isRegister = mode === "register";
 
-  async function start() {
-    setCreating(true);
+  async function submit() {
+    if (busy) return;
+    const problem = validateAuthForm({ mode, name, email, password });
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setBusy(true);
+    setError(null);
     try {
-      const user = await users.create({
-        name: "Utilisateur",
-        currency: "XAF",
-      });
-      setAuth(user.id, user.name, user.currency);
+      const res = isRegister
+        ? await auth.register({ name: name.trim(), email: email.trim(), password, currency: "XAF" })
+        : await auth.login({ email: email.trim(), password });
+      await saveToken(res.token);
+      setAuth(res.user.id, res.user.name, res.user.currency);
       router.replace("/dashboard");
-    } catch {
-      setCreating(false);
-      Alert.alert(
-        "Serveur injoignable",
-        "Démarrez le backend (uvicorn app.main:app) puis réessayez."
-      );
+    } catch (e) {
+      setError(authErrorMessage(e));
+      setBusy(false);
     }
   }
 
-  function resume(user: User) {
-    setAuth(user.id, user.name, user.currency);
-    router.replace("/dashboard");
+  function switchMode() {
+    setMode(isRegister ? "login" : "register");
+    setError(null);
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <View style={styles.hero}>
-          <BrandMark />
-          <View style={styles.copy}>
-            <Text style={styles.title}>Bienvenue sur{`\n`}<Text style={styles.brand}>Pilotage</Text></Text>
-            <Text style={styles.subtitle}>Prenez le contrôle de votre avenir financier avec une analyse intelligente et sereine.</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.flex}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.hero}>
+            <BrandMark />
+            <Text style={styles.title}>
+              {isRegister ? "Créer votre compte" : "Bon retour sur"}
+              {"\n"}
+              {isRegister ? null : <Text style={styles.brand}>Pilotage</Text>}
+            </Text>
+            <Text style={styles.subtitle}>
+              {isRegister
+                ? "Vous resterez connecté sur cet appareil jusqu'à ce que vous vous déconnectiez."
+                : "Connectez-vous pour retrouver vos finances."}
+            </Text>
           </View>
-        </View>
-        <View style={styles.bottom}>
-          {existing.length > 0 && (
-            <>
-              <View style={styles.existingHeader}>
-                <Text style={styles.existingTitle}>Vos comptes</Text>
-                {loadingExisting && (
-                  <ActivityIndicator color={colors.primary} size="small" />
-                )}
-              </View>
-              <View style={styles.existingList}>
-                {existing.slice(0, 3).map((user) => (
-                  <Pressable
-                    key={user.id}
-                    onPress={() => resume(user)}
-                    style={styles.existingRow}
-                  >
-                    <View style={styles.existingAvatar}>
-                      <Text style={styles.existingAvatarText}>
-                        {user.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.existingCopy}>
-                      <Text style={styles.existingName}>{user.name}</Text>
-                      <Text style={styles.existingMeta}>
-                        {user.currency} · continuer l'activité
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      color={colors.textMuted}
-                      name="chevron-right"
-                      size={20}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          )}
-          <View style={styles.dots}><View style={[styles.dot, styles.dotActive]} /><View style={styles.dot} /><View style={styles.dot} /></View>
-          <Pressable
-            onPress={start}
-            disabled={creating}
-            style={[styles.button, creating && styles.buttonDisabled]}
-          >
-            {creating ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.buttonText}>Commencer</Text>
+
+          <View style={styles.form}>
+            {isRegister && (
+              <TextInput
+                accessibilityLabel="Nom"
+                autoCapitalize="words"
+                autoComplete="name"
+                onChangeText={setName}
+                placeholder="Votre nom"
+                placeholderTextColor="#9AA0B4"
+                style={styles.input}
+                value={name}
+              />
             )}
-          </Pressable>
-          <Text style={styles.helper}>Une vision plus claire, à votre rythme.</Text>
-        </View>
-      </View>
+            <TextInput
+              accessibilityLabel="Email"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              keyboardType="email-address"
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor="#9AA0B4"
+              style={styles.input}
+              value={email}
+            />
+            <View style={styles.passwordRow}>
+              <TextInput
+                accessibilityLabel="Mot de passe"
+                autoCapitalize="none"
+                autoComplete={isRegister ? "new-password" : "current-password"}
+                autoCorrect={false}
+                onChangeText={setPassword}
+                onSubmitEditing={submit}
+                placeholder="Mot de passe (8 caractères min.)"
+                placeholderTextColor="#9AA0B4"
+                secureTextEntry={!showPassword}
+                style={styles.passwordInput}
+                value={password}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                hitSlop={8}
+                onPress={() => setShowPassword((v) => !v)}
+              >
+                <Text style={styles.toggle}>{showPassword ? "Masquer" : "Afficher"}</Text>
+              </Pressable>
+            </View>
+
+            {error && (
+              <Text accessibilityLiveRegion="polite" style={styles.error}>
+                {error}
+              </Text>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={submit}
+              style={[styles.button, busy && styles.buttonDisabled]}
+            >
+              {busy ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {isRegister ? "Créer mon compte" : "Se connecter"}
+                </Text>
+              )}
+            </Pressable>
+
+            <Pressable accessibilityRole="button" onPress={switchMode} style={styles.switch}>
+              <Text style={styles.switchText}>
+                {isRegister ? "Déjà un compte ? " : "Pas encore de compte ? "}
+                <Text style={styles.switchLink}>
+                  {isRegister ? "Se connecter" : "Créer un compte"}
+                </Text>
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  bottom: { gap: 18 },
+  flex: { flex: 1 },
+  safeArea: { backgroundColor: colors.background, flex: 1 },
+  content: { flexGrow: 1, gap: 32, justifyContent: "center", padding: 24 },
+  hero: { alignItems: "center", gap: 16 },
+  title: {
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -0.8,
+    textAlign: "center",
+  },
   brand: { color: colors.primary },
-  button: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 18, paddingVertical: 17, shadowColor: colors.primary, shadowOpacity: 0.22, shadowRadius: 12 },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  content: { flex: 1, justifyContent: "space-between", padding: 24 },
-  copy: { alignItems: "center", gap: 16 },
-  dot: { backgroundColor: "#D4D1EE", borderRadius: 4, height: 7, width: 7 },
-  dotActive: { backgroundColor: colors.primary, width: 24 },
-  dots: { flexDirection: "row", gap: 7, justifyContent: "center" },
-  existingAvatar: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
+  subtitle: {
+    color: colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    maxWidth: 320,
+    textAlign: "center",
   },
-  existingAvatarText: { color: colors.primary, fontSize: 15, fontWeight: "800" },
-  existingCopy: { flex: 1, gap: 2 },
-  existingHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
+  form: { gap: 12 },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  existingList: { gap: 10 },
-  existingMeta: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
-  existingName: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  existingRow: {
+  passwordRow: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#EEEAF8",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 12,
-    padding: 12,
+    paddingRight: 16,
   },
-  existingTitle: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  helper: { color: colors.textMuted, fontSize: 13, textAlign: "center" },
-  hero: { alignItems: "center", flex: 1, justifyContent: "center", gap: 42 },
-  safeArea: { backgroundColor: colors.background, flex: 1 },
-  subtitle: { color: colors.textMuted, fontSize: 17, lineHeight: 26, maxWidth: 325, textAlign: "center" },
-  title: { color: colors.text, fontSize: 35, fontWeight: "800", letterSpacing: -1, textAlign: "center" },
+  passwordInput: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  toggle: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  error: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  button: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    paddingVertical: 17,
+  },
+  buttonDisabled: { opacity: 0.7 },
+  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+  switch: { alignItems: "center", paddingVertical: 8 },
+  switchText: { color: colors.textMuted, fontSize: 14 },
+  switchLink: { color: colors.primary, fontWeight: "800" },
 });

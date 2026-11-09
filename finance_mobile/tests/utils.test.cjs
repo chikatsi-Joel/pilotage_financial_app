@@ -107,3 +107,24 @@ test("totalGap flags only a significant difference with the ticket total", () =>
   assert.equal(totalGap(80, 100), 20);
   assert.equal(totalGap(80, null), null);
 });
+
+
+const { validateAuthForm, authErrorMessage } = load("src/shared/utils/authForm.ts");
+
+test("validateAuthForm checks name, email and password length on sign-up", () => {
+  const ok = { mode: "register", name: "Awa", email: "awa@x.io", password: "12345678" };
+  assert.equal(validateAuthForm(ok), null);
+  assert.match(validateAuthForm({ ...ok, name: " " }), /nom/);
+  assert.match(validateAuthForm({ ...ok, email: "nope" }), /email/i);
+  assert.match(validateAuthForm({ ...ok, password: "short" }), /8 caractères/);
+  assert.equal(validateAuthForm({ ...ok, mode: "login", name: "", password: "x" }), null);
+});
+
+test("authErrorMessage distinguishes offline, wrong credentials and conflicts", () => {
+  assert.match(authErrorMessage({}), /injoignable/);
+  assert.equal(
+    authErrorMessage({ response: { status: 401, data: { detail: "Email ou mot de passe incorrect" } } }),
+    "Email ou mot de passe incorrect",
+  );
+  assert.match(authErrorMessage({ response: { status: 500, data: {} } }), /erreur/);
+});

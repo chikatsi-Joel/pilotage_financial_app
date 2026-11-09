@@ -1,3 +1,4 @@
+export { auth } from "./auth";
 export { users } from "./users";
 export { categories } from "./categories";
 export { incomes } from "./incomes";

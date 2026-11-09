@@ -18,6 +18,10 @@ class NotFound(ServiceError):
     status_code = 404
 
 
+class Unauthorized(ServiceError):
+    status_code = 401
+
+
 class Conflict(ServiceError):
     status_code = 409
 

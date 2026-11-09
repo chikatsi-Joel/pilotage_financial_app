@@ -1,6 +1,9 @@
 import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { useEffect } from "react";
 import { PaperProvider } from "react-native-paper";
 
+import { setUnauthorizedHandler } from "../src/shared/auth/session";
+import { endLocalSession } from "../src/shared/auth/signOut";
 import { colors, paperTheme } from "../src/ui/theme";
 
 /** Thème de navigation clair fixe : évite le fond sombre derrière la barre d'onglets. */
@@ -17,6 +20,12 @@ const navigationTheme = {
 };
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Session révoquée côté serveur : retour à l'écran de connexion.
+    setUnauthorizedHandler(() => void endLocalSession());
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   return (
     <PaperProvider theme={paperTheme}>
       <ThemeProvider value={navigationTheme}>

@@ -8,11 +8,24 @@ export interface User {
   id: string;
   name: string;
   currency: string;
+  email?: string | null;
 }
 
-export interface UserCreate {
+export interface RegisterPayload {
   name: string;
+  email: string;
+  password: string;
   currency?: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
 }
 
 export interface Income {

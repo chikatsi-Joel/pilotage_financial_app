@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Pressable,
   RefreshControl,
@@ -16,6 +17,7 @@ import Svg, { Circle } from "react-native-svg";
 import { colors } from "../../src/ui/theme";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
+import { signOut } from "../../src/shared/auth/signOut";
 import type {
   CategoryAnalytics,
   Dashboard,
@@ -410,6 +412,18 @@ export default function Dashboard() {
   const userId = useAppStore((s) => s.userId);
   const currency = useAppStore((s) => s.currency);
   const period = useAppStore((s) => s.currentPeriod);
+  const userName = useAppStore((s) => s.userName);
+
+  const confirmSignOut = useCallback(() => {
+    Alert.alert(
+      userName ?? "Mon compte",
+      "Vous resterez connecté jusqu'à ce que vous vous déconnectiez.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { text: "Se déconnecter", style: "destructive", onPress: () => void signOut() },
+      ],
+    );
+  }, [userName]);
 
   const [data, setData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -543,13 +557,18 @@ export default function Dashboard() {
                 size={18}
               />
             </Pressable>
-            <View style={styles.avatar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mon compte"
+              onPress={confirmSignOut}
+              style={styles.avatar}
+            >
               <MaterialCommunityIcons
                 color="#FFFFFF"
                 name="account"
                 size={18}
               />
-            </View>
+            </Pressable>
           </View>
         </View>
 

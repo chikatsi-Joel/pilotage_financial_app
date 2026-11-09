@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routers import (
     ai,
     analytics,
+    auth,
     budget,
     expenses,
     incomes,
@@ -33,6 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(master_data.router, prefix="/api/v1")
 app.include_router(incomes.router, prefix="/api/v1")
