@@ -180,6 +180,7 @@ export interface TimeSeriesProfile {
   drift_score: number;
   confidence: number;
   forecast: Forecast;
+  history_months?: number | null;
 }
 
 export interface CategoryAnalytics {

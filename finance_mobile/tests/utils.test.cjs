@@ -134,3 +134,16 @@ test("sanitizeCode keeps six digits only", () => {
   assert.equal(isCodeComplete("123456"), true);
   assert.equal(isCodeComplete("1234"), false);
 });
+
+const { describeTrend } = load("src/shared/utils/trend.ts");
+
+test("describeTrend distinguishes rising, falling, stable and too-short history", () => {
+  const base = { drift_score: 0.1, history_months: 6 };
+  assert.match(describeTrend({ ...base, trend: 0.2 }).label, /hausse/);
+  assert.match(describeTrend({ ...base, trend: -0.2 }).label, /baisse/);
+  assert.match(describeTrend({ ...base, trend: 0.01 }).label, /Stable/);
+  assert.match(describeTrend({ ...base, trend: 0, history_months: 2 }).label, /Trop tôt/);
+  assert.equal(describeTrend({ ...base, trend: 0.2, history_months: null }).label, "↗ En hausse");
+  assert.match(describeTrend({ trend: 0.2, drift_score: 0.9, history_months: 6 }).sub, /Dérive/);
+  assert.equal(describeTrend(null).label, "—");
+});

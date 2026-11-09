@@ -131,6 +131,7 @@ class FinancialAnalyticsEngine:
             drift_score=drift,
             confidence=confidence(values),
             forecast=Forecast(method, value, mae),
+            history_months=len(values),
         )
 
         return CategoryAnalysis(

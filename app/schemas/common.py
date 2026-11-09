@@ -193,6 +193,7 @@ class TimeSeriesProfileRead(BaseModel):
     drift_score: float
     confidence: float
     forecast: ForecastRead
+    history_months: int | None = None
 
 
 class CategoryAnalyticsRead(BaseModel):

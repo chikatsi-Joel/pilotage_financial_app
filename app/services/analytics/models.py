@@ -52,6 +52,7 @@ class TimeSeriesProfile:
     drift_score: float
     confidence: float
     forecast: Forecast
+    history_months: int = 0
 
 
 @dataclass(frozen=True)

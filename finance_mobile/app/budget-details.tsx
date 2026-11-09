@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { describeTrend } from "../src/shared/utils/trend";
 import Svg, {
   Circle,
   Line,
@@ -345,14 +346,7 @@ export default function BudgetDetail() {
 
   const baseline = cat?.baseline_amount ?? 0;
   const pctVsHabitual = cat?.variation_percentage ?? 0;
-  const trendLabel =
-    !cat ? "—" : cat.profile.trend > 0 ? "↗ En hausse" : "↘ En baisse";
-  const trendSub =
-    !cat
-      ? ""
-      : cat.profile.drift_score > 0.6
-        ? "Dérive marquée"
-        : "Tendance modérée";
+  const { label: trendLabel, sub: trendSub } = describeTrend(cat?.profile ?? null);
   const driftScore = cat?.profile.drift_score ?? 0;
   const driftSince = cat ? "ce mois-ci" : "";
   const projection = cat?.profile.forecast.value ?? 0;
