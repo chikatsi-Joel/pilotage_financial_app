@@ -39,6 +39,20 @@ class RegisterRequest(BaseModel):
     currency: str = Field(default="XAF", min_length=3, max_length=3)
 
 
+class VerifyRequest(BaseModel):
+    email: str = Field(max_length=254)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class ResendRequest(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class PendingVerification(BaseModel):
+    email: str
+    verification_required: bool = True
+
+
 class LoginRequest(BaseModel):
     email: str = Field(max_length=254)
     password: str = Field(min_length=1, max_length=128)

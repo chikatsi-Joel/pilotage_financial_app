@@ -22,6 +22,18 @@ class Unauthorized(ServiceError):
     status_code = 401
 
 
+class EmailNotVerified(ServiceError):
+    status_code = 403
+
+
+class TooManyRequests(ServiceError):
+    status_code = 429
+
+
+class EmailDeliveryError(ServiceError):
+    status_code = 502
+
+
 class Conflict(ServiceError):
     status_code = 409
 

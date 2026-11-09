@@ -18,6 +18,16 @@ export interface RegisterPayload {
   currency?: string;
 }
 
+export interface PendingVerification {
+  email: string;
+  verification_required: boolean;
+}
+
+export interface VerifyPayload {
+  email: string;
+  code: string;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;

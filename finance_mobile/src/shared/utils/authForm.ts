@@ -3,7 +3,7 @@ export const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export interface AuthFormInput {
-  mode: "login" | "register";
+  mode: "login" | "register" | "verify";
   name: string;
   email: string;
   password: string;
@@ -28,7 +28,18 @@ export function authErrorMessage(error: unknown): string {
   if (status === undefined) {
     return "Serveur injoignable. Vérifiez votre connexion puis réessayez.";
   }
-  if ((status === 401 || status === 409) && typeof detail === "string") return detail;
+  if ([401, 403, 409, 429, 502].includes(status) && typeof detail === "string") return detail;
   if (status === 422) return "Informations invalides. Vérifiez l'email et le mot de passe.";
   return "Une erreur est survenue. Réessayez.";
+}
+
+export const CODE_LENGTH = 6;
+
+/** Garde uniquement les chiffres, au plus CODE_LENGTH. */
+export function sanitizeCode(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, CODE_LENGTH);
+}
+
+export function isCodeComplete(code: string): boolean {
+  return code.length === CODE_LENGTH;
 }

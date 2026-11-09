@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
@@ -15,12 +15,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth } from "../src/shared/api/auth";
 import { saveToken } from "../src/shared/auth/session";
-import { authErrorMessage, validateAuthForm } from "../src/shared/utils/authForm";
+import {
+  authErrorMessage,
+  isCodeComplete,
+  sanitizeCode,
+  validateAuthForm,
+} from "../src/shared/utils/authForm";
 import { useAppStore } from "../src/shared/store";
 import { BrandMark } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
-type Mode = "login" | "register";
+type Mode = "login" | "register" | "verify";
+
+const RESEND_SECONDS = 60;
 
 /** Connexion / création de compte. La session est ensuite conservée jusqu'à la déconnexion. */
 export default function Onboarding() {
@@ -32,8 +39,56 @@ export default function Onboarding() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [cooldown, setCooldown] = useState(0);
 
   const isRegister = mode === "register";
+  const isVerify = mode === "verify";
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  function goVerify(message: string) {
+    setMode("verify");
+    setCode("");
+    setError(null);
+    setInfo(message);
+    setCooldown(RESEND_SECONDS);
+  }
+
+  async function finish(res: { token: string; user: { id: string; name: string; currency: string } }) {
+    await saveToken(res.token);
+    setAuth(res.user.id, res.user.name, res.user.currency);
+    router.replace("/dashboard");
+  }
+
+  async function submitCode() {
+    if (busy || !isCodeComplete(code)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await finish(await auth.verify({ email: email.trim(), code }));
+    } catch (e) {
+      setError(authErrorMessage(e));
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    if (cooldown > 0 || busy) return;
+    setError(null);
+    try {
+      await auth.resend(email.trim());
+      setInfo("Un nouveau code a été envoyé.");
+      setCooldown(RESEND_SECONDS);
+    } catch (e) {
+      setError(authErrorMessage(e));
+    }
+  }
 
   async function submit() {
     if (busy) return;
@@ -45,14 +100,20 @@ export default function Onboarding() {
     setBusy(true);
     setError(null);
     try {
-      const res = isRegister
-        ? await auth.register({ name: name.trim(), email: email.trim(), password, currency: "XAF" })
-        : await auth.login({ email: email.trim(), password });
-      await saveToken(res.token);
-      setAuth(res.user.id, res.user.name, res.user.currency);
-      router.replace("/dashboard");
+      if (isRegister) {
+        await auth.register({ name: name.trim(), email: email.trim(), password, currency: "XAF" });
+        goVerify(`Un code à 6 chiffres a été envoyé à ${email.trim()}.`);
+        setBusy(false);
+        return;
+      }
+      await finish(await auth.login({ email: email.trim(), password }));
     } catch (e) {
-      setError(authErrorMessage(e));
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (!isRegister && status === 403) {
+        goVerify("Votre email n'est pas encore vérifié. Un code vous a été envoyé.");
+      } else {
+        setError(authErrorMessage(e));
+      }
       setBusy(false);
     }
   }
@@ -60,6 +121,7 @@ export default function Onboarding() {
   function switchMode() {
     setMode(isRegister ? "login" : "register");
     setError(null);
+    setInfo(null);
   }
 
   return (
@@ -75,17 +137,69 @@ export default function Onboarding() {
           <View style={styles.hero}>
             <BrandMark />
             <Text style={styles.title}>
-              {isRegister ? "Créer votre compte" : "Bon retour sur"}
+              {isVerify ? "Vérifiez votre email" : isRegister ? "Créer votre compte" : "Bon retour sur"}
               {"\n"}
-              {isRegister ? null : <Text style={styles.brand}>Pilotage</Text>}
+              {isRegister || isVerify ? null : <Text style={styles.brand}>Pilotage</Text>}
             </Text>
             <Text style={styles.subtitle}>
-              {isRegister
+              {isVerify
+                ? info
+                : isRegister
                 ? "Vous resterez connecté sur cet appareil jusqu'à ce que vous vous déconnectiez."
                 : "Connectez-vous pour retrouver vos finances."}
             </Text>
           </View>
 
+          {isVerify ? (
+            <View style={styles.form}>
+              <TextInput
+                accessibilityLabel="Code de vérification"
+                autoComplete="one-time-code"
+                keyboardType="number-pad"
+                maxLength={6}
+                onChangeText={(v) => setCode(sanitizeCode(v))}
+                onSubmitEditing={submitCode}
+                placeholder="000000"
+                placeholderTextColor="#9AA0B4"
+                style={[styles.input, styles.codeInput]}
+                textContentType="oneTimeCode"
+                value={code}
+              />
+              {error && (
+                <Text accessibilityLiveRegion="polite" style={styles.error}>
+                  {error}
+                </Text>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy || !isCodeComplete(code)}
+                onPress={submitCode}
+                style={[styles.button, (busy || !isCodeComplete(code)) && styles.buttonDisabled]}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.buttonText}>Valider</Text>
+                )}
+              </Pressable>
+              <Pressable accessibilityRole="button" disabled={cooldown > 0} onPress={resend} style={styles.switch}>
+                <Text style={styles.switchText}>
+                  {cooldown > 0 ? `Renvoyer le code dans ${cooldown} s` : <Text style={styles.switchLink}>Renvoyer le code</Text>}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setMode("register");
+                  setInfo(null);
+                  setError(null);
+                }}
+                style={styles.switch}
+              >
+                <Text style={styles.switchText}>Changer d'email</Text>
+              </Pressable>
+            </View>
+          ) : (
           <View style={styles.form}>
             {isRegister && (
               <TextInput
@@ -165,6 +279,7 @@ export default function Onboarding() {
               </Text>
             </Pressable>
           </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -228,6 +343,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+  codeInput: { fontSize: 28, fontWeight: "800", letterSpacing: 8, textAlign: "center" },
   switch: { alignItems: "center", paddingVertical: 8 },
   switchText: { color: colors.textMuted, fontSize: 14 },
   switchLink: { color: colors.primary, fontWeight: "800" },

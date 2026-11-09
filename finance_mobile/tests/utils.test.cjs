@@ -109,7 +109,7 @@ test("totalGap flags only a significant difference with the ticket total", () =>
 });
 
 
-const { validateAuthForm, authErrorMessage } = load("src/shared/utils/authForm.ts");
+const { validateAuthForm, authErrorMessage, sanitizeCode, isCodeComplete } = load("src/shared/utils/authForm.ts");
 
 test("validateAuthForm checks name, email and password length on sign-up", () => {
   const ok = { mode: "register", name: "Awa", email: "awa@x.io", password: "12345678" };
@@ -127,4 +127,10 @@ test("authErrorMessage distinguishes offline, wrong credentials and conflicts", 
     "Email ou mot de passe incorrect",
   );
   assert.match(authErrorMessage({ response: { status: 500, data: {} } }), /erreur/);
+});
+
+test("sanitizeCode keeps six digits only", () => {
+  assert.equal(sanitizeCode("12a3-45 678"), "123456");
+  assert.equal(isCodeComplete("123456"), true);
+  assert.equal(isCodeComplete("1234"), false);
 });

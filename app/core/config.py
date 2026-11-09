@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,6 +32,15 @@ class Settings(BaseSettings):
     ollama_timeout: float = 60.0
     receipt_scan_max_bytes: int = 10 * 1024 * 1024
     ollama_api_key: str = ""
+
+    # Serveur SMTP (vérification d'email). Vide = les emails sont écrits dans les logs.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_timeout: float = 15.0
 
     @field_validator("cors_origins", mode="before")
     @classmethod
