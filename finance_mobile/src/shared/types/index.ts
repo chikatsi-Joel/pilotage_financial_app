@@ -181,6 +181,7 @@ export interface TimeSeriesProfile {
   confidence: number;
   forecast: Forecast;
   history_months?: number | null;
+  last_change?: number | null;
 }
 
 export interface CategoryAnalytics {

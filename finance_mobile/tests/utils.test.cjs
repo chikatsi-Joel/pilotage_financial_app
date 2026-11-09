@@ -142,7 +142,12 @@ test("describeTrend distinguishes rising, falling, stable and too-short history"
   assert.match(describeTrend({ ...base, trend: 0.2 }).label, /hausse/);
   assert.match(describeTrend({ ...base, trend: -0.2 }).label, /baisse/);
   assert.match(describeTrend({ ...base, trend: 0.01 }).label, /Stable/);
-  assert.match(describeTrend({ ...base, trend: 0, history_months: 2 }).label, /Trop tôt/);
+  assert.match(describeTrend({ ...base, trend: 0, history_months: 1 }).label, /Trop tôt/);
+  const two = describeTrend({ ...base, trend: 0, history_months: 2, last_change: 0.4 });
+  assert.match(two.label, /hausse/);
+  assert.match(two.sub, /Indicatif.*\+40/);
+  assert.match(describeTrend({ ...base, trend: 0, history_months: 2, last_change: -0.4 }).label, /baisse/);
+  assert.match(describeTrend({ ...base, trend: 0, history_months: 2, last_change: null }).label, /Trop tôt/);
   assert.equal(describeTrend({ ...base, trend: 0.2, history_months: null }).label, "↗ En hausse");
   assert.match(describeTrend({ trend: 0.2, drift_score: 0.9, history_months: 6 }).sub, /Dérive/);
   assert.equal(describeTrend(null).label, "—");

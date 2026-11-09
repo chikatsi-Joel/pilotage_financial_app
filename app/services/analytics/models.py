@@ -53,6 +53,7 @@ class TimeSeriesProfile:
     confidence: float
     forecast: Forecast
     history_months: int = 0
+    last_change: float | None = None
 
 
 @dataclass(frozen=True)

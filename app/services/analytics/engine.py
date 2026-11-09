@@ -132,6 +132,11 @@ class FinancialAnalyticsEngine:
             confidence=confidence(values),
             forecast=Forecast(method, value, mae),
             history_months=len(values),
+            last_change=(
+                (values[-1] - values[-2]) / abs(values[-2])
+                if len(values) >= 2 and values[-2]
+                else None
+            ),
         )
 
         return CategoryAnalysis(

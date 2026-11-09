@@ -78,6 +78,7 @@ def _profile_to_dict(profile) -> dict:
         "drift_score": profile.drift_score,
         "confidence": profile.confidence,
         "history_months": profile.history_months,
+        "last_change": profile.last_change,
         "forecast": {
             "method": profile.forecast.method,
             "value": profile.forecast.value,

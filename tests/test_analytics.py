@@ -269,12 +269,14 @@ def test_profile_to_dict_roundtrip():
         drift_score = 0.2
         confidence = 0.8
         history_months = 4
+        last_change = 0.25
         forecast = FakeForecast()
 
     d = _profile_to_dict(FakeProfile())
     assert d["level"] == 100.0
     assert d["trend"] == 0.05
     assert d["history_months"] == 4
+    assert d["last_change"] == 0.25
     assert d["forecast"]["method"] == "ewma"
     assert d["forecast"]["mae"] == 12.5
     assert d["change_points"] == (5, 10)

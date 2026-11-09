@@ -194,6 +194,7 @@ class TimeSeriesProfileRead(BaseModel):
     confidence: float
     forecast: ForecastRead
     history_months: int | None = None
+    last_change: float | None = None
 
 
 class CategoryAnalyticsRead(BaseModel):
