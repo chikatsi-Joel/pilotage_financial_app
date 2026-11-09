@@ -334,3 +334,36 @@ class SavingsGoalAnalysis(BaseModel):
     contribution_regularity: float | None
 
     required_monthly_contribution: float | None
+
+class DeviceRegister(BaseModel):
+    token: str = Field(min_length=10, max_length=255, pattern=r"^(Expo|Exponent)PushToken\[.+\]$")
+    platform: str = Field(default="unknown", max_length=16)
+    timezone: str | None = Field(default=None, max_length=64)
+
+
+class DeviceUnregister(BaseModel):
+    token: str = Field(min_length=1, max_length=255)
+
+
+class NotificationPreferencesRead(ORMModel):
+    budget_alerts: bool
+    savings_milestones: bool
+    daily_reminder: bool
+    daily_reminder_hour: int
+    weekly_summary: bool
+    ai_insights: bool
+    timezone: str
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    budget_alerts: bool | None = None
+    savings_milestones: bool | None = None
+    daily_reminder: bool | None = None
+    daily_reminder_hour: int | None = Field(default=None, ge=0, le=23)
+    weekly_summary: bool | None = None
+    ai_insights: bool | None = None
+    timezone: str | None = Field(default=None, max_length=64)
+
+
+class TestPushResult(BaseModel):
+    sent: int

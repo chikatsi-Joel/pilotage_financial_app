@@ -42,7 +42,13 @@
         }
       ],
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#584CB9"
+        }
+      ]
     ]
   }
 }

@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth } from "../src/shared/api/auth";
 import { saveToken } from "../src/shared/auth/session";
+import { registerForPush } from "../src/shared/notifications/push";
 import {
   authErrorMessage,
   isCodeComplete,
@@ -63,6 +64,7 @@ export default function Onboarding() {
   async function finish(res: { token: string; user: { id: string; name: string; currency: string } }) {
     await saveToken(res.token);
     setAuth(res.user.id, res.user.name, res.user.currency);
+    void registerForPush(res.user.id);
     router.replace("/dashboard");
   }
 

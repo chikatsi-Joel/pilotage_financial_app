@@ -83,6 +83,42 @@ class AuthSession(Base):
     last_used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class PushDevice(Base):
+    """Appareil enregistré pour recevoir des notifications push (jeton Expo)."""
+
+    __tablename__ = "push_devices"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    platform: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    budget_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    savings_milestones: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    daily_reminder: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    daily_reminder_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    weekly_summary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ai_insights: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
+
+
+class NotificationLog(Base):
+    """Notifications déjà envoyées : la clé unique empêche les doublons."""
+
+    __tablename__ = "notification_log"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    key: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "key", name="uq_notification_user_key"),)
+
+
 class Income(Base):
     __tablename__ = "incomes"
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)

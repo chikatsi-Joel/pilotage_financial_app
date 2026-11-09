@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
     smtp_timeout: float = 15.0
 
+    # Notifications push (service gratuit d'Expo).
+    push_enabled: bool = True
+    expo_push_url: str = "https://exp.host/--/api/v2/push/send"
+    expo_access_token: str = ""
+    push_timeout: float = 10.0
+    # Tâche planifiée (rappel quotidien, résumé hebdomadaire) dans le processus de l'API.
+    scheduler_enabled: bool = True
+    scheduler_interval_seconds: int = 900
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_origins(cls, value):

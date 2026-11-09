@@ -10,7 +10,8 @@ from app.schemas.common import (
     ExpenseRead,
     PaginatedResponse,
 )
-from app.services import expense_service
+from app.services import expense_service, notification_service
+from app.services.periods import period_of
 
 router = APIRouter(
     prefix="/users/{user_id}/expenses", tags=["expenses"]
@@ -30,9 +31,13 @@ async def create_expense(
     user: UserDep,
     db: DbSession,
 ):
-    return await expense_service.create(
-        user.id, payload, db
+    expense = await expense_service.create(user.id, payload, db)
+    notification_service.schedule_budget_alerts(
+        user.id, {(expense.category_id, period_of(expense.expense_date))}
     )
+    return expense
+
+
 @router.post(
     "/bulk",
     response_model=list[ExpenseRead],
@@ -44,7 +49,11 @@ async def create_expenses_bulk(
     user: UserDep,
     db: DbSession,
 ):
-    return await expense_service.create_many(user.id, payload.items, db)
+    created = await expense_service.create_many(user.id, payload.items, db)
+    notification_service.schedule_budget_alerts(
+        user.id, {(e.category_id, period_of(e.expense_date)) for e in created}
+    )
+    return created
 
 
 @router.get("", response_model=PaginatedResponse[ExpenseRead])

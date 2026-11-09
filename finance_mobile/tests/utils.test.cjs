@@ -152,3 +152,19 @@ test("describeTrend distinguishes rising, falling, stable and too-short history"
   assert.match(describeTrend({ trend: 0.2, drift_score: 0.9, history_months: 6 }).sub, /Dérive/);
   assert.equal(describeTrend(null).label, "—");
 });
+
+const { safeRoute, formatHour, stepHour } = load("src/shared/utils/notificationPrefs.ts");
+
+test("safeRoute only accepts known screens", () => {
+  assert.equal(safeRoute("/budget"), "/budget");
+  assert.equal(safeRoute("/onboarding"), null);
+  assert.equal(safeRoute("https://evil.example"), null);
+  assert.equal(safeRoute(undefined), null);
+});
+
+test("formatHour and stepHour wrap around midnight", () => {
+  assert.equal(formatHour(7), "07:00");
+  assert.equal(stepHour(23, 1), 0);
+  assert.equal(stepHour(0, -1), 23);
+  assert.equal(stepHour(20, 2), 22);
+});

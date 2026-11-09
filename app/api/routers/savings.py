@@ -11,7 +11,7 @@ from app.schemas.common import (
     SavingsGoalCreate,
     SavingsGoalRead,
 )
-from app.services import savings_service
+from app.services import notification_service, savings_service
 
 router = APIRouter(
     prefix="/users/{user_id}/savings-goals",
@@ -62,6 +62,8 @@ async def contribute(
     user: UserDep,
     db: DbSession,
 ):
-    return await savings_service.contribute(
+    result = await savings_service.contribute(
         user.id, goal_id, payload.amount, db
     )
+    notification_service.schedule_savings_milestone(user.id, goal_id)
+    return result

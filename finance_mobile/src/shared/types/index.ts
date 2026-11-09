@@ -339,3 +339,13 @@ export interface AIHealth {
   ollama_url: string;
   configured_model: string;
 }
+
+export interface NotificationPreferences {
+  budget_alerts: boolean;
+  savings_milestones: boolean;
+  daily_reminder: boolean;
+  daily_reminder_hour: number;
+  weekly_summary: boolean;
+  ai_insights: boolean;
+  timezone: string;
+}

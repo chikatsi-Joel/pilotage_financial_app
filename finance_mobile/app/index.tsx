@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { auth } from "../src/shared/api/auth";
 import { loadToken } from "../src/shared/auth/session";
+import { registerForPush } from "../src/shared/notifications/push";
 import { useAppStore } from "../src/shared/store";
 import { colors } from "../src/ui/theme";
 
@@ -33,6 +34,7 @@ export default function Index() {
       try {
         const me = await auth.me();
         setAuth(me.id, me.name, me.currency);
+        void registerForPush(me.id);
         finish("/dashboard");
       } catch (error) {
         const status = (error as { response?: { status?: number } })?.response?.status;

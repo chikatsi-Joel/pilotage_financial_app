@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -11,6 +14,7 @@ from app.api.routers import (
     expenses,
     incomes,
     master_data,
+    notifications,
     receipts,
     savings,
     users,
@@ -19,11 +23,27 @@ from app.api.routers import (
 from app.api.errors import register_error_handlers
 from app.core.config import settings
 from app.db.session import get_engine
+from app.services import notification_service
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = (
+        asyncio.create_task(notification_service.scheduler_loop())
+        if settings.scheduler_enabled and settings.push_enabled
+        else None
+    )
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+
 
 app = FastAPI(
     title="Personal Finance Pilotage API",
     version="1.0.0",
     description="Backend FastAPI du pilotage personnalisé des finances personnelles.",
+    lifespan=lifespan,
 )
 register_error_handlers(app)
 app.add_middleware(
@@ -45,6 +65,7 @@ app.include_router(budget.router, prefix="/api/v1")
 app.include_router(what_if.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
 app.include_router(receipts.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["system"])

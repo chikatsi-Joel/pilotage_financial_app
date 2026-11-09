@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Query
@@ -12,7 +11,7 @@ from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
 from app.schemas.common import PaginatedResponse
 from app.services.periods import parse_period
-from app.services import analytics_service, savings_service
+from app.services import ai_analysis_service
 from app.services.ai import OllamaProvider, get_provider
 from app.services.pagination import paginate
 
@@ -51,72 +50,7 @@ class AIAnalysisStoredRead(BaseModel):
 async def analyze_period(period: str, user: UserDep, db: DbSession,):
     parse_period(period)
 
-    analytics = await analytics_service.compute_category_analytics(user.id, period, db)
-    dash = await analytics_service.get_dashboard( user.id, period, db)
-    savings_goals = await savings_service.build_goal_analyses(user.id, period, db)
-    total_contributions = (
-        await savings_service.get_total_contributions_for_period(
-            user.id, period, db
-        )
-    )
-    context = {
-        "period": period,
-        "dashboard": {
-            "income": str(dash.income),
-            "expenses": str(dash.expenses),
-            "savings": str(dash.savings),
-            "savings_rate": str(dash.savings_rate),
-            "categories_in_drift": dash.categories_in_drift,
-            "potential_savings": str(dash.potential_savings),
-        },
-        "categories": [
-            {
-                "category_id": str(a.category_id),
-                "name": a.name,
-                "description": a.description,
-                "essential": a.essential,
-                "current_amount": a.current_amount,
-                "baseline_amount": a.baseline_amount,
-                "expected_amount": a.expected_amount,
-                "variation_percentage": a.variation_percentage,
-                "potential_saving": a.potential_saving,
-                "opportunity_score": a.opportunity_score,
-                "level": a.profile.level,
-                "trend": a.profile.trend,
-                "seasonality_strength": (
-                    a.profile.seasonality_strength
-                ),
-                "seasonality_reliable": (
-                    a.profile.seasonality_reliable
-                ),
-                "volatility": a.profile.volatility,
-                "anomaly_score": a.profile.anomaly_score,
-                "change_points": list(
-                    a.profile.change_points
-                ),
-                "drift_score": a.profile.drift_score,
-                "confidence": a.profile.confidence,
-                "forecast_method": (
-                    a.profile.forecast.method
-                ),
-                "forecast_value": a.profile.forecast.value,
-                "forecast_mae": a.profile.forecast.mae,
-            } for a in analytics
-        ],
-        "savings": {
-            "current_monthly_savings": str(dash.savings),
-            "savings_rate": str(dash.savings_rate),
-            "total_monthly_contributions": str(total_contributions),
-            "potential_additional_savings": str(dash.potential_savings),
-            "unallocated_monthly_savings": str(
-                max(Decimal(str(dash.savings)) - total_contributions, Decimal(0))
-            ),
-        },
-        "savings_goals": [
-            goal.model_dump(mode="json")
-            for goal in savings_goals
-        ],
-    }
+    context = await ai_analysis_service.build_context(user.id, period, db)
 
     provider = get_ai_provider()
     result = await provider.analyze(context)

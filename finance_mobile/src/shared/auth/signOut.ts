@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 
 import { auth } from "../api/auth";
+import { unregisterPush } from "../notifications/push";
 import { useAppStore } from "../store";
 import { clearToken } from "./session";
 
@@ -13,6 +14,8 @@ export async function endLocalSession(): Promise<void> {
 
 /** Déconnexion volontaire : révoque la session côté serveur (au mieux) puis nettoie. */
 export async function signOut(): Promise<void> {
+  const userId = useAppStore.getState().userId;
+  if (userId) await unregisterPush(userId);
   try {
     await auth.logout();
   } catch {

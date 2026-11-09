@@ -420,6 +420,7 @@ export default function Dashboard() {
       "Vous resterez connecté jusqu'à ce que vous vous déconnectiez.",
       [
         { text: "Annuler", style: "cancel" },
+        { text: "Notifications", onPress: () => router.push("/notifications") },
         { text: "Se déconnecter", style: "destructive", onPress: () => void signOut() },
       ],
     );
