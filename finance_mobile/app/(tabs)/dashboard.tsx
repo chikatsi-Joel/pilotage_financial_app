@@ -11,20 +11,41 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useFocusEffect } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
+import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
 import { signOut } from "../../src/shared/auth/signOut";
-import type { CategoryAnalytics, Dashboard } from "../../src/shared/types";
+import type {
+  CategoryAnalytics,
+  Dashboard,
+  WeeklyExpense,
+} from "../../src/shared/types";
 import { formatMoney } from "../../src/shared/utils/money";
 import { formatPct } from "../../src/shared/utils/format";
 import { MONTHS_FR } from "../../src/shared/utils/date";
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+// ═══════════════════════════════════════════════════════════
+//  TYPES & AIDES
+// ═══════════════════════════════════════════════════════════
 
-const CATEGORY_ICON: Record<string, IconName> = {
+interface AlertItem {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+  iconBg: string;
+  iconColor: string;
+  label: string;
+  subtitle: string;
+  pill: string;
+  pillBg: string;
+  pillColor: string;
+}
+
+const CATEGORY_ICON: Record<
+  string,
+  React.ComponentProps<typeof MaterialCommunityIcons>["name"]
+> = {
   Restaurants: "silverware-fork-knife",
   Alimentation: "cart",
   Transport: "car",
@@ -36,184 +57,362 @@ const CATEGORY_ICON: Record<string, IconName> = {
   Épargne: "piggy-bank",
 };
 
-const categoryIcon = (name: string): IconName =>
-  CATEGORY_ICON[name] ?? "tag-outline";
+function categoryIcon(name: string) {
+  return CATEGORY_ICON[name] ?? "tag-outline";
+}
 
-/** Nombre de catégories à surveiller affichées : on garde l'essentiel. */
-const MAX_WATCHED = 3;
+// ═══════════════════════════════════════════════════════════
+//  CONSTANTES GRAPHIQUES
+// ═══════════════════════════════════════════════════════════
+
+const DONUT = {
+  size: 64,
+  stroke: 6,
+  get radius() {
+    return (this.size - this.stroke) / 2;
+  },
+  get circumference() {
+    return 2 * Math.PI * this.radius;
+  },
+};
 
 // ═══════════════════════════════════════════════════════════
 //  SOUS-COMPOSANTS
 // ═══════════════════════════════════════════════════════════
 
-function ProgressBar({ ratio, color }: { ratio: number; color: string }) {
-  const pct = Math.max(0, Math.min(ratio, 1)) * 100;
+function DonutProgress({ pct }: { pct: number }) {
+  const dash = pct * DONUT.circumference;
+
   return (
-    <View style={bar.track}>
-      <View style={[bar.fill, { backgroundColor: color, width: `${pct}%` }]} />
+    <View style={donutStyles.wrap}>
+      <Svg height={DONUT.size} width={DONUT.size}>
+        <Circle
+          cx={DONUT.size / 2}
+          cy={DONUT.size / 2}
+          fill="none"
+          r={DONUT.radius}
+          stroke="#D3BBFF"
+          strokeWidth={DONUT.stroke}
+        />
+        <Circle
+          cx={DONUT.size / 2}
+          cy={DONUT.size / 2}
+          fill="none"
+          origin={`${DONUT.size / 2}, ${DONUT.size / 2}`}
+          r={DONUT.radius}
+          rotation={-90}
+          stroke={colors.accent}
+          strokeDasharray={`${dash}, ${DONUT.circumference}`}
+          strokeLinecap="round"
+          strokeWidth={DONUT.stroke}
+        />
+      </Svg>
+      <View style={donutStyles.center}>
+        <Text style={donutStyles.pct}>{Math.round(pct * 100)}%</Text>
+      </View>
     </View>
   );
 }
 
-const bar = StyleSheet.create({
-  track: {
-    backgroundColor: `${colors.primary}1F`,
-    borderRadius: 99,
-    height: 8,
-    overflow: "hidden",
-  },
-  fill: { borderRadius: 99, height: 8 },
-});
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={stat.wrap}>
-      <Text style={stat.label}>{label}</Text>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={stat.value}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-const stat = StyleSheet.create({
-  wrap: { flex: 1, gap: 2 },
-  label: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  value: { color: colors.text, fontSize: 15, fontWeight: "700" },
-});
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  primary,
-}: {
-  icon: IconName;
-  label: string;
-  onPress: () => void;
-  primary?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        action.btn,
-        primary ? action.primary : action.secondary,
-        pressed && { opacity: 0.85 },
-      ]}
-    >
-      <MaterialCommunityIcons
-        color={primary ? "#FFFFFF" : colors.primary}
-        name={icon}
-        size={20}
-      />
-      <Text style={[action.text, { color: primary ? "#FFFFFF" : colors.primary }]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-const action = StyleSheet.create({
-  btn: {
+const donutStyles = StyleSheet.create({
+  wrap: {
     alignItems: "center",
-    borderRadius: 16,
+    height: DONUT.size,
+    justifyContent: "center",
+    width: DONUT.size,
+  },
+  center: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pct: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});
+
+// ─────────────────────────────────────────────────────────
+
+function Sparkline({ data }: { data: number[] }) {
+  const values = data.length ? data : [0];
+  const max = Math.max(...values, 1);
+
+  return (
+    <View style={sparkStyles.container}>
+      <View style={sparkStyles.track}>
+        {values.map((h, i) => {
+          const isLast = i === values.length - 1;
+          const heightPct = (h / max) * 100;
+
+          return (
+            <View key={i} style={sparkStyles.barWrap}>
+              <View
+                style={[
+                  sparkStyles.bar,
+                  { height: `${heightPct}%` },
+                  isLast && sparkStyles.barLast,
+                ]}
+              />
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const sparkStyles = StyleSheet.create({
+  container: {
+    height: 48,
+    marginTop: 8,
+  },
+  track: {
+    alignItems: "flex-end",
     flex: 1,
     flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    paddingVertical: 14,
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
   },
-  primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.primarySoft },
-  text: { fontSize: 15, fontWeight: "700" },
+  barWrap: {
+    alignItems: "center",
+    flex: 1,
+    height: "100%",
+    justifyContent: "flex-end",
+  },
+  bar: {
+    backgroundColor: `${colors.primary}30`,
+    borderRadius: 2,
+    width: 4,
+  },
+  barLast: {
+    backgroundColor: "#FFFFFF",
+    borderColor: colors.primary,
+    borderRadius: 4,
+    borderWidth: 2,
+    height: 8,
+    marginBottom: 2,
+    width: 8,
+  },
 });
 
-function WatchRow({
-  item,
-  currency,
-}: {
-  item: CategoryAnalytics;
-  currency: string;
-}) {
+// ─────────────────────────────────────────────────────────
+
+function AlertCard({ alert }: { alert: AlertItem }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push("/analyse")}
-      style={({ pressed }) => [watch.row, pressed && { opacity: 0.8 }]}
-    >
-      <View
-        style={[
-          watch.icon,
-          { backgroundColor: item.essential ? "#D3E4FE" : "#FFDAD6" },
-        ]}
-      >
-        <MaterialCommunityIcons
-          color={item.essential ? "#474552" : "#93000A"}
-          name={categoryIcon(item.name)}
-          size={18}
-        />
+    <View style={alertStyles.card}>
+      <View style={alertStyles.top}>
+        <View style={[alertStyles.icon, { backgroundColor: alert.iconBg }]}>
+          <MaterialCommunityIcons
+            color={alert.iconColor}
+            name={alert.icon}
+            size={18}
+          />
+        </View>
+        <View style={[alertStyles.pill, { backgroundColor: alert.pillBg }]}>
+          <Text style={[alertStyles.pillText, { color: alert.pillColor }]}>
+            {alert.pill}
+          </Text>
+        </View>
       </View>
-      <View style={watch.copy}>
-        <Text numberOfLines={1} style={watch.name}>
-          {item.name}
-        </Text>
-        <Text numberOfLines={1} style={watch.sub}>
-          {formatMoney(item.current_amount, currency)} ce mois
-        </Text>
-      </View>
-      <View style={watch.pill}>
-        <Text style={watch.pillText}>{formatPct(item.variation_percentage)}</Text>
-      </View>
-    </Pressable>
+      <Text style={alertStyles.label}>{alert.label}</Text>
+      <Text style={alertStyles.subtitle}>{alert.subtitle}</Text>
+    </View>
   );
 }
 
-const watch = StyleSheet.create({
-  row: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+const alertStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DCE9FF",
     borderRadius: 16,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
+    gap: 8,
     padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    width: 150,
+  },
+  top: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   icon: {
     alignItems: "center",
-    borderRadius: 12,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  copy: { flex: 1, gap: 1 },
-  name: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  sub: { color: colors.textMuted, fontSize: 12 },
-  pill: {
-    backgroundColor: "#FFDAD6",
     borderRadius: 99,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
   },
-  pillText: { color: "#93000A", fontSize: 12, fontWeight: "700" },
+  pill: { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 2 },
+  pillText: { fontSize: 12, fontWeight: "600" },
+  label: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  subtitle: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+});
+
+// ─────────────────────────────────────────────────────────
+
+function BudgetBarChart({ weekly }: { weekly: WeeklyExpense[] }) {
+  const maxVal = Math.max(
+    1,
+    ...weekly.map((w) => Math.max(w.prevu, w.reel))
+  );
+  const heightOf = (value: number) =>
+    Math.max((value / maxVal) * 100, 2);
+
+  return (
+    <View style={chartStyles.card}>
+      <View style={chartStyles.area}>
+        <View style={[chartStyles.yLine, { top: 0 }]} />
+        <View style={[chartStyles.yLine, { top: "33%" }]} />
+        <View style={[chartStyles.yLine, { top: "66%" }]} />
+        <View style={[chartStyles.yLineSolid, { bottom: 0 }]} />
+
+        <View style={chartStyles.barsRow}>
+          {weekly.map((w) => (
+            <View key={w.label} style={chartStyles.barGroup}>
+              <View style={chartStyles.barPair}>
+                <View
+                  style={[
+                    chartStyles.bar,
+                    {
+                      height: `${heightOf(w.prevu)}%`,
+                      backgroundColor: "#C7C5D1",
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    chartStyles.bar,
+                    {
+                      height: `${heightOf(w.reel)}%`,
+                      backgroundColor: colors.primary,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={chartStyles.barLabel}>{w.label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={chartStyles.legend}>
+        <LegendItem color="#C7C5D1" label="Prévu" />
+        <LegendItem color={colors.primary} label="Réel" />
+      </View>
+    </View>
+  );
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={legendStyles.item}>
+      <View style={[legendStyles.dot, { backgroundColor: color }]} />
+      <Text style={legendStyles.text}>{label}</Text>
+    </View>
+  );
+}
+
+const legendStyles = StyleSheet.create({
+  item: { alignItems: "center", flexDirection: "row", gap: 6 },
+  dot: { borderRadius: 99, height: 12, width: 12 },
+  text: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+});
+
+const chartStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DCE9FF",
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+  },
+  area: {
+    height: 192,
+    paddingBottom: 24,
+    paddingTop: 32,
+    position: "relative",
+  },
+  yLine: {
+    borderColor: "#C8C4D550",
+    borderStyle: "dashed",
+    borderWidth: 1,
+    left: 0,
+    position: "absolute",
+    right: 0,
+  },
+  yLineSolid: {
+    borderColor: "#C8C4D580",
+    borderWidth: 1,
+    left: 0,
+    position: "absolute",
+    right: 0,
+  },
+  barsRow: {
+    alignItems: "flex-end",
+    bottom: 24,
+    flexDirection: "row",
+    flex: 1,
+    justifyContent: "space-around",
+    left: 8,
+    position: "absolute",
+    right: 8,
+    top: 32,
+  },
+  barGroup: {
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
+    height: "100%",
+    justifyContent: "flex-end",
+  },
+  barPair: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    gap: 4,
+    height: "100%",
+  },
+  bar: { borderRadius: 4, width: 12 },
+  barLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  legend: {
+    borderTopColor: "#DCE9FF",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 24,
+    justifyContent: "center",
+    marginTop: 12,
+    paddingTop: 12,
+  },
 });
 
 // ═══════════════════════════════════════════════════════════
-//  ÉCRAN
+//  COMPOSANT PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 
-export default function DashboardScreen() {
+export default function Dashboard() {
   const userId = useAppStore((s) => s.userId);
   const currency = useAppStore((s) => s.currency);
   const period = useAppStore((s) => s.currentPeriod);
   const userName = useAppStore((s) => s.userName);
-
-  const [data, setData] = useState<Dashboard | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const confirmSignOut = useCallback(() => {
     Alert.alert(
@@ -221,37 +420,35 @@ export default function DashboardScreen() {
       "Vous resterez connecté jusqu'à ce que vous vous déconnectiez.",
       [
         { text: "Annuler", style: "cancel" },
-        {
-          text: "Se déconnecter",
-          style: "destructive",
-          onPress: () => void signOut(),
-        },
+        { text: "Se déconnecter", style: "destructive", onPress: () => void signOut() },
       ],
     );
   }, [userName]);
 
-  const load = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      if (!opts?.silent) setLoading(true);
-      setError(null);
-      try {
-        if (!userId) throw new Error("no-session");
-        setData(await analytics.dashboard(userId, period));
-      } catch {
-        if (!opts?.silent) {
-          setData(null);
-          setError(
-            userId
-              ? "Serveur injoignable. Vérifiez que le backend est démarré."
-              : "Session non initialisée. Passez par l'onboarding.",
-          );
-        }
-      } finally {
-        if (!opts?.silent) setLoading(false);
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
+    setError(null);
+    try {
+      if (!userId) throw new Error("no-session");
+      setData(await analytics.dashboard(userId, period));
+    } catch {
+      if (!opts?.silent) {
+        setData(null);
+        setError(
+          userId
+            ? "Serveur injoignable. Vérifiez que le backend est démarré."
+            : "Session non initialisée. Passez par l'onboarding."
+        );
       }
-    },
-    [userId, period],
-  );
+    } finally {
+      if (!opts?.silent) setLoading(false);
+    }
+  }, [userId, period]);
 
   const onRefresh = useCallback(async () => {
     if (!userId) return;
@@ -267,9 +464,34 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      load();
+    }, [load])
   );
+
+  const solde = data
+    ? data.remaining_balance ?? data.income - data.expenses
+    : 0;
+
+  const alerts: AlertItem[] =
+    data?.top_drift_categories.slice(0, 4).map(
+      (c: CategoryAnalytics): AlertItem => ({
+        icon: categoryIcon(c.name),
+        iconBg: c.essential ? "#D3E4FE" : "#FFDAD6",
+        iconColor: c.essential ? "#474552" : "#93000A",
+        label: c.name,
+        subtitle: "À surveiller",
+        pill: formatPct(c.variation_percentage),
+        pillBg: "#EBDCFF",
+        pillColor: "#260059",
+      })
+    ) ?? [];
+
+  const [year, month] = period.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  const projectedDate = `${lastDay} ${MONTHS_FR[month - 1].toLowerCase()} ${year}`;
+
+  const goal = data?.savings_goal ?? null;
+  const trackMax = Math.max(goal?.target_amount ?? 0, solde, 1);
 
   if (loading && !data) {
     return (
@@ -291,27 +513,16 @@ export default function DashboardScreen() {
             size={40}
           />
           <Text style={styles.errorTitle}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={() => void load()}>
+          <Pressable
+            style={styles.retryBtn}
+            onPress={() => void load()}
+          >
             <Text style={styles.retryText}>Réessayer</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
-
-  const income = data?.income ?? 0;
-  const expenses = data?.expenses ?? 0;
-  const solde = data ? data.remaining_balance ?? income - expenses : 0;
-  const spentRatio = income > 0 ? expenses / income : expenses > 0 ? 1 : 0;
-  const barColor =
-    spentRatio >= 1 ? colors.danger : spentRatio >= 0.85 ? colors.warning : colors.primary;
-  const variation = data?.monthly_variation ?? null;
-
-  const [year, month] = period.split("-").map(Number);
-  const monthLabel = `${MONTHS_FR[month - 1] ?? ""} ${year}`;
-
-  const watched = (data?.top_drift_categories ?? []).slice(0, MAX_WATCHED);
-  const goal = data?.savings_goal ?? null;
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -327,137 +538,196 @@ export default function DashboardScreen() {
           />
         }
       >
-        {/* ── En-tête ── */}
+        {/* ── Header ── */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.hello}>
-              Bonjour{userName ? `, ${userName}` : ""}
-            </Text>
-            <Text style={styles.month}>{monthLabel}</Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mon compte"
-            onPress={confirmSignOut}
-            style={styles.avatar}
-          >
-            <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
-          </Pressable>
-        </View>
-
-        {/* ── Solde : la seule carte « héros » ── */}
-        <View style={styles.hero}>
-          <Text style={styles.heroLabel}>Solde restant</Text>
-          <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-            {formatMoney(solde, currency)}
-          </Text>
-
-          {variation != null && (
+          <Text style={styles.headerTitle}>Tableau de bord</Text>
+          <View style={styles.headerActions}>
             <Pressable
-              hitSlop={10}
-              onPress={() => router.push("/stats-detail")}
-              style={styles.trend}
+              accessibilityRole="button"
+              accessibilityLabel="Ajouter un revenu (salaire, prêt, dividende)"
+              onPress={() => router.push("/add-income")}
+              style={({ pressed }) => [
+                styles.incomeBtn,
+                pressed && styles.incomeBtnPressed,
+              ]}
             >
               <MaterialCommunityIcons
-                color={variation >= 0 ? colors.success : colors.danger}
-                name={variation >= 0 ? "trending-up" : "trending-down"}
+                color={colors.primary}
+                name="bank-plus"
+                size={18}
+              />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mon compte"
+              onPress={confirmSignOut}
+              style={styles.avatar}
+            >
+              <MaterialCommunityIcons
+                color="#FFFFFF"
+                name="account"
+                size={18}
+              />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ── Solde Restant ── */}
+        <View style={styles.soldeCard}>
+          <View pointerEvents="none" style={styles.soldeDecorTop} />
+          <View pointerEvents="none" style={styles.soldeDecorBottom} />
+          <Text style={styles.soldeLabel}>Solde Restant</Text>
+          <Text style={styles.soldeAmount}>
+            {formatMoney(solde, currency)}
+          </Text>
+          {(data?.contributions ?? 0) > 0 && (
+            <View style={styles.soldeContribRow}>
+              <MaterialCommunityIcons
+                color={colors.primary}
+                name="piggy-bank"
+                size={14}
+              />
+              <Text style={styles.soldeContribText}>
+                dont {formatMoney(data?.contributions ?? 0, currency)} déjà
+                versés à l'épargne
+              </Text>
+            </View>
+          )}
+          <Sparkline data={data?.sparkline ?? []} />
+          {data?.monthly_variation != null && (
+            <Pressable
+              style={styles.soldeTrend}
+              hitSlop={12}
+              onPress={() => router.push("/stats-detail")}
+            >
+              <MaterialCommunityIcons
+                color={colors.accent}
+                name={
+                  data.monthly_variation >= 0
+                    ? "trending-up"
+                    : "trending-down"
+                }
                 size={16}
               />
-              <Text style={styles.trendText}>
-                {variation >= 0 ? "+" : "−"}
-                {formatPct(variation).replace("+", "")} vs mois dernier
+              <Text style={styles.soldeTrendText}>
+                {formatPct(data.monthly_variation)} vs mois dernier
               </Text>
             </Pressable>
           )}
-
-          <View style={styles.spentBlock}>
-            <ProgressBar ratio={spentRatio} color={barColor} />
-            <Text style={styles.spentText}>
-              {Math.round(spentRatio * 100)} % des revenus dépensés
-            </Text>
-          </View>
-
-          <View style={styles.stats}>
-            <Stat label="Revenus" value={formatMoney(income, currency)} />
-            <Stat label="Dépenses" value={formatMoney(expenses, currency)} />
-            <Stat
-              label="Épargne prévue"
-              value={formatMoney(data?.savings ?? 0, currency)}
-            />
-          </View>
         </View>
 
-        {/* ── Actions rapides ── */}
-        <View style={styles.actions}>
-          <QuickAction
-            primary
-            icon="plus"
-            label="Dépense"
-            onPress={() => router.push("/add-expense")}
-          />
-          <QuickAction
-            icon="bank-plus"
-            label="Revenu"
-            onPress={() => router.push("/add-income")}
-          />
-        </View>
+        {/* ── Vigilance Budgétaire ── */}
+        {alerts.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Vigilance Budgétaire</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.alertsScroll}
+            >
+              {alerts.map((alert) => (
+                <AlertCard key={alert.label} alert={alert} />
+              ))}
+            </ScrollView>
+          </>
+        )}
 
-        {/* ── À surveiller ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>À surveiller</Text>
-            {watched.length > 0 && (
-              <Pressable hitSlop={10} onPress={() => router.push("/analyse")}>
-                <Text style={styles.link}>Tout voir</Text>
-              </Pressable>
-            )}
+        {/* ── Réel vs Prévu ── */}
+        <View style={styles.chartHeader}>
+          <Text style={styles.sectionTitle}>Réel vs Prévu</Text>
+          <Link href="/analyse" asChild>
+            <Pressable style={styles.chartFilter}>
+              <Text style={styles.chartFilterText}>Ce mois</Text>
+            </Pressable>
+          </Link>
+        </View>
+        <BudgetBarChart weekly={data?.weekly ?? []} />
+
+        {/* ── Épargne Projetée ── */}
+        <View style={styles.projectedCard}>
+          <View pointerEvents="none" style={styles.projectedDecor} />
+          <View style={styles.projectedTop}>
+            <Text style={styles.projectedLabel}>Épargne Projetée</Text>
+            <Text style={styles.projectedDate}>{projectedDate}</Text>
           </View>
-          {watched.length > 0 ? (
-            watched.map((c) => (
-              <WatchRow key={c.category_id} item={c} currency={currency} />
-            ))
-          ) : (
-            <View style={styles.allGood}>
-              <MaterialCommunityIcons
-                color={colors.success}
-                name="check-circle-outline"
-                size={20}
-              />
-              <Text style={styles.allGoodText}>
-                Rien d'inhabituel ce mois-ci.
+          <Text style={styles.projectedAmount}>
+            {formatMoney(data?.savings ?? 0, currency)}
+          </Text>
+          {data?.monthly_variation != null && (
+            <View style={styles.projectedCompare}>
+              <Text style={styles.projectedCompareLabel}>
+                vs mois dernier
               </Text>
+              <View style={styles.projectedDelta}>
+                <MaterialCommunityIcons
+                  color="#FFFFFF"
+                  name={
+                    data.monthly_variation >= 0
+                      ? "arrow-top-right"
+                      : "arrow-bottom-right"
+                  }
+                  size={14}
+                />
+                <Text style={styles.projectedDeltaText}>
+                  {formatPct(data.monthly_variation)}
+                </Text>
+              </View>
             </View>
           )}
+          <View style={styles.projectedBarRow}>
+            <Text style={styles.projectedBarMarker}>
+              {formatMoney(0, currency)}
+            </Text>
+            <View style={styles.projectedBarTrack}>
+              <View
+                style={[
+                  styles.projectedBarFill,
+                  {
+                    width: `${Math.min(
+                      (solde / trackMax) * 100,
+                      100
+                    )}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.projectedBarMarker}>
+              {formatMoney(trackMax, currency)}
+            </Text>
+          </View>
         </View>
 
-        {/* ── Épargne ── */}
+        {/* ── Épargne Réalisée ── */}
         {goal && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/savings")}
-            style={({ pressed }) => [styles.savings, pressed && { opacity: 0.9 }]}
-          >
-            <View style={styles.savingsTop}>
-              <Text style={styles.savingsLabel}>Épargne</Text>
-              <Text style={styles.savingsPct}>
-                {Math.round(goal.progress_percentage * 100)} %
-              </Text>
+          <View style={styles.savingsCard}>
+            <View pointerEvents="none" style={styles.savingsDecorTop} />
+            <View pointerEvents="none" style={styles.savingsDecorBottom} />
+            <View style={styles.savingsContent}>
+              <View style={styles.savingsLeft}>
+                <Text style={styles.savingsLabel}>Épargne Réalisée</Text>
+                <Text style={styles.savingsAmount}>
+                  {formatMoney(goal.current_amount, currency)}
+                </Text>
+                <Text style={styles.savingsGoal}>
+                  Objectif : {formatMoney(goal.target_amount, currency)}
+                </Text>
+              </View>
+              <DonutProgress pct={goal.progress_percentage} />
             </View>
-            <ProgressBar ratio={goal.progress_percentage} color={colors.accent} />
-            <Text style={styles.savingsText}>
-              {formatMoney(goal.current_amount, currency)} sur{" "}
-              {formatMoney(goal.target_amount, currency)}
-            </Text>
-          </Pressable>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+//  STYLES
+// ═══════════════════════════════════════════════════════════
+
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
-  scrollContent: { gap: 18, padding: 16, paddingBottom: 32 },
+  scrollContent: { gap: 20, padding: 16 },
 
   centered: {
     alignItems: "center",
@@ -481,93 +751,278 @@ const styles = StyleSheet.create({
   },
   retryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 
+  /* Header */
   header: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 4,
+    zIndex: 10,
   },
-  hello: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  month: { color: colors.textMuted, fontSize: 13, fontWeight: "600", marginTop: 2 },
+  headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
+  headerActions: { alignItems: "center", flexDirection: "row", gap: 10 },
+  incomeBtn: {
+    alignItems: "center",
+    backgroundColor: "#E4DFFF",
+    borderColor: colors.primary,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  incomeBtnPressed: { opacity: 0.7 },
+  quickAdd: {
+    alignItems: "center",
+    backgroundColor: "#E4DFFF30",
+    borderRadius: 99,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  quickAddText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
   avatar: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 20,
-    height: 40,
+    borderRadius: 18,
+    height: 36,
     justifyContent: "center",
-    width: 40,
+    width: 36,
   },
 
-  hero: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+  /* Solde Restant */
+  soldeCard: {
+    backgroundColor: "#E5EEFF",
     borderRadius: 24,
-    borderWidth: 1,
-    gap: 6,
-    padding: 20,
+    gap: 4,
+    padding: 24,
+    position: "relative",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
   },
-  heroLabel: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.8,
+  soldeDecorTop: {
+    backgroundColor: `${colors.primary}18`,
+    borderRadius: 999,
+    height: 220,
+    position: "absolute",
+    right: -70,
+    top: -70,
+    width: 220,
+  },
+  soldeDecorBottom: {
+    backgroundColor: "#865DD215",
+    borderRadius: 999,
+    height: 160,
+    position: "absolute",
+    bottom: -40,
+    left: -40,
+    width: 160,
+  },
+  soldeLabel: {
+    color: "#474552",
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
-  heroAmount: {
+  soldeAmount: {
     color: colors.primary,
-    fontSize: 40,
-    fontWeight: "800",
-    letterSpacing: -1.5,
+    fontSize: 48,
+    fontWeight: "700",
+    letterSpacing: -2,
+    lineHeight: 56,
   },
-  trend: { alignItems: "center", flexDirection: "row", gap: 4 },
-  trendText: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  spentBlock: { gap: 6, marginTop: 10 },
-  spentText: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  stats: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
+  soldeTrend: {
+    alignItems: "center",
     flexDirection: "row",
-    gap: 12,
-    marginTop: 12,
-    paddingTop: 14,
+    gap: 4,
+    marginTop: 4,
+  },
+  soldeTrendText: { color: colors.accent, fontSize: 12, fontWeight: "600" },
+  soldeContribRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  soldeContribText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
   },
 
-  actions: { flexDirection: "row", gap: 12 },
+  /* Vigilance */
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "600",
+    lineHeight: 28,
+  },
+  alertsScroll: { gap: 12 },
 
-  section: { gap: 10 },
-  sectionHead: {
+  /* Réel vs Prévu */
+  chartHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  chartFilter: {
+    backgroundColor: "#E4DFFF30",
+    borderRadius: 99,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chartFilterText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
+
+  /* ═══ Épargne Projetée ═══ */
+  projectedCard: {
+    backgroundColor: "#E0E7FF",
+    borderRadius: 24,
+    gap: 10,
+    overflow: "hidden",
+    padding: 24,
+    position: "relative",
+  },
+  projectedDecor: {
+    backgroundColor: `${colors.primary}10`,
+    borderRadius: 999,
+    height: 180,
+    position: "absolute",
+    right: -60,
+    top: -60,
+    width: 180,
+  },
+  projectedTop: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  sectionTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
-  link: { color: colors.primary, fontSize: 14, fontWeight: "700" },
-  allGood: {
+  projectedLabel: {
+    color: "#474552",
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  projectedDate: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  projectedAmount: {
+    color: colors.primary,
+    fontSize: 48,
+    fontWeight: "700",
+    letterSpacing: -2,
+    lineHeight: 56,
+  },
+  projectedCompare: {
     alignItems: "center",
-    backgroundColor: colors.successSoft,
-    borderRadius: 16,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  projectedCompareLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  projectedDelta: {
+    alignItems: "center",
+    backgroundColor: colors.success,
+    borderRadius: 99,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  projectedDeltaText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  projectedBarRow: {
+    alignItems: "center",
     flexDirection: "row",
     gap: 10,
-    padding: 14,
+    marginTop: 14,
   },
-  allGoodText: { color: colors.success, fontSize: 14, fontWeight: "600" },
+  projectedBarTrack: {
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 99,
+    flex: 1,
+    height: 8,
+    overflow: "hidden",
+  },
+  projectedBarFill: {
+    backgroundColor: colors.primary,
+    borderRadius: 99,
+    height: 8,
+  },
+  projectedBarMarker: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "500",
+    minWidth: 28,
+  },
 
-  savings: {
+  /* ═══ Épargne Réalisée ═══ */
+  savingsCard: {
     backgroundColor: "#EBDCFF",
-    borderRadius: 20,
-    gap: 10,
-    padding: 16,
+    borderRadius: 24,
+    overflow: "hidden",
+    padding: 20,
+    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
   },
-  savingsTop: {
+  savingsDecorTop: {
+    backgroundColor: "#FFFFFF26",
+    borderRadius: 999,
+    height: 160,
+    position: "absolute",
+    right: -48,
+    top: -48,
+    width: 160,
+  },
+  savingsDecorBottom: {
+    backgroundColor: "#572BA015",
+    borderRadius: 999,
+    height: 96,
+    position: "absolute",
+    bottom: -32,
+    left: -24,
+    width: 96,
+  },
+  savingsContent: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  savingsLabel: { color: "#260059", fontSize: 15, fontWeight: "700" },
-  savingsPct: { color: "#260059", fontSize: 15, fontWeight: "800" },
-  savingsText: { color: "#572BA0", fontSize: 13, fontWeight: "600" },
+  savingsLeft: { flex: 1, gap: 2 },
+  savingsLabel: {
+    color: "#260059",
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  savingsAmount: {
+    color: "#260059",
+    fontSize: 24,
+    fontWeight: "600",
+    lineHeight: 32,
+  },
+  savingsGoal: {
+    color: "#572BA0",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
 });
