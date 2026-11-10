@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Category, Expense
@@ -57,13 +57,31 @@ async def create_many(
     return expenses
 
 
+def _like_pattern(text: str) -> str:
+    """Pattern ILIKE 'contient', avec %, _ et \\ saisis par l'utilisateur echappes."""
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 async def list_by_user(
     user_id: UUID, db: AsyncSession, from_date: date | None = None,
     to_date: date | None = None, category_id: UUID | None = None,
-    *, cursor: str | None = None,  limit: int = 20,) -> tuple[list[Expense], str | None, bool]:
+    *, search: str | None = None, cursor: str | None = None, limit: int = 20,
+) -> tuple[list[Expense], str | None, bool]:
+    """Depenses de l'utilisateur, de la plus recente a la plus ancienne (par date).
 
-
+    `search` filtre sur la note ou le nom de la categorie (insensible a la casse).
+    """
     query = select(Expense).where(Expense.user_id == user_id)
+    term = (search or "").strip()
+    if term:
+        pattern = _like_pattern(term)
+        query = query.join(Category, Category.id == Expense.category_id).where(
+            or_(
+                Expense.note.ilike(pattern, escape="\\"),
+                Category.name.ilike(pattern, escape="\\"),
+            )
+        )
     if from_date:
         query = query.where(Expense.expense_date >= from_date)
     if to_date:
@@ -71,7 +89,31 @@ async def list_by_user(
     if category_id:
         query = query.where(Expense.category_id == category_id)
 
-    return await paginate(db, query, limit, cursor, id_col=Expense.id, sort_col=Expense.created_at, sort_desc=True, )
+    return await paginate(
+        db, query, limit, cursor,
+        id_col=Expense.id, sort_col=Expense.expense_date, sort_desc=True,
+    )
+
+
+async def daily_totals(
+    user_id: UUID, db: AsyncSession, from_date: date, to_date: date,
+    category_id: UUID | None = None,
+) -> list[tuple[date, float]]:
+    """Total des depenses par jour (agrege par la base) sur [from_date, to_date]."""
+    query = (
+        select(Expense.expense_date, func.sum(Expense.amount))
+        .where(
+            Expense.user_id == user_id,
+            Expense.expense_date >= from_date,
+            Expense.expense_date <= to_date,
+        )
+        .group_by(Expense.expense_date)
+        .order_by(Expense.expense_date)
+    )
+    if category_id:
+        query = query.where(Expense.category_id == category_id)
+    rows = (await db.execute(query)).all()
+    return [(day, float(total)) for day, total in rows]
 
 
 async def update(

@@ -1,5 +1,7 @@
 import React, { useCallback, useRef } from "react";
 import {
+  ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,9 +23,10 @@ import Svg, {
 import { BackButton } from "../src/ui/components";
 import { AiExplain } from "../src/ui/AiExplain";
 import { analytics as analyticsApi } from "../src/shared/api/analytics";
-import { expenses as expensesApi } from "../src/shared/api/expenses";
+import { expenses as expensesApi, type DailyTotal } from "../src/shared/api/expenses";
+import { usePagedExpenses } from "../src/shared/hooks/usePagedExpenses";
 import { useAppStore } from "../src/shared/store";
-import type { CategoryAnalytics, Expense } from "../src/shared/types";
+import type { CategoryAnalytics } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 import { formatPct } from "../src/shared/utils/format";
@@ -127,13 +130,13 @@ const FadeIn = ({
 const SpendingChart = ({
   baseline = 0,
   forecast = 0,
-  expenses = [],
+  daily = [],
   period,
   tint = colors.primary,
 }: {
   baseline?: number;
   forecast?: number;
-  expenses?: Expense[];
+  daily?: DailyTotal[];
   period: string;
   tint?: string;
 }) => {
@@ -161,12 +164,12 @@ const SpendingChart = ({
 
   const cumByDay = new Map<number, number>();
   let running = 0;
-  const sorted = [...expenses]
-    .filter((e) => e.expense_date)
-    .sort((a, b) => a.expense_date.localeCompare(b.expense_date));
-  for (const e of sorted) {
-    const day = new Date(e.expense_date).getDate();
-    running += e.amount;
+  const sorted = [...daily]
+    .filter((d) => d.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  for (const d of sorted) {
+    const day = new Date(d.date).getDate();
+    running += d.total;
     cumByDay.set(day, running);
   }
   const cumToday = running;
@@ -281,7 +284,31 @@ export default function BudgetDetail() {
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [cat, setCat] = React.useState<CategoryAnalytics | null>(null);
-  const [expenses, setExpenses] = React.useState<Expense[]>([]);
+  const [daily, setDaily] = React.useState<DailyTotal[]>([]);
+
+  const { from, to } = React.useMemo(() => {
+    const [y, m] = period.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    return {
+      from: `${period}-01`,
+      to: `${period}-${String(lastDay).padStart(2, "0")}`,
+    };
+  }, [period]);
+  const listCategoryId = params.catId || cat?.category_id || undefined;
+  const {
+    items: expenses,
+    loadingMore,
+    hasMore,
+    reload: reloadList,
+    loadMore,
+  } = usePagedExpenses({
+    userId,
+    from,
+    to,
+    categoryId: listCategoryId,
+    pageSize: 20,
+    enabled: !!listCategoryId,
+  });
 
   const category = params.category ?? cat?.name ?? "Logement & Charges";
   const amount = cat?.current_amount ?? Number(params.amount ?? 0);
@@ -318,30 +345,30 @@ export default function BudgetDetail() {
       setCat(match);
       const expenseCategoryId = categoryId || match?.category_id || null;
       if (!expenseCategoryId) {
-        setExpenses([]);
+        setDaily([]);
         return;
       }
-      const [y, m] = period.split("-").map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const res = await expensesApi.list(userId, {
-        categoryId: expenseCategoryId,
-        from: `${period}-01`,
-        to: `${period}-${String(lastDay).padStart(2, "0")}`,
-        limit: 100,
-      });
-      setExpenses(res.items);
+      setDaily(
+        await expensesApi.daily(userId, { from, to, categoryId: expenseCategoryId }),
+      );
     } catch {
       setCat(null);
-      setExpenses([]);
+      setDaily([]);
     } finally {
       setRefreshing(false);
     }
-  }, [userId, period, params.catId, params.category]);
+  }, [userId, period, from, to, params.catId, params.category]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void reloadList();
+    }, [reloadList])
   );
 
   const baseline = cat?.baseline_amount ?? 0;
@@ -508,7 +535,7 @@ export default function BudgetDetail() {
           <SpendingChart
             baseline={baseline}
             forecast={projection}
-            expenses={expenses}
+            daily={daily}
             period={period}
             tint={tint}
           />
@@ -618,6 +645,20 @@ export default function BudgetDetail() {
                   </View>
                 </View>
               ))}
+              {hasMore || loadingMore ? (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={loadingMore}
+                  onPress={() => void loadMore()}
+                  style={styles.moreBtn}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={styles.moreText}>Voir plus de dépenses</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </View>
           )}
         </FadeIn>
@@ -883,6 +924,13 @@ const styles = StyleSheet.create({
 
   /* Dépenses de la catégorie */
   expensesList: { gap: 10 },
+  moreBtn: {
+    alignItems: "center",
+    backgroundColor: `${colors.primary}12`,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  moreText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
   emptyText: {
     color: colors.textMuted,
     fontSize: 14,

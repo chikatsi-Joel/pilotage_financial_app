@@ -8,13 +8,29 @@ function path(userId: string, extra?: Record<string, string>) {
   });
 }
 
+/** Total dépensé un jour donné (agrégé côté serveur). */
+export interface DailyTotal {
+  date: string;
+  total: number;
+}
+
 export const expenses = {
+  daily: (
+    userId: string,
+    opts: { from: string; to: string; categoryId?: string },
+  ) =>
+    api
+      .get<DailyTotal[]>(`${path(userId)}/daily`, {
+        params: { from_date: opts.from, to_date: opts.to, category_id: opts.categoryId },
+      })
+      .then((r) => r.data),
   list: (
     userId: string,
     opts?: {
       from?: string;
       to?: string;
       categoryId?: string;
+      q?: string;
       cursor?: string;
       limit?: number;
     },
@@ -25,6 +41,7 @@ export const expenses = {
           from_date: opts?.from,
           to_date: opts?.to,
           category_id: opts?.categoryId,
+          q: opts?.q,
           cursor: opts?.cursor,
           limit: opts?.limit,
         },

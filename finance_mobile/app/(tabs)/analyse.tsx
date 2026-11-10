@@ -1,10 +1,10 @@
-﻿import { useCallback, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
-  ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   View,
@@ -16,8 +16,10 @@ import { router, useFocusEffect } from "expo-router";
 import { EmptyState, ProgressBar, SearchBar } from "../../src/ui/components";
 import { analytics } from "../../src/shared/api/analytics";
 import { expenses as expensesApi } from "../../src/shared/api/expenses";
+import { usePagedExpenses } from "../../src/shared/hooks/usePagedExpenses";
 import { useAppStore } from "../../src/shared/store";
-import type { CategoryAnalytics, Expense } from "../../src/shared/types";
+import type { CategoryAnalytics } from "../../src/shared/types";
+import { groupByDate } from "../../src/shared/utils/paging";
 import { formatMoney } from "../../src/shared/utils/money";
 import { colors } from "../../src/ui/theme";
 
@@ -57,10 +59,33 @@ export default function Depenses() {
   const period = useAppStore((s) => s.currentPeriod);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [cats, setCats] = useState<CategoryAnalytics[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // La recherche part au serveur : on attend la fin de la saisie.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { from, to } = useMemo(() => {
+    const [y, m] = period.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    return {
+      from: `${period}-01`,
+      to: `${period}-${String(lastDay).padStart(2, "0")}`,
+    };
+  }, [period]);
+
+  const {
+    items: expenses,
+    loading,
+    loadingMore,
+    error: listError,
+    reload,
+    loadMore,
+  } = usePagedExpenses({ userId, from, to, q: debouncedQuery });
 
   const catById = useMemo(() => {
     const map = new Map<string, CategoryAnalytics>();
@@ -68,32 +93,17 @@ export default function Depenses() {
     return map;
   }, [cats]);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
-    try {
+  const loadCats = useCallback(
+    async (opts?: { silent?: boolean }) => {
       if (!userId) return;
-      const [y, m] = period.split("-").map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const lastDate = `${period}-${String(lastDay).padStart(2, "0")}`;
-      const [catData, expData] = await Promise.all([
-        analytics.categories(userId, period),
-        expensesApi.list(userId, {
-          from: `${period}-01`,
-          to: lastDate,
-          limit: 100,
-        }),
-      ]);
-      setCats(catData);
-      setExpenses(expData.items);
-    } catch {
-      if (!opts?.silent) {
-        setExpenses([]);
-        setCats([]);
+      try {
+        setCats(await analytics.categories(userId, period));
+      } catch {
+        if (!opts?.silent) setCats([]);
       }
-    } finally {
-      if (!opts?.silent) setLoading(false);
-    }
-  }, [userId, period]);
+    },
+    [userId, period],
+  );
 
   const onRefresh = useCallback(async () => {
     if (!userId) return;
@@ -103,29 +113,24 @@ export default function Depenses() {
     } catch {
       // Rafraîchissement serveur indisponible : on repart des données actuelles.
     }
-    await load({ silent: true });
+    await Promise.all([loadCats({ silent: true }), reload({ silent: true })]);
     setRefreshing(false);
-  }, [userId, period, load]);
+  }, [userId, period, loadCats, reload]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      void loadCats();
+    }, [loadCats])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+    }, [reload])
   );
 
   const rows = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    let items = expenses;
-    if (q) {
-      items = expenses.filter((e) => {
-        const cat = catById.get(e.category_id);
-        const hay = `${e.note ?? ""} ${cat?.name ?? ""}`.toLowerCase();
-        return hay.includes(q);
-      });
-    }
-    return items
-      .slice()
-      .sort((a, b) => (a.expense_date < b.expense_date ? 1 : -1))
+    return expenses
       .map((e) => {
         const cat = catById.get(e.category_id);
         const name = cat?.name ?? "Divers";
@@ -145,21 +150,18 @@ export default function Depenses() {
           pillColor: essential ? colors.text : colors.accent,
         };
       });
-  }, [expenses, catById, searchQuery]);
+  }, [expenses, catById]);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, typeof rows>();
-    for (const r of rows) {
-      const existing = map.get(r.date);
-      if (existing) existing.push(r);
-      else map.set(r.date, [r]);
-    }
-    return Array.from(map.entries()).map(([day, items]) => ({
-      day: dayLabel(day),
-      total: items.reduce((s, i) => s + i.amount, 0),
-      items,
-    }));
-  }, [rows]);
+  const sections = useMemo(
+    () =>
+      groupByDate(rows).map((g) => ({
+        key: g.date,
+        title: dayLabel(g.date),
+        total: g.items.reduce((s, i) => s + i.amount, 0),
+        data: g.items,
+      })),
+    [rows]
+  );
 
   const essentialTotal = useMemo(
     () => cats.filter((c) => c.essential).reduce((s, c) => s + c.current_amount, 0),
@@ -202,7 +204,7 @@ export default function Depenses() {
               void (async () => {
                 try {
                   await expensesApi.delete(userId, tx.id);
-                  await load({ silent: true });
+                  await Promise.all([loadCats({ silent: true }), reload({ silent: true })]);
                 } catch {
                   Alert.alert("Suppression impossible", "Vérifiez que le serveur est démarré.");
                 }
@@ -212,7 +214,7 @@ export default function Depenses() {
         ]
       );
     },
-    [userId, load]
+    [userId, loadCats, reload]
   );
 
   return (
@@ -244,9 +246,15 @@ export default function Depenses() {
         </View>
       </View>
 
-      <ScrollView
+      <SectionList
+        sections={sections}
+        keyExtractor={(tx) => tx.id}
+        stickySectionHeadersEnabled={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        onEndReached={() => void loadMore()}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -255,7 +263,8 @@ export default function Depenses() {
             tintColor={colors.primary}
           />
         }
-      >
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
         {/* ── Search bar ── */}
         <SearchBar
           placeholder="Rechercher une transaction..."
@@ -320,91 +329,84 @@ export default function Depenses() {
             />
           </View>
         </View>
-
-        {/* ── Transactions grouped by day ── */}
-        {loading && groups.length === 0 ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={colors.primary} size="large" />
           </View>
-        ) : groups.length === 0 ? (
-          <EmptyState
-            icon="text-box-remove-outline"
-            title="Aucune dépense"
-            subtitle="Ajoutez une dépense pour suivre vos transactions du mois."
-          />
-        ) : (
-          groups.map((group) => (
-            <View key={group.day} style={styles.dayGroup}>
-              <View style={styles.dayHeader}>
-                <Text style={styles.dayLabel}>{group.day}</Text>
-                <Text style={styles.dayTotal}>
-                  -{formatMoney(group.total, currency)}
-                </Text>
-              </View>
-              <View style={styles.txList}>
-                {group.items.map((tx) => (
-                  <Pressable
-                    key={tx.id}
-                    onPress={() => openEdit(tx)}
-                    style={({ pressed }) => [
-                      styles.txCard,
-                      pressed && styles.txCardPressed,
-                    ]}
-                  >
-                    <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
-                      <MaterialCommunityIcons
-                        color={tx.iconColor}
-                        name={tx.icon}
-                        size={22}
-                      />
-                    </View>
-                    <View style={styles.txContent}>
-                      <Text style={styles.txTitle} numberOfLines={1}>
-                        {tx.title}
-                      </Text>
-                      <Text style={styles.txCategory} numberOfLines={1}>
-                        {tx.category}
-                      </Text>
-                    </View>
-                    <View style={styles.txRight}>
-                      <Text style={styles.txAmount}>
-                        -{formatMoney(tx.amount, currency)}
-                      </Text>
-                      <View
-                        style={[styles.txPill, { backgroundColor: tx.pillBg }]}
-                      >
-                        <Text
-                          style={[styles.txPillText, { color: tx.pillColor }]}
-                        >
-                          {tx.pill}
-                        </Text>
-                      </View>
-                    </View>
-                    <Pressable
-                      onPress={() => confirmDelete(tx)}
-                      style={({ pressed }) => [
-                        styles.txDelete,
-                        pressed && styles.txDeletePressed,
-                      ]}
-                      hitSlop={8}
-                      accessibilityLabel="Supprimer la dépense"
-                      accessibilityRole="button"
-                    >
-                      <MaterialCommunityIcons
-                        color={colors.textMuted}
-                        name="delete-outline"
-                        size={18}
-                      />
-                    </Pressable>
-                  </Pressable>
-                ))}
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={colors.primary} size="large" />
+            </View>
+          ) : listError ? (
+            <EmptyState
+              icon="cloud-off-outline"
+              title="Chargement impossible"
+              subtitle="Vérifiez la connexion puis tirez vers le bas pour réessayer."
+            />
+          ) : debouncedQuery.trim() ? (
+            <EmptyState
+              icon="text-box-search-outline"
+              title="Aucun résultat"
+              subtitle="Aucune dépense du mois ne correspond à cette recherche."
+            />
+          ) : (
+            <EmptyState
+              icon="text-box-remove-outline"
+              title="Aucune dépense"
+              subtitle="Ajoutez une dépense pour suivre vos transactions du mois."
+            />
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+          ) : (
+            <View style={{ height: 24 }} />
+          )
+        }
+        renderSectionHeader={({ section }) => (
+          <View style={styles.dayHeader}>
+            <Text style={styles.dayLabel}>{section.title}</Text>
+            <Text style={styles.dayTotal}>-{formatMoney(section.total, currency)}</Text>
+          </View>
+        )}
+        renderItem={({ item: tx }) => (
+          <Pressable
+            onPress={() => openEdit(tx)}
+            style={({ pressed }) => [
+              styles.txCard,
+              styles.txCardSpaced,
+              pressed && styles.txCardPressed,
+            ]}
+          >
+            <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
+              <MaterialCommunityIcons color={tx.iconColor} name={tx.icon} size={22} />
+            </View>
+            <View style={styles.txContent}>
+              <Text style={styles.txTitle} numberOfLines={1}>
+                {tx.title}
+              </Text>
+              <Text style={styles.txCategory} numberOfLines={1}>
+                {tx.category}
+              </Text>
+            </View>
+            <View style={styles.txRight}>
+              <Text style={styles.txAmount}>-{formatMoney(tx.amount, currency)}</Text>
+              <View style={[styles.txPill, { backgroundColor: tx.pillBg }]}>
+                <Text style={[styles.txPillText, { color: tx.pillColor }]}>{tx.pill}</Text>
               </View>
             </View>
-          ))
+            <Pressable
+              onPress={() => confirmDelete(tx)}
+              style={({ pressed }) => [styles.txDelete, pressed && styles.txDeletePressed]}
+              hitSlop={8}
+              accessibilityLabel="Supprimer la dépense"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons color={colors.textMuted} name="delete-outline" size={18} />
+            </Pressable>
+          </Pressable>
         )}
-
-        <View style={{ height: 24 }} />
-      </ScrollView>
+      />
 
     </SafeAreaView>
   );
@@ -476,7 +478,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  content: { gap: 16, padding: 16, paddingTop: 38 },
+  content: { padding: 16, paddingTop: 38 },
+  listHeader: { gap: 16, paddingBottom: 16 },
+  footerLoader: { paddingVertical: 24 },
   loadingBox: { alignItems: "center", paddingVertical: 48 },
 
   /* Summary */
@@ -524,17 +528,18 @@ const styles = StyleSheet.create({
   },
 
   /* Day groups */
-  dayGroup: { gap: 10 },
   dayHeader: {
     alignItems: "flex-end",
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 10,
+    marginTop: 6,
   },
   dayLabel: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },
   dayTotal: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
 
   /* Transactions */
-  txList: { gap: 10 },
+  txCardSpaced: { marginBottom: 10 },
   txCard: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",

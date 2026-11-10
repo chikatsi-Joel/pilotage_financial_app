@@ -20,6 +20,7 @@ function load(relative) {
 const { updateAmountInput, parseAmount } = load("src/shared/utils/amountInput.ts");
 const { toISODate, parseISODate, monthLabel } = load("src/shared/utils/date.ts");
 const { formatPct, capitalize } = load("src/shared/utils/format.ts");
+const { appendUnique, groupByDate } = load("src/shared/utils/paging.ts");
 
 test("updateAmountInput builds an amount digit by digit", () => {
   let v = "0";
@@ -167,4 +168,32 @@ test("formatHour and stepHour wrap around midnight", () => {
   assert.equal(stepHour(23, 1), 0);
   assert.equal(stepHour(0, -1), 23);
   assert.equal(stepHour(20, 2), 22);
+});
+
+test("appendUnique adds a new page and ignores items already loaded", () => {
+  const first = [{ id: "a" }, { id: "b" }];
+  const merged = appendUnique(first, [{ id: "b" }, { id: "c" }]);
+  assert.deepEqual(merged.map((x) => x.id), ["a", "b", "c"]);
+  assert.equal(appendUnique(merged, []), merged);
+  assert.equal(appendUnique(merged, [{ id: "a" }]), merged);
+});
+
+test("groupByDate keeps the server order and groups consecutive days", () => {
+  const rows = [
+    { id: 1, date: "2026-03-05" },
+    { id: 2, date: "2026-03-05" },
+    { id: 3, date: "2026-03-02" },
+  ];
+  const groups = groupByDate(rows);
+  assert.deepEqual(groups.map((g) => g.date), ["2026-03-05", "2026-03-02"]);
+  assert.deepEqual(groups[0].items.map((r) => r.id), [1, 2]);
+  assert.deepEqual(groupByDate([]), []);
+});
+
+test("groupByDate merges a day split across two pages once they are appended", () => {
+  const page1 = [{ id: "a", date: "2026-03-05" }];
+  const page2 = [{ id: "b", date: "2026-03-05" }, { id: "c", date: "2026-03-04" }];
+  const groups = groupByDate(appendUnique(page1, page2));
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].items.length, 2);
 });

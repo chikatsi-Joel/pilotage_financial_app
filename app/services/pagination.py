@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import date, datetime
 from typing import Any, TypeVar
 
 from sqlalchemy import Select
@@ -21,6 +22,21 @@ def _encode_cursor(data: dict[str, Any]) -> str:
 def _decode_cursor(cursor: str) -> dict[str, Any]:
     """Decode a cursor previously produced by `_encode_cursor`."""
     return json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+
+
+def _coerce_sort_value(sort_col: Any, value: Any) -> Any:
+    """Le curseur transporte la valeur de tri en texte : on la reconvertit au type
+    de la colonne (date, datetime) pour que la comparaison SQL soit valide."""
+    try:
+        python_type = sort_col.type.python_type
+    except (AttributeError, NotImplementedError):
+        return value
+    if isinstance(value, str):
+        if python_type is datetime:
+            return datetime.fromisoformat(value)
+        if python_type is date:
+            return date.fromisoformat(value)
+    return value
 
 
 async def paginate(
@@ -56,7 +72,7 @@ async def paginate(
     if cursor:
         cursor_data = _decode_cursor(cursor)
         cursor_id = cursor_data[_CURSOR_ID_KEY]
-        cursor_sort = cursor_data[_CURSOR_SORT_KEY]
+        cursor_sort = _coerce_sort_value(sort_col, cursor_data[_CURSOR_SORT_KEY])
 
         if sort_desc:
             query = query.where(

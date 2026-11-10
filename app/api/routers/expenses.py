@@ -7,6 +7,7 @@ from app.api.deps import DbSession, UserDep
 from app.schemas.common import (
     ExpenseBulkCreate,
     ExpenseCreate,
+    ExpenseDailyTotal,
     ExpenseRead,
     PaginatedResponse,
 )
@@ -63,16 +64,31 @@ async def list_expenses(
     from_date: date | None = None,
     to_date: date | None = None,
     category_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
 ):
     items, next_cursor, has_more = await expense_service.list_by_user(
         user.id, db, from_date, to_date, category_id,
-        cursor=cursor, limit=limit,
+        search=q, cursor=cursor, limit=limit,
     )
     return PaginatedResponse(
         items=items, next_cursor=next_cursor, has_more=has_more,
     )
+
+
+@router.get("/daily", response_model=list[ExpenseDailyTotal])
+async def daily_totals(
+    user: UserDep,
+    db: DbSession,
+    from_date: date,
+    to_date: date,
+    category_id: UUID | None = None,
+):
+    rows = await expense_service.daily_totals(
+        user.id, db, from_date, to_date, category_id
+    )
+    return [ExpenseDailyTotal(date=day, total=total) for day, total in rows]
 
 
 @router.put(

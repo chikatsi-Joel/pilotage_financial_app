@@ -139,6 +139,13 @@ class ExpenseRead(ORMModel):
     note: str | None
 
 
+class ExpenseDailyTotal(BaseModel):
+    """Total depense un jour donne (pour les graphiques, sans charger les lignes)."""
+
+    date: date
+    total: float
+
+
 class SavingsGoalCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=2_000)
