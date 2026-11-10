@@ -904,7 +904,7 @@ export default function AddExpense() {
               <Text style={styles.amountLabel}>Montant de la dépense</Text>
               <View style={styles.amountRow}>
                 <Text style={styles.amountValue}>{amount}</Text>
-                <Text style={styles.amountCurrency}>€</Text>
+                <Text style={styles.amountCurrency}>FCFA</Text>
               </View>
             </View>
 
