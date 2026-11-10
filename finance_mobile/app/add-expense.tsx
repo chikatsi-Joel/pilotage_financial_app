@@ -35,7 +35,12 @@ import {
   toDraftLines,
   toExpensePayloads,
 } from "../src/shared/utils/receiptItems";
-import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
+import {
+  type NumpadKey,
+  groupAmountInput,
+  parseAmount,
+  updateAmountInput,
+} from "../src/shared/utils/amountInput";
 import { formatDisplayDate, parseISODate, toISODate } from "../src/shared/utils/date";
 
 /* ------------------------------------------------------------------ */
@@ -188,7 +193,10 @@ const CategoryPicker = memo(function CategoryPicker({
                   size={22}
                 />
               </View>
-              <Text style={[styles.catLabel, active && styles.catLabelActive]}>
+              <Text
+                numberOfLines={2}
+                style={[styles.catLabel, styles.catLabelLines, active && styles.catLabelActive]}
+              >
                 {cat.label}
               </Text>
             </Pressable>
@@ -899,31 +907,67 @@ export default function AddExpense() {
           </View>
         ) : (
           <>
-            {/* ── Amount display card ── */}
+            {/* ── Montant, juste au-dessus du pavé ── */}
             <View style={styles.amountCard}>
               <Text style={styles.amountLabel}>Montant de la dépense</Text>
               <View style={styles.amountRow}>
-                <Text style={styles.amountValue}>{amount}</Text>
+                <Text
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                  style={[styles.amountValue, amount === "0" && styles.amountPlaceholder]}
+                >
+                  {groupAmountInput(amount)}
+                </Text>
                 <Text style={styles.amountCurrency}>FCFA</Text>
               </View>
             </View>
 
-            {/* ── Date ── */}
-            <View style={styles.dateRow}>
-              <MaterialCommunityIcons
-                color={colors.primary}
-                name="calendar-month-outline"
-                size={20}
-              />
-              <Text style={styles.dateRowLabel}>Date de la dépense</Text>
+            {/* ── Pavé numérique ── */}
+            <Numpad onPress={handleNumpad} />
+
+            {/* ── Catégorie ── */}
+            <CategoryPicker
+              categories={categories}
+              selected={selectedCategory}
+              onSelect={setSelectedCategory}
+            />
+
+            {/* ── Détails : date + note ── */}
+            <Text style={styles.catTitle}>Détails</Text>
+            <View style={styles.detailsCard}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Date de la dépense : ${formatDisplayDate(date)}`}
                 onPress={() => setShowDatePicker((v) => !v)}
-                style={styles.datePill}
+                style={({ pressed }) => [styles.detailRow, pressed && styles.pressed]}
               >
-                <Text style={styles.datePillText}>{formatDisplayDate(date)}</Text>
+                <MaterialCommunityIcons
+                  color={colors.primary}
+                  name="calendar-month-outline"
+                  size={20}
+                />
+                <Text style={styles.dateRowLabel}>Date</Text>
+                <View style={styles.datePill}>
+                  <Text style={styles.datePillText}>{formatDisplayDate(date)}</Text>
+                </View>
               </Pressable>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons
+                  color={colors.primary}
+                  name="note-text-outline"
+                  size={20}
+                />
+                <TextInput
+                  style={styles.noteInput}
+                  placeholder="Ajouter une note (optionnel)"
+                  placeholderTextColor={`${colors.textMuted}80`}
+                  value={note}
+                  onChangeText={setNote}
+                  maxLength={200}
+                  accessibilityLabel="Note (optionnel)"
+                />
+              </View>
             </View>
             {showDatePicker && (
               <>
@@ -947,33 +991,6 @@ export default function AddExpense() {
                 )}
               </>
             )}
-
-            {/* ── Note ── */}
-            <View style={styles.noteRow}>
-              <MaterialCommunityIcons
-                color={colors.textMuted}
-                name="note-text"
-                size={20}
-              />
-              <TextInput
-                style={styles.noteInput}
-                placeholder="Ajouter une note (optionnel)"
-                placeholderTextColor={`${colors.textMuted}80`}
-                value={note}
-                onChangeText={setNote}
-                accessibilityLabel="Note (optionnel)"
-              />
-            </View>
-
-            {/* ── Categories ── */}
-            <CategoryPicker
-              categories={categories}
-              selected={selectedCategory}
-              onSelect={setSelectedCategory}
-            />
-
-            {/* ── Numpad ── */}
-            <Numpad onPress={handleNumpad} />
 
             {/* ── Save ── */}
             {!canSave && !saving && blockReason && !saveError && (
@@ -1141,7 +1158,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     elevation: 2,
     justifyContent: "center",
-    paddingVertical: 36,
+    paddingHorizontal: 16,
+    paddingVertical: 22,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -1153,9 +1171,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 4,
   },
-  amountRow: { alignItems: "flex-end", flexDirection: "row" },
+  amountRow: { alignItems: "flex-end", flexDirection: "row", maxWidth: "100%" },
+  amountPlaceholder: { color: `${colors.textMuted}66` },
   amountValue: {
     color: colors.text,
+    flexShrink: 1,
     fontSize: 48,
     fontWeight: "700",
     letterSpacing: -2,
@@ -1169,7 +1189,19 @@ const styles = StyleSheet.create({
   },
 
   /* Date */
-  dateRow: { alignItems: "center", flexDirection: "row", gap: 10 },
+  detailsCard: {
+    backgroundColor: "#E5EEFF",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  detailRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 54,
+    paddingHorizontal: 14,
+  },
+  detailDivider: { backgroundColor: "#D3E4FE", height: 1, marginLeft: 44 },
   dateRowLabel: { color: colors.text, fontSize: 15, fontWeight: "600", flex: 1 },
   datePill: {
     backgroundColor: `${colors.primary}1A`,
@@ -1182,16 +1214,7 @@ const styles = StyleSheet.create({
   pickerDoneText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
 
   /* Note */
-  noteRow: {
-    alignItems: "center",
-    backgroundColor: "#E5EEFF",
-    borderRadius: 12,
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  noteInput: { color: colors.text, flex: 1, fontSize: 16 },
+  noteInput: { color: colors.text, flex: 1, fontSize: 15, paddingVertical: 14 },
 
   /* Categories */
   catTitle: {
@@ -1205,13 +1228,17 @@ const styles = StyleSheet.create({
   catBtn: {
     alignItems: "center",
     backgroundColor: "#E5EEFF",
+    borderColor: "transparent",
     borderRadius: 12,
+    borderWidth: 1.5,
     gap: 6,
-    padding: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 10,
     width: "22%",
   },
   catBtnActive: {
     backgroundColor: "#E5EEFF",
+    borderColor: colors.primary,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1232,6 +1259,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
   },
+  catLabelLines: { minHeight: 30 },
   catLabelActive: { color: colors.primary, fontWeight: "700" },
   catIconMore: {
     alignItems: "center",
