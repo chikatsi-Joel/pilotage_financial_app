@@ -6,3 +6,6 @@ __pycache__/
 *.py[cod]
 *.db
 .coverage
+
+# Sauvegardes locales de configuration (contiennent des secrets)
+.env*.bak
