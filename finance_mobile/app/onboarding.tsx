@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
@@ -9,14 +9,18 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputProps,
   View,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth } from "../src/shared/api/auth";
 import { saveToken } from "../src/shared/auth/session";
 import { registerForPush } from "../src/shared/notifications/push";
 import {
+  CODE_LENGTH,
+  MIN_PASSWORD_LENGTH,
   authErrorMessage,
   isCodeComplete,
   sanitizeCode,
@@ -27,13 +31,16 @@ import { BrandMark } from "../src/ui/components";
 import { colors } from "../src/ui/theme";
 
 type Mode = "login" | "register" | "verify";
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+type InputHandle = React.ComponentRef<typeof TextInput>;
 
 const RESEND_SECONDS = 60;
+const PLACEHOLDER = "#9AA0B4";
 
 /** Connexion / création de compte. La session est ensuite conservée jusqu'à la déconnexion. */
 export default function Onboarding() {
   const setAuth = useAppStore((s) => s.setAuth);
-  const [mode, setMode] = useState<Mode>("register");
+  const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,6 +50,10 @@ export default function Onboarding() {
   const [info, setInfo] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
+
+  const emailRef = useRef<InputHandle>(null);
+  const passwordRef = useRef<InputHandle>(null);
+  const codeRef = useRef<InputHandle>(null);
 
   const isRegister = mode === "register";
   const isVerify = mode === "verify";
@@ -104,7 +115,7 @@ export default function Onboarding() {
     try {
       if (isRegister) {
         await auth.register({ name: name.trim(), email: email.trim(), password, currency: "XAF" });
-        goVerify(`Un code à 6 chiffres a été envoyé à ${email.trim()}.`);
+        goVerify("Saisissez le code à 6 chiffres reçu par email.");
         setBusy(false);
         return;
       }
@@ -112,7 +123,7 @@ export default function Onboarding() {
     } catch (e) {
       const status = (e as { response?: { status?: number } })?.response?.status;
       if (!isRegister && status === 403) {
-        goVerify("Votre email n'est pas encore vérifié. Un code vous a été envoyé.");
+        goVerify("Votre email n'est pas encore vérifié. Saisissez le code reçu par email.");
       } else {
         setError(authErrorMessage(e));
       }
@@ -120,14 +131,19 @@ export default function Onboarding() {
     }
   }
 
-  function switchMode() {
-    setMode(isRegister ? "login" : "register");
+  function selectMode(next: "login" | "register") {
+    if (next === mode) return;
+    setMode(next);
     setError(null);
     setInfo(null);
   }
 
+  const codeComplete = isCodeComplete(code);
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View pointerEvents="none" style={styles.decorTop} />
+      <View pointerEvents="none" style={styles.decorBottom} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -135,218 +151,429 @@ export default function Onboarding() {
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
+          {/* ── Marque ── */}
           <View style={styles.hero}>
-            <BrandMark />
-            <Text style={styles.title}>
-              {isVerify ? "Vérifiez votre email" : isRegister ? "Créer votre compte" : "Bon retour sur"}
-              {"\n"}
-              {isRegister || isVerify ? null : <Text style={styles.brand}>Lucia</Text>}
-            </Text>
-            <Text style={styles.subtitle}>
-              {isVerify
-                ? info
-                : isRegister
-                ? "Vous resterez connecté sur cet appareil jusqu'à ce que vous vous déconnectiez."
-                : "Connectez-vous pour retrouver vos finances."}
-            </Text>
+            <BrandMark small />
+            <Text style={styles.brand}>Lucia</Text>
+            <Text style={styles.tagline}>Vos finances, sous contrôle.</Text>
           </View>
 
-          {isVerify ? (
-            <View style={styles.form}>
-              <TextInput
-                accessibilityLabel="Code de vérification"
-                autoComplete="one-time-code"
-                keyboardType="number-pad"
-                maxLength={6}
-                onChangeText={(v) => setCode(sanitizeCode(v))}
-                onSubmitEditing={submitCode}
-                placeholder="000000"
-                placeholderTextColor="#9AA0B4"
-                style={[styles.input, styles.codeInput]}
-                textContentType="oneTimeCode"
-                value={code}
-              />
-              {error && (
-                <Text accessibilityLiveRegion="polite" style={styles.error}>
-                  {error}
-                </Text>
-              )}
-              <Pressable
-                accessibilityRole="button"
-                disabled={busy || !isCodeComplete(code)}
-                onPress={submitCode}
-                style={[styles.button, (busy || !isCodeComplete(code)) && styles.buttonDisabled]}
-              >
-                {busy ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>Valider</Text>
+          <View style={styles.card}>
+            {isVerify ? (
+              /* ── Vérification de l'email ── */
+              <View style={styles.form}>
+                <View style={styles.verifyIcon}>
+                  <MaterialCommunityIcons color={colors.primary} name="email-check-outline" size={28} />
+                </View>
+                <View style={styles.headings}>
+                  <Text style={styles.title}>Vérifiez votre email</Text>
+                  <Text style={styles.subtitle}>
+                    {info}
+                    {"\n"}
+                    <Text style={styles.emailStrong}>{email.trim()}</Text>
+                  </Text>
+                </View>
+
+                <Pressable
+                  accessibilityLabel="Code de vérification"
+                  onPress={() => codeRef.current?.focus()}
+                  style={styles.codeRow}
+                >
+                  {Array.from({ length: CODE_LENGTH }, (_, i) => {
+                    const filled = i < code.length;
+                    const current = i === code.length && !codeComplete;
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.codeBox,
+                          filled && styles.codeBoxFilled,
+                          current && styles.codeBoxCurrent,
+                        ]}
+                      >
+                        <Text style={styles.codeDigit}>{code[i] ?? ""}</Text>
+                      </View>
+                    );
+                  })}
+                  <TextInput
+                    ref={codeRef}
+                    autoComplete="one-time-code"
+                    autoFocus
+                    caretHidden
+                    keyboardType="number-pad"
+                    maxLength={CODE_LENGTH}
+                    onChangeText={(v) => setCode(sanitizeCode(v))}
+                    onSubmitEditing={submitCode}
+                    style={styles.codeHidden}
+                    textContentType="oneTimeCode"
+                    value={code}
+                  />
+                </Pressable>
+
+                <ErrorBanner message={error} />
+
+                <PrimaryButton
+                  busy={busy}
+                  disabled={!codeComplete}
+                  label="Valider"
+                  onPress={submitCode}
+                />
+
+                <View style={styles.verifyLinks}>
+                  <Pressable accessibilityRole="button" disabled={cooldown > 0} hitSlop={8} onPress={resend}>
+                    <Text style={[styles.link, cooldown > 0 && styles.linkMuted]}>
+                      {cooldown > 0 ? `Renvoyer le code (${cooldown} s)` : "Renvoyer le code"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => {
+                      setMode("register");
+                      setInfo(null);
+                      setError(null);
+                    }}
+                  >
+                    <Text style={styles.linkMuted}>Changer d'email</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              /* ── Connexion / Inscription ── */
+              <View style={styles.form}>
+                <View accessibilityRole="tablist" style={styles.tabs}>
+                  {(
+                    [
+                      { key: "login", label: "Connexion" },
+                      { key: "register", label: "Inscription" },
+                    ] as const
+                  ).map((t) => {
+                    const active = mode === t.key;
+                    return (
+                      <Pressable
+                        key={t.key}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => selectMode(t.key)}
+                        style={[styles.tab, active && styles.tabActive]}
+                      >
+                        <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.headings}>
+                  <Text style={styles.title}>
+                    {isRegister ? "Créer votre compte" : "Bon retour 👋"}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    {isRegister
+                      ? "Quelques secondes suffisent pour commencer à suivre vos dépenses."
+                      : "Connectez-vous pour retrouver vos finances."}
+                  </Text>
+                </View>
+
+                {isRegister && (
+                  <Field
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    icon="account-outline"
+                    label="Nom"
+                    onChangeText={setName}
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                    placeholder="Votre nom"
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    value={name}
+                  />
                 )}
-              </Pressable>
-              <Pressable accessibilityRole="button" disabled={cooldown > 0} onPress={resend} style={styles.switch}>
-                <Text style={styles.switchText}>
-                  {cooldown > 0 ? `Renvoyer le code dans ${cooldown} s` : <Text style={styles.switchLink}>Renvoyer le code</Text>}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setMode("register");
-                  setInfo(null);
-                  setError(null);
-                }}
-                style={styles.switch}
-              >
-                <Text style={styles.switchText}>Changer d'email</Text>
-              </Pressable>
-            </View>
-          ) : (
-          <View style={styles.form}>
-            {isRegister && (
-              <TextInput
-                accessibilityLabel="Nom"
-                autoCapitalize="words"
-                autoComplete="name"
-                onChangeText={setName}
-                placeholder="Votre nom"
-                placeholderTextColor="#9AA0B4"
-                style={styles.input}
-                value={name}
-              />
+                <Field
+                  ref={emailRef}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  icon="email-outline"
+                  keyboardType="email-address"
+                  label="Email"
+                  onChangeText={setEmail}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  placeholder="vous@exemple.com"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  value={email}
+                />
+                <Field
+                  ref={passwordRef}
+                  autoCapitalize="none"
+                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  autoCorrect={false}
+                  hint={isRegister ? `${MIN_PASSWORD_LENGTH} caractères minimum` : undefined}
+                  icon="lock-outline"
+                  label="Mot de passe"
+                  onChangeText={setPassword}
+                  onSubmitEditing={submit}
+                  placeholder="••••••••"
+                  returnKeyType="go"
+                  right={
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                      hitSlop={10}
+                      onPress={() => setShowPassword((v) => !v)}
+                    >
+                      <MaterialCommunityIcons
+                        color={colors.textMuted}
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
+                        size={20}
+                      />
+                    </Pressable>
+                  }
+                  secureTextEntry={!showPassword}
+                  value={password}
+                />
+
+                <ErrorBanner message={error} />
+
+                <PrimaryButton
+                  busy={busy}
+                  label={isRegister ? "Créer mon compte" : "Se connecter"}
+                  onPress={submit}
+                />
+              </View>
             )}
-            <TextInput
-              accessibilityLabel="Email"
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder="Email"
-              placeholderTextColor="#9AA0B4"
-              style={styles.input}
-              value={email}
-            />
-            <View style={styles.passwordRow}>
-              <TextInput
-                accessibilityLabel="Mot de passe"
-                autoCapitalize="none"
-                autoComplete={isRegister ? "new-password" : "current-password"}
-                autoCorrect={false}
-                onChangeText={setPassword}
-                onSubmitEditing={submit}
-                placeholder="Mot de passe (8 caractères min.)"
-                placeholderTextColor="#9AA0B4"
-                secureTextEntry={!showPassword}
-                style={styles.passwordInput}
-                value={password}
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                hitSlop={8}
-                onPress={() => setShowPassword((v) => !v)}
-              >
-                <Text style={styles.toggle}>{showPassword ? "Masquer" : "Afficher"}</Text>
-              </Pressable>
-            </View>
-
-            {error && (
-              <Text accessibilityLiveRegion="polite" style={styles.error}>
-                {error}
-              </Text>
-            )}
-
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={submit}
-              style={[styles.button, busy && styles.buttonDisabled]}
-            >
-              {busy ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.buttonText}>
-                  {isRegister ? "Créer mon compte" : "Se connecter"}
-                </Text>
-              )}
-            </Pressable>
-
-            <Pressable accessibilityRole="button" onPress={switchMode} style={styles.switch}>
-              <Text style={styles.switchText}>
-                {isRegister ? "Déjà un compte ? " : "Pas encore de compte ? "}
-                <Text style={styles.switchLink}>
-                  {isRegister ? "Se connecter" : "Créer un compte"}
-                </Text>
-              </Text>
-            </Pressable>
           </View>
-          )}
+
+          <View style={styles.footer}>
+            <MaterialCommunityIcons color={colors.textMuted} name="shield-check-outline" size={14} />
+            <Text style={styles.footerText}>
+              Vous restez connecté sur cet appareil jusqu'à la déconnexion.
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Sous-composants                                                    */
+/* ------------------------------------------------------------------ */
+
+interface FieldProps extends TextInputProps {
+  label: string;
+  icon: IconName;
+  hint?: string;
+  right?: React.ReactNode;
+}
+
+/** Champ avec libellé, icône, état de focus et aide facultative. */
+const Field = forwardRef<InputHandle, FieldProps>(function Field(
+  { label, icon, hint, right, onFocus, onBlur, ...input },
+  ref,
+) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
+        <MaterialCommunityIcons
+          color={focused ? colors.primary : colors.textMuted}
+          name={icon}
+          size={20}
+        />
+        <TextInput
+          ref={ref}
+          accessibilityLabel={label}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          placeholderTextColor={PLACEHOLDER}
+          style={styles.input}
+          {...input}
+        />
+        {right}
+      </View>
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    </View>
+  );
+});
+
+function ErrorBanner({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.errorBox}>
+      <MaterialCommunityIcons color={colors.danger} name="alert-circle-outline" size={18} />
+      <Text style={styles.errorText}>{message}</Text>
+    </View>
+  );
+}
+
+function PrimaryButton({
+  label,
+  busy,
+  disabled = false,
+  onPress,
+}: {
+  label: string;
+  busy: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const off = busy || disabled;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: off, busy }}
+      disabled={off}
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, off && styles.buttonDisabled, pressed && styles.buttonPressed]}
+    >
+      {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>{label}</Text>}
+    </Pressable>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Styles                                                             */
+/* ------------------------------------------------------------------ */
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { backgroundColor: colors.background, flex: 1 },
-  content: { flexGrow: 1, gap: 32, justifyContent: "center", padding: 24 },
-  hero: { alignItems: "center", gap: 16 },
-  title: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    textAlign: "center",
+  decorTop: {
+    backgroundColor: `${colors.primary}14`,
+    borderRadius: 999,
+    height: 280,
+    position: "absolute",
+    right: -110,
+    top: -90,
+    width: 280,
   },
-  brand: { color: colors.primary },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    maxWidth: 320,
-    textAlign: "center",
+  decorBottom: {
+    backgroundColor: "#865DD210",
+    borderRadius: 999,
+    bottom: -70,
+    height: 200,
+    left: -80,
+    position: "absolute",
+    width: 200,
   },
-  form: { gap: 12 },
-  input: {
+  content: { flexGrow: 1, gap: 24, justifyContent: "center", padding: 20 },
+
+  hero: { alignItems: "center", gap: 6 },
+  brand: { color: colors.primary, fontSize: 28, fontWeight: "800", letterSpacing: -0.5, marginTop: 6 },
+  tagline: { color: colors.textMuted, fontSize: 14 },
+
+  card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
-    color: colors.text,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    elevation: 3,
+    padding: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
   },
-  passwordRow: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 16,
-    borderWidth: 1,
+  form: { gap: 16 },
+
+  tabs: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
     flexDirection: "row",
-    paddingRight: 16,
+    padding: 4,
   },
-  passwordInput: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  tab: { alignItems: "center", borderRadius: 11, flex: 1, paddingVertical: 10 },
+  tabActive: {
+    backgroundColor: colors.surface,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
   },
-  toggle: { color: colors.primary, fontSize: 13, fontWeight: "700" },
-  error: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  tabText: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
+  tabTextActive: { color: colors.primary, fontWeight: "700" },
+
+  headings: { gap: 4 },
+  title: { color: colors.text, fontSize: 22, fontWeight: "800", letterSpacing: -0.4 },
+  subtitle: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
+  emailStrong: { color: colors.text, fontWeight: "700" },
+
+  field: { gap: 6 },
+  fieldLabel: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  fieldHint: { color: colors.textMuted, fontSize: 12 },
+  inputRow: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+  },
+  inputRowFocused: { backgroundColor: colors.surface, borderColor: colors.primary },
+  input: { color: colors.text, flex: 1, fontSize: 16, paddingVertical: 13 },
+
+  errorBox: {
+    alignItems: "flex-start",
+    backgroundColor: "#FBE9E7",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+  },
+  errorText: { color: colors.danger, flex: 1, fontSize: 13, fontWeight: "600", lineHeight: 18 },
+
   button: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 17,
+    borderRadius: 14,
+    justifyContent: "center",
+    minHeight: 52,
   },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  codeInput: { fontSize: 28, fontWeight: "800", letterSpacing: 8, textAlign: "center" },
-  switch: { alignItems: "center", paddingVertical: 8 },
-  switchText: { color: colors.textMuted, fontSize: 14 },
-  switchLink: { color: colors.primary, fontWeight: "800" },
+  buttonDisabled: { opacity: 0.55 },
+  buttonPressed: { opacity: 0.85 },
+  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+
+  verifyIcon: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: colors.primarySoft,
+    borderRadius: 16,
+    height: 52,
+    justifyContent: "center",
+    width: 52,
+  },
+  codeRow: { flexDirection: "row", gap: 8, justifyContent: "space-between" },
+  codeBox: {
+    alignItems: "center",
+    aspectRatio: 0.85,
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flex: 1,
+    justifyContent: "center",
+  },
+  codeBoxFilled: { backgroundColor: colors.surface, borderColor: `${colors.primary}66` },
+  codeBoxCurrent: { borderColor: colors.primary },
+  codeDigit: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  codeHidden: { ...StyleSheet.absoluteFill, color: "transparent", opacity: 0.01 },
+  verifyLinks: { alignItems: "center", gap: 14, paddingTop: 2 },
+  link: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  linkMuted: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
+
+  footer: { alignItems: "center", flexDirection: "row", gap: 6, justifyContent: "center" },
+  footerText: { color: colors.textMuted, fontSize: 12 },
 });
