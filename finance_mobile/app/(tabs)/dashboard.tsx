@@ -91,7 +91,7 @@ function DonutProgress({ pct }: { pct: number }) {
           cy={DONUT.size / 2}
           fill="none"
           r={DONUT.radius}
-          stroke="#D3BBFF"
+          stroke="#E9DFFB"
           strokeWidth={DONUT.stroke}
         />
         <Circle
@@ -469,13 +469,13 @@ export default function Dashboard() {
     data?.top_drift_categories.slice(0, 4).map(
       (c: CategoryAnalytics): AlertItem => ({
         icon: categoryIcon(c.name),
-        iconBg: c.essential ? "#D3E4FE" : "#FFDAD6",
-        iconColor: c.essential ? "#474552" : "#93000A",
+        iconBg: c.essential ? "#E8EFFC" : "#FDECEA",
+        iconColor: c.essential ? "#5E5B6B" : "#B0544C",
         label: c.name,
         subtitle: "À surveiller",
         pill: formatPct(c.variation_percentage),
-        pillBg: "#EBDCFF",
-        pillColor: "#260059",
+        pillBg: "#F3EDFF",
+        pillColor: "#4B3B7C",
       })
     ) ?? [];
 
@@ -763,8 +763,8 @@ const styles = StyleSheet.create({
   headerActions: { alignItems: "center", flexDirection: "row", gap: 10 },
   incomeBtn: {
     alignItems: "center",
-    backgroundColor: "#E4DFFF",
-    borderColor: colors.primary,
+    backgroundColor: "#F0EDFF",
+    borderColor: "#B9B2E6",
     borderRadius: 18,
     borderWidth: 1,
     height: 36,
@@ -793,18 +793,18 @@ const styles = StyleSheet.create({
 
   /* Solde Restant */
   soldeCard: {
-    backgroundColor: "#E5EEFF",
+    backgroundColor: "#F0F4FF",
     borderRadius: 24,
     gap: 4,
     padding: 24,
     position: "relative",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 16,
   },
   soldeDecorTop: {
-    backgroundColor: `${colors.primary}18`,
+    backgroundColor: `${colors.primary}0D`,
     borderRadius: 999,
     height: 220,
     position: "absolute",
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     width: 220,
   },
   soldeDecorBottom: {
-    backgroundColor: "#865DD215",
+    backgroundColor: "#865DD20B",
     borderRadius: 999,
     height: 160,
     position: "absolute",
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
 
   /* ═══ Épargne Projetée ═══ */
   projectedCard: {
-    backgroundColor: "#E0E7FF",
+    backgroundColor: "#EEF1FF",
     borderRadius: 24,
     gap: 10,
     overflow: "hidden",
@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   projectedDecor: {
-    backgroundColor: `${colors.primary}10`,
+    backgroundColor: `${colors.primary}08`,
     borderRadius: 999,
     height: 180,
     position: "absolute",
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   },
   projectedDelta: {
     alignItems: "center",
-    backgroundColor: colors.success,
+    backgroundColor: "#4F9A78",
     borderRadius: 99,
     flexDirection: "row",
     gap: 4,
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
 
   /* ═══ Épargne Réalisée ═══ */
   savingsCard: {
-    backgroundColor: "#EBDCFF",
+    backgroundColor: "#F4EEFF",
     borderRadius: 24,
     overflow: "hidden",
     padding: 20,
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
     width: 160,
   },
   savingsDecorBottom: {
-    backgroundColor: "#572BA015",
+    backgroundColor: "#572BA00B",
     borderRadius: 999,
     height: 96,
     position: "absolute",
@@ -1007,20 +1007,20 @@ const styles = StyleSheet.create({
   },
   savingsLeft: { flex: 1, gap: 2 },
   savingsLabel: {
-    color: "#260059",
+    color: "#4B3B7C",
     fontSize: 14,
     fontWeight: "500",
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   savingsAmount: {
-    color: "#260059",
+    color: "#3A2D66",
     fontSize: 24,
     fontWeight: "600",
     lineHeight: 32,
   },
   savingsGoal: {
-    color: "#572BA0",
+    color: "#6E55A8",
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
