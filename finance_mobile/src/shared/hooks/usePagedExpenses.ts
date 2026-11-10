@@ -4,6 +4,9 @@ import { expenses as expensesApi } from "../api/expenses";
 import type { Expense } from "../types";
 import { appendUnique } from "../utils/paging";
 
+/** Nombre de dépenses chargées par page. */
+export const PAGE_SIZE = 10;
+
 interface Options {
   userId: string | null;
   from: string;
@@ -27,7 +30,7 @@ export function usePagedExpenses({
   to,
   categoryId,
   q,
-  pageSize = 30,
+  pageSize = PAGE_SIZE,
   enabled = true,
 }: Options) {
   const [items, setItems] = useState<Expense[]>([]);

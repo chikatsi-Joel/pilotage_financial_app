@@ -66,7 +66,7 @@ async def list_expenses(
     category_id: UUID | None = None,
     q: str | None = Query(default=None, max_length=100),
     cursor: str | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=10, ge=1, le=100),
 ):
     items, next_cursor, has_more = await expense_service.list_by_user(
         user.id, db, from_date, to_date, category_id,

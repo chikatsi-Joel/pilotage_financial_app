@@ -66,7 +66,7 @@ def _like_pattern(text: str) -> str:
 async def list_by_user(
     user_id: UUID, db: AsyncSession, from_date: date | None = None,
     to_date: date | None = None, category_id: UUID | None = None,
-    *, search: str | None = None, cursor: str | None = None, limit: int = 20,
+    *, search: str | None = None, cursor: str | None = None, limit: int = 10,
 ) -> tuple[list[Expense], str | None, bool]:
     """Depenses de l'utilisateur, de la plus recente a la plus ancienne (par date).
 
