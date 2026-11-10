@@ -30,6 +30,7 @@ import type { CategoryAnalytics } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 import { formatPct } from "../src/shared/utils/format";
+import { buildSpendingSeries } from "../src/shared/utils/spendingChart";
 
 /* ------------------------------------------------------------------ */
 //  Types
@@ -129,15 +130,15 @@ const FadeIn = ({
 
 const SpendingChart = ({
   baseline = 0,
-  forecast = 0,
   daily = [],
   period,
+  currency,
   tint = colors.primary,
 }: {
   baseline?: number;
-  forecast?: number;
   daily?: DailyTotal[];
   period: string;
+  currency: string;
   tint?: string;
 }) => {
   const pathOpacity = useRef(new Animated.Value(0)).current;
@@ -157,40 +158,24 @@ const SpendingChart = ({
   const plotW = W - PAD.l - PAD.r;
   const plotH = H - PAD.t - PAD.b;
 
-  const [y, m] = (period || "2026-01").split("-").map(Number);
-  const lastDay = new Date(y, m || 1, 0).getDate() || 30;
-  const now = new Date();
-  const todayDay = Math.max(1, Math.min(now.getDate(), lastDay));
-
-  const cumByDay = new Map<number, number>();
-  let running = 0;
-  const sorted = [...daily]
-    .filter((d) => d.date)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  for (const d of sorted) {
-    const day = new Date(d.date).getDate();
-    running += d.total;
-    cumByDay.set(day, running);
-  }
-  const cumToday = running;
-  const maxVal = Math.max(cumToday, baseline, forecast, 1);
+  const { lastDay, todayDay, real, cumulative, projectedEnd } = React.useMemo(
+    () => buildSpendingSeries({ period: period || "2026-01", daily, baseline, today: new Date() }),
+    [period, daily, baseline],
+  );
+  const maxVal = Math.max(cumulative, baseline, projectedEnd ?? 0, 1);
 
   const x = (day: number) => PAD.l + (day / lastDay) * plotW;
   const yFor = (v: number) => PAD.t + plotH - (v / maxVal) * plotH;
 
-  const realPoints: Array<[number, number]> = [[0, 0]];
-  let acc = 0;
-  for (let d = 1; d <= todayDay; d++) {
-    const v = cumByDay.get(d);
-    if (v !== undefined) acc = v;
-    realPoints.push([d, acc]);
-  }
-  const realPath = realPoints
+  const realPath = real
     .map(([d, v], i) => `${i ? "L" : "M"} ${x(d).toFixed(1)} ${yFor(v).toFixed(1)}`)
     .join(" ");
 
   const habPath = `M ${x(0).toFixed(1)} ${yFor(0).toFixed(1)} L ${x(lastDay).toFixed(1)} ${yFor(baseline).toFixed(1)}`;
-  const projPath = `M ${x(todayDay).toFixed(1)} ${yFor(acc).toFixed(1)} L ${x(lastDay).toFixed(1)} ${yFor(forecast).toFixed(1)}`;
+  const projPath =
+    projectedEnd === null
+      ? null
+      : `M ${x(todayDay).toFixed(1)} ${yFor(cumulative).toFixed(1)} L ${x(lastDay).toFixed(1)} ${yFor(projectedEnd).toFixed(1)}`;
 
   const gridYs = [0.25, 0.5, 0.75].map((f) => PAD.t + plotH * f);
 
@@ -209,7 +194,7 @@ const SpendingChart = ({
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
-            <Text style={styles.legendText}>Projection</Text>
+            <Text style={styles.legendText}>Fin de mois</Text>
           </View>
         </View>
       </View>
@@ -242,19 +227,20 @@ const SpendingChart = ({
             Habituel
           </SvgText>
 
-          {/* Projection */}
-          <Path
-            d={projPath}
-            stroke={colors.accent}
-            strokeDasharray="2 4"
-            strokeWidth="2"
-            fill="none"
-            opacity="0.75"
-          />
-          <Circle cx={x(lastDay)} cy={yFor(forecast)} r="3" fill={colors.accent} opacity="0.8" />
-          <SvgText x={x(lastDay) - 4} y={Math.max(yFor(forecast) - 8, 10)} fill={colors.accent} fontSize="10" textAnchor="end">
-            Proj.
-          </SvgText>
+          {/* Projection de fin de mois (mois en cours uniquement) */}
+          {projPath && projectedEnd !== null ? (
+            <>
+              <Path
+                d={projPath}
+                stroke={colors.accent}
+                strokeDasharray="2 4"
+                strokeWidth="2"
+                fill="none"
+                opacity="0.75"
+              />
+              <Circle cx={x(lastDay)} cy={yFor(projectedEnd)} r="3" fill={colors.accent} opacity="0.8" />
+            </>
+          ) : null}
 
           {/* Réel (cumul du mois) */}
           <Path
@@ -265,9 +251,23 @@ const SpendingChart = ({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <Circle cx={x(todayDay)} cy={yFor(acc)} r="4" fill={tint} stroke="#FFFFFF" strokeWidth="2" />
+          <Circle cx={x(todayDay)} cy={yFor(cumulative)} r="4" fill={tint} stroke="#FFFFFF" strokeWidth="2" />
         </Svg>
       </Animated.View>
+
+      <View style={styles.chartFooter}>
+        <Text style={styles.chartFooterText}>
+          Dépensé : {formatMoney(cumulative, currency)}
+        </Text>
+        {projectedEnd !== null ? (
+          <Text style={[styles.chartFooterText, { color: colors.accent }]}>
+            Fin de mois estimée : ≈ {formatMoney(projectedEnd, currency)}
+          </Text>
+        ) : null}
+        {baseline > 0 ? (
+          <Text style={styles.chartFooterText}>Habituel : {formatMoney(baseline, currency)}</Text>
+        ) : null}
+      </View>
     </View>
   );
 };
@@ -306,7 +306,6 @@ export default function BudgetDetail() {
     from,
     to,
     categoryId: listCategoryId,
-    pageSize: 20,
     enabled: !!listCategoryId,
   });
 
@@ -534,7 +533,7 @@ export default function BudgetDetail() {
         <FadeIn delay={300}>
           <SpendingChart
             baseline={baseline}
-            forecast={projection}
+            currency={currency}
             daily={daily}
             period={period}
             tint={tint}
@@ -909,6 +908,18 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500",
+  },
+  chartFooter: {
+    columnGap: 14,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 8,
+    rowGap: 2,
+  },
+  chartFooterText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
   },
 
   /* Perspectives */

@@ -21,6 +21,8 @@ const { updateAmountInput, parseAmount } = load("src/shared/utils/amountInput.ts
 const { toISODate, parseISODate, monthLabel } = load("src/shared/utils/date.ts");
 const { formatPct, capitalize } = load("src/shared/utils/format.ts");
 const { appendUnique, groupByDate } = load("src/shared/utils/paging.ts");
+const { initialsOf } = load("src/shared/utils/profile.ts");
+const { buildSpendingSeries } = load("src/shared/utils/spendingChart.ts");
 
 test("updateAmountInput builds an amount digit by digit", () => {
   let v = "0";
@@ -196,4 +198,55 @@ test("groupByDate merges a day split across two pages once they are appended", (
   const groups = groupByDate(appendUnique(page1, page2));
   assert.equal(groups.length, 2);
   assert.equal(groups[0].items.length, 2);
+});
+
+test("initialsOf builds avatar initials from a display name", () => {
+  assert.equal(initialsOf("Jean Dupont"), "JD");
+  assert.equal(initialsOf("  marie  claire  durand "), "MD");
+  assert.equal(initialsOf("joel"), "J");
+  assert.equal(initialsOf("Émile"), "É");
+  assert.equal(initialsOf(""), "?");
+  assert.equal(initialsOf(null), "?");
+});
+
+test("buildSpendingSeries projects the month end from pace and habit", () => {
+  const daily = [
+    { date: "2026-11-02", total: 100 },
+    { date: "2026-11-05", total: 100 },
+  ];
+  const s = buildSpendingSeries({ period: "2026-11", daily, baseline: 600, today: new Date(2026, 10, 10) });
+  assert.equal(s.lastDay, 30);
+  assert.equal(s.todayDay, 10);
+  assert.equal(s.cumulative, 200);
+  assert.deepEqual(s.real[0], [0, 0]);
+  assert.deepEqual(s.real[2], [2, 100]);
+  assert.deepEqual(s.real[10], [10, 200]);
+  // pace 20/day * 20 days = 400, habit remaining = 400 -> 200 + 400
+  assert.equal(Math.round(s.projectedEnd), 600);
+});
+
+test("buildSpendingSeries never projects below what is already spent", () => {
+  const s = buildSpendingSeries({
+    period: "2026-11",
+    daily: [{ date: "2026-11-01", total: 900 }],
+    baseline: 300,
+    today: new Date(2026, 10, 3),
+  });
+  assert.ok(s.projectedEnd >= 900);
+});
+
+test("buildSpendingSeries handles past and future months", () => {
+  const past = buildSpendingSeries({
+    period: "2026-09",
+    daily: [{ date: "2026-09-30", total: 50 }],
+    baseline: 100,
+    today: new Date(2026, 10, 10),
+  });
+  assert.equal(past.todayDay, 30);
+  assert.equal(past.cumulative, 50);
+  assert.equal(past.projectedEnd, null);
+
+  const future = buildSpendingSeries({ period: "2026-12", daily: [], baseline: 100, today: new Date(2026, 10, 10) });
+  assert.equal(future.todayDay, 0);
+  assert.equal(future.projectedEnd, null);
 });
