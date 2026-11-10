@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import {
-  Alert,
   ActivityIndicator,
   Pressable,
   RefreshControl,
@@ -15,6 +14,7 @@ import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 
 import { colors } from "../../src/ui/theme";
+import { ProfileMenu } from "../../src/ui/ProfileMenu";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
 import { signOut } from "../../src/shared/auth/signOut";
@@ -414,17 +414,9 @@ export default function Dashboard() {
   const period = useAppStore((s) => s.currentPeriod);
   const userName = useAppStore((s) => s.userName);
 
-  const confirmSignOut = useCallback(() => {
-    Alert.alert(
-      userName ?? "Mon compte",
-      "Vous resterez connecté jusqu'à ce que vous vous déconnectiez.",
-      [
-        { text: "Annuler", style: "cancel" },
-        { text: "Notifications", onPress: () => router.push("/notifications") },
-        { text: "Se déconnecter", style: "destructive", onPress: () => void signOut() },
-      ],
-    );
-  }, [userName]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const openNotifications = useCallback(() => router.push("/notifications"), []);
 
   const [data, setData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -561,7 +553,7 @@ export default function Dashboard() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Mon compte"
-              onPress={confirmSignOut}
+              onPress={() => setMenuOpen(true)}
               style={styles.avatar}
             >
               <MaterialCommunityIcons
@@ -570,6 +562,13 @@ export default function Dashboard() {
                 size={18}
               />
             </Pressable>
+            <ProfileMenu
+              name={userName}
+              onClose={closeMenu}
+              onNotifications={openNotifications}
+              onSignOut={signOut}
+              visible={menuOpen}
+            />
           </View>
         </View>
 
