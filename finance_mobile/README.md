@@ -1,6 +1,6 @@
-# Finance mobile
+# Lucia (mobile)
 
-Client Expo / React Native du backend de pilotage financier.
+Client Expo / React Native de Lucia, assistant de pilotage financier.
 
 ## Configuration locale
 

@@ -1,5 +1,5 @@
 
-# Pilotage Finances - API Design Reference
+# Lucia - API Design Reference
 
 Backend API pour le pilotage personnalisé des finances personnelles.
 

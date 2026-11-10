@@ -99,7 +99,7 @@ async def _send_code(user: User, db: AsyncSession) -> None:
 async def _deliver_code(user: User, code: str) -> None:
     await mailer.send_email(
         user.email or "",
-        "Votre code de vérification Pilotage",
+        "Votre code de vérification Lucia",
         f"Bonjour {user.name},\n\nVotre code de vérification est : {code}\n\n"
         f"Il est valable {int(CODE_TTL.total_seconds() // 60)} minutes. "
         "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.\n",

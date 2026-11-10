@@ -141,7 +141,7 @@ export default function Onboarding() {
             <Text style={styles.title}>
               {isVerify ? "Vérifiez votre email" : isRegister ? "Créer votre compte" : "Bon retour sur"}
               {"\n"}
-              {isRegister || isVerify ? null : <Text style={styles.brand}>Pilotage</Text>}
+              {isRegister || isVerify ? null : <Text style={styles.brand}>Lucia</Text>}
             </Text>
             <Text style={styles.subtitle}>
               {isVerify

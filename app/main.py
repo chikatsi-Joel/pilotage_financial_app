@@ -40,9 +40,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Personal Finance Pilotage API",
+    title="Lucia API",
     version="1.0.0",
-    description="Backend FastAPI du pilotage personnalisé des finances personnelles.",
+    description="Backend FastAPI de Lucia, assistant de pilotage des finances personnelles.",
     lifespan=lifespan,
 )
 register_error_handlers(app)

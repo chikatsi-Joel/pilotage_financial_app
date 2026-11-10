@@ -43,7 +43,7 @@ export async function registerForPush(userId: string): Promise<PushStatus> {
 
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
-        name: "Pilotage",
+        name: "Lucia",
         importance: Notifications.AndroidImportance.DEFAULT,
       });
     }

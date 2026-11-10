@@ -42,7 +42,7 @@ async def send_test(user: UserDep, db: DbSession):
     sent = await push_service.send_to_user(
         user.id,
         "Notifications activées",
-        "Vous recevrez ici vos alertes et résumés Pilotage.",
+        "Vous recevrez ici vos alertes et résumés Lucia.",
         db,
         {"route": "/dashboard", "kind": "test"},
     )
