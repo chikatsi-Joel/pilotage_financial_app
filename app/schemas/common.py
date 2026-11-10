@@ -268,6 +268,8 @@ class WhatIfRead(BaseModel):
     period: str
     category_name: str
     current_amount: float
+    reference_amount: float
+    reference_basis: str
     reduction_percent: float
     new_target: float
     monthly_saving: float

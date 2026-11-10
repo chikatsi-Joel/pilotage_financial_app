@@ -10,6 +10,7 @@ import {
 import Slider from "@react-native-community/slider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 
 import { analytics as analyticsApi } from "../src/shared/api/analytics";
 import { budget as budgetApi } from "../src/shared/api/budget";
@@ -24,6 +25,13 @@ function percentLabel(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+/** Résultat de simulation rattaché aux paramètres qui l'ont produit. */
+interface Simulated {
+  categoryId: string;
+  percent: number;
+  data: WhatIfResult;
+}
+
 export default function Simulation() {
   const userId = useAppStore((s) => s.userId);
   const period = useAppStore((s) => s.currentPeriod);
@@ -32,91 +40,110 @@ export default function Simulation() {
   const [categories, setCategories] = useState<CategoryAnalytics[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [percent, setPercent] = useState(20);
-  const [result, setResult] = useState<WhatIfResult | null>(null);
-  const [currentSavings, setCurrentSavings] = useState<number | null>(null);
+  const [simulated, setSimulated] = useState<Simulated | null>(null);
+  const [simError, setSimError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [simulating, setSimulating] = useState(false);
 
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [deciding, setDeciding] = useState(false);
+  const [decideError, setDecideError] = useState<string | null>(null);
 
   const selected = useMemo(
     () => categories.find((c) => c.category_id === selectedId) ?? null,
     [categories, selectedId],
   );
 
+  /* N'afficher un résultat que s'il correspond exactement aux réglages visibles. */
+  const result =
+    simulated && simulated.categoryId === selectedId && simulated.percent === percent
+      ? simulated.data
+      : null;
+
+  const recommendation = useMemo(() => {
+    if (!selected) return null;
+    const forCategory = recommendations.filter((r) => r.category_id === selected.category_id);
+    return forCategory.find((r) => r.status === "PROPOSED") ?? forCategory[0] ?? null;
+  }, [recommendations, selected]);
+
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setLoadError(null);
     try {
-      const [cats, dash, recs] = await Promise.all([
+      const [cats, recs] = await Promise.all([
         analyticsApi.categories(userId, period),
-        analyticsApi.dashboard(userId, period),
         budgetApi.listRecommendations(userId, period).catch(() => null),
       ]);
-
-      setCategories(cats);
-      setCurrentSavings(dash.savings);
+      /* Une catégorie sans dépense ni historique donnerait 0 partout. */
+      const useful = cats.filter((c) => c.current_amount > 0 || c.baseline_amount > 0);
+      setCategories(useful);
       setSelectedId((prev) =>
-        prev && cats.some((c) => c.category_id === prev) ? prev : (cats[0]?.category_id ?? null),
+        prev && useful.some((c) => c.category_id === prev) ? prev : (useful[0]?.category_id ?? null),
       );
-      setRecommendation(
-        recs?.items.find((r) => r.status === "PROPOSED") ?? recs?.items[0] ?? null,
-      );
+      setRecommendations(recs?.items ?? []);
     } catch {
       setCategories([]);
+      setLoadError("Impossible de charger vos catégories. Vérifiez la connexion au serveur.");
     } finally {
       setLoading(false);
     }
   }, [userId, period]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   useEffect(() => {
     if (!userId || !selectedId) {
-      setResult(null);
+      setSimulating(false);
       return;
     }
     const categoryId = selectedId;
+    const requested = percent;
     let cancelled = false;
     setSimulating(true);
+    setSimError(null);
     const timer = setTimeout(async () => {
       try {
-        const res = await whatIfApi.simulate(userId, period, {
+        const data = await whatIfApi.simulate(userId, period, {
           category_id: categoryId,
-          reduction_percent: percent,
+          reduction_percent: requested,
         });
-        if (!cancelled) setResult(res);
+        if (!cancelled) setSimulated({ categoryId, percent: requested, data });
       } catch {
-        if (!cancelled) setResult(null);
+        if (!cancelled) setSimError("Simulation impossible pour le moment. Réessayez.");
       } finally {
         if (!cancelled) setSimulating(false);
       }
-    }, 350);
+    }, 300);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
   }, [userId, period, selectedId, percent]);
 
-  const projected = (currentSavings ?? 0) + (result?.monthly_saving ?? 0);
   const gain = result?.monthly_saving ?? 0;
+  const rate = result?.projected_savings_rate ?? null;
+  const pending = !result && !simError;
 
   const decide = useCallback(
     async (status: "ACCEPTED" | "REJECTED") => {
       if (!userId || !recommendation) return;
       setDeciding(true);
+      setDecideError(null);
       try {
         const updated = await budgetApi.updateRecommendationStatus(
           userId,
           recommendation.id,
           status,
         );
-        setRecommendation(updated);
+        setRecommendations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       } catch {
-        /* silencieux : la carte reste dans son état précédent */
+        setDecideError("Impossible d'enregistrer votre choix. Réessayez.");
       } finally {
         setDeciding(false);
       }
@@ -142,19 +169,29 @@ export default function Simulation() {
         <View style={styles.hero}>
           <View style={styles.heroDeco1} />
           <View style={styles.heroDeco2} />
-          <Text style={styles.heroLabel}>Épargne projetée (fin de mois)</Text>
+          <Text style={styles.heroLabel}>Économie possible par mois</Text>
           <View style={styles.heroRow}>
-            <Text style={styles.heroAmount}>{formatMoney(projected, currency)}</Text>
-            {gain > 0 ? (
+            <Text adjustsFontSizeToFit numberOfLines={1} style={styles.heroAmount}>
+              {pending ? "…" : `+${formatMoney(gain, currency)}`}
+            </Text>
+            {simulating ? <ActivityIndicator color="#FFFFFF" /> : null}
+          </View>
+          <View style={styles.heroMeta}>
+            <View style={styles.heroBadge}>
+              <MaterialCommunityIcons color="#FFFFFF" name="calendar-range" size={14} />
+              <Text style={styles.heroBadgeText}>
+                {pending ? "…" : `${formatMoney(result?.annual_saving ?? 0, currency)} par an`}
+              </Text>
+            </View>
+            {rate !== null ? (
               <View style={styles.heroBadge}>
-                <MaterialCommunityIcons color="#FFFFFF" name="trending-up" size={14} />
-                <Text style={styles.heroBadgeText}>+{formatMoney(gain, currency)}</Text>
+                <MaterialCommunityIcons color="#FFFFFF" name="piggy-bank-outline" size={14} />
+                <Text style={styles.heroBadgeText}>
+                  Taux d'épargne : {Math.round(rate * 100)} %
+                </Text>
               </View>
             ) : null}
           </View>
-          {simulating ? (
-            <ActivityIndicator color="#FFFFFF" style={styles.heroSpinner} />
-          ) : null}
         </View>
 
         {/* Scenarios */}
@@ -168,6 +205,13 @@ export default function Simulation() {
           {loading ? (
             <View style={styles.card}>
               <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : loadError ? (
+            <View style={styles.card}>
+              <Text style={styles.errorText}>{loadError}</Text>
+              <Pressable onPress={() => void load()} style={styles.retry}>
+                <Text style={styles.retryText}>Réessayer</Text>
+              </Pressable>
             </View>
           ) : categories.length === 0 ? (
             <View style={styles.card}>
@@ -215,7 +259,7 @@ export default function Simulation() {
                 onValueChange={(v) => setPercent(v as number)}
                 minimumTrackTintColor={colors.primary}
                 maximumTrackTintColor={colors.border}
-                thumbTintColor="#FFFFFF"
+                thumbTintColor={colors.primary}
               />
               <View style={styles.sliderRange}>
                 <Text style={styles.sliderRangeText}>0%</Text>
@@ -224,24 +268,32 @@ export default function Simulation() {
 
               <View style={styles.divider} />
 
+              {simError ? <Text style={styles.errorText}>{simError}</Text> : null}
               <View style={styles.resultRow}>
                 <ResultCell
-                  label="Actuel"
-                  value={formatMoney(selected?.current_amount ?? 0, currency)}
+                  label="Dépense de référence"
+                  sub={
+                    result
+                      ? result.reference_basis === "habituel"
+                        ? "moyenne des mois précédents"
+                        : "dépenses de ce mois"
+                      : undefined
+                  }
+                  value={result ? `${formatMoney(result.reference_amount, currency)}/mois` : "…"}
                 />
                 <ResultCell
                   label="Nouvelle cible"
-                  value={formatMoney(result?.new_target ?? 0, currency)}
+                  value={result ? `${formatMoney(result.new_target, currency)}/mois` : "…"}
                 />
               </View>
               <View style={[styles.resultRow, styles.resultRowLast]}>
                 <ResultCell
                   label="Économie mensuelle"
-                  value={formatMoney(result?.monthly_saving ?? 0, currency)}
+                  value={result ? formatMoney(result.monthly_saving, currency) : "…"}
                 />
                 <ResultCell
                   label="Économie annuelle"
-                  value={formatMoney(result?.annual_saving ?? 0, currency)}
+                  value={result ? formatMoney(result.annual_saving, currency) : "…"}
                 />
               </View>
             </View>
@@ -251,6 +303,7 @@ export default function Simulation() {
         {/* Recommandation */}
         {recommendation ? (
           <View style={styles.reco}>
+            <Text style={styles.recoEyebrow}>Recommandation pour cette catégorie</Text>
             <View style={styles.recoTop}>
               <View style={styles.recoIcon}>
                 <MaterialCommunityIcons
@@ -267,10 +320,14 @@ export default function Simulation() {
                 </Text>
               </View>
             </View>
+            {decideError ? <Text style={styles.errorText}>{decideError}</Text> : null}
             <View style={styles.recoBtns}>
               <Pressable
                 disabled={deciding || recommendation.status === "REJECTED"}
-                style={styles.btnIgnore}
+                style={[
+                  styles.btnIgnore,
+                  (deciding || recommendation.status === "REJECTED") && { opacity: 0.6 },
+                ]}
                 onPress={() => decide("REJECTED")}
               >
                 <Text style={styles.btnIgnoreText}>
@@ -300,10 +357,11 @@ export default function Simulation() {
   );
 }
 
-const ResultCell = ({ label, value }: { label: string; value: string }) => (
+const ResultCell = ({ label, value, sub }: { label: string; value: string; sub?: string }) => (
   <View style={styles.resultCell}>
     <Text style={styles.resultLabel}>{label}</Text>
     <Text style={styles.resultValue}>{value}</Text>
+    {sub ? <Text style={styles.resultSub}>{sub}</Text> : null}
   </View>
 );
 
@@ -337,9 +395,10 @@ const styles = StyleSheet.create({
   heroDeco2: {
     backgroundColor: "rgba(255,255,255,0.10)",
     borderRadius: 999,
+    bottom: -32,
     height: 96,
     left: -32,
-    bottom: -32,
+    position: "absolute",
     width: 96,
   },
   heroLabel: {
@@ -357,12 +416,20 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     flexDirection: "row",
     gap: 4,
-    marginBottom: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
   },
   heroBadgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
-  heroSpinner: { marginTop: 4 },
+  heroMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  errorText: { color: colors.danger, fontSize: 13, fontWeight: "600", marginBottom: 8 },
+  retry: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.primary,
+    borderRadius: 99,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  retryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
 
   section: { gap: 4, marginTop: 28 },
   sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "600", paddingHorizontal: 16 },
@@ -400,6 +467,7 @@ const styles = StyleSheet.create({
   resultCell: { flex: 1, gap: 2 },
   resultLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
   resultValue: { color: colors.text, fontSize: 16, fontWeight: "800" },
+  resultSub: { color: colors.textMuted, fontSize: 11 },
 
   reco: {
     backgroundColor: "#DCE9FF",
@@ -408,6 +476,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 20,
     padding: 16,
+  },
+  recoEyebrow: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   recoTop: { flexDirection: "row", gap: 12 },
   recoIcon: {

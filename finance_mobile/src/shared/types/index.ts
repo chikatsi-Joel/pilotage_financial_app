@@ -305,6 +305,10 @@ export interface WhatIfResult {
   period: string;
   category_name: string;
   current_amount: number;
+  /** Montant mensuel auquel la réduction s'applique. */
+  reference_amount: number;
+  /** "habituel" = moyenne des mois précédents, "mois_en_cours" = dépenses du mois. */
+  reference_basis: "habituel" | "mois_en_cours";
   reduction_percent: number;
   new_target: number;
   monthly_saving: number;
