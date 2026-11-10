@@ -29,6 +29,7 @@ import type { SavingsGoal } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 import { capitalize } from "../src/shared/utils/format";
+import { buildSavingsTrajectory, type SavingsTrajectory } from "../src/shared/utils/savingsTrajectory";
 
 /* ------------------------------------------------------------------ */
 //  Helpers
@@ -81,7 +82,16 @@ const FadeIn = ({
 //  Graphique SVG
 /* ------------------------------------------------------------------ */
 
-const TrajectoryChart = ({ target = 0 }: { target?: number }) => {
+const shortMonth = (t: number) =>
+  new Date(t).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+
+const TrajectoryChart = ({
+  traj,
+  currency,
+}: {
+  traj: SavingsTrajectory;
+  currency: string;
+}) => {
   const pathOpacity = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -93,65 +103,186 @@ const TrajectoryChart = ({ target = 0 }: { target?: number }) => {
     }).start();
   }, [pathOpacity]);
 
+  const W = 300;
+  const H = 130;
+  const PAD = { l: 6, r: 10, t: 16, b: 6 };
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+  const maxVal = Math.max(traj.target, traj.current, traj.paceEnd?.[1] ?? 0, 1) * 1.05;
+
+  /* Échelle en deux parties : le passé (début → aujourd'hui) occupe toujours PAST_SHARE de la
+     largeur, sinon quelques jours de versements disparaissent face à une échéance lointaine. */
+  const PAST_SHARE = 0.35;
+  const frac = (t: number) => {
+    if (t <= traj.today) {
+      return ((t - traj.start) / Math.max(traj.today - traj.start, 1)) * PAST_SHARE;
+    }
+    return PAST_SHARE + ((t - traj.today) / Math.max(traj.end - traj.today, 1)) * (1 - PAST_SHARE);
+  };
+  const x = (t: number) => PAD.l + Math.min(Math.max(frac(t), 0), 1) * plotW;
+  const y = (v: number) => PAD.t + plotH - (v / maxVal) * plotH;
+  const pct = (t: number) => Math.min(Math.max(frac(t), 0), 1) * 100;
+
+  /* Le cumul monte par paliers à chaque versement. */
+  const [first, ...rest] = traj.real;
+  let realPath = `M ${x(first[0]).toFixed(1)} ${y(first[1]).toFixed(1)}`;
+  for (const [t, v] of rest) {
+    realPath += ` H ${x(t).toFixed(1)} V ${y(v).toFixed(1)}`;
+  }
+  const areaPath = `${realPath} V ${y(0).toFixed(1)} H ${x(first[0]).toFixed(1)} Z`;
+
+  const showNeeded = traj.neededPace !== null && traj.deadline > traj.today;
+  const neededPath = showNeeded
+    ? `M ${x(traj.today).toFixed(1)} ${y(traj.current).toFixed(1)} L ${x(traj.deadline).toFixed(1)} ${y(traj.target).toFixed(1)}`
+    : null;
+  const pacePath = traj.paceEnd
+    ? `M ${x(traj.today).toFixed(1)} ${y(traj.current).toFixed(1)} L ${x(traj.paceEnd[0]).toFixed(1)} ${y(traj.paceEnd[1]).toFixed(1)}`
+    : null;
+
+  const status: { text: string; tone: string } = traj.reached
+    ? { text: "Objectif atteint, bravo !", tone: colors.success }
+    : traj.deadline <= traj.today
+      ? { text: "L'échéance est dépassée : choisissez une nouvelle date pour cet objectif.", tone: colors.warning }
+      : traj.reachDate === null
+        ? {
+            text: `Aucun versement ces 3 derniers mois. Il faudrait ≈ ${formatMoney(traj.neededPace ?? 0, currency)}/mois pour tenir l'échéance.`,
+            tone: colors.warning,
+          }
+        : traj.reachDate <= traj.deadline
+          ? { text: `À ce rythme, objectif atteint vers ${monthLabel(new Date(traj.reachDate).toISOString())}, avant l'échéance.`, tone: colors.success }
+          : {
+              text: `À ce rythme, objectif atteint vers ${monthLabel(new Date(traj.reachDate).toISOString())}, après l'échéance. Il faudrait ≈ ${formatMoney(traj.neededPace ?? 0, currency)}/mois.`,
+              tone: colors.warning,
+            };
+
+  const ticks = [
+    { t: traj.start, label: shortMonth(traj.start) },
+    { t: traj.today, label: "Auj." },
+    { t: traj.deadline, label: shortMonth(traj.deadline) },
+  ].filter((tick, i, all) => i === 0 || Math.abs(pct(tick.t) - pct(all[i - 1].t)) > 14);
+
   return (
     <View style={styles.chartBox}>
       <View style={styles.chartHeader}>
         <Text style={styles.chartTitle}>Trajectoire & Projection</Text>
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-            <Text style={styles.legendText}>Optimisé</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View
-              style={[
-                styles.legendDot,
-                { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.textMuted, borderStyle: "dashed" },
-              ]}
-            />
-            <Text style={styles.legendText}>Actuel</Text>
-          </View>
+      </View>
+      <View style={styles.chartLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+          <Text style={styles.legendText}>Réel</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.accent, opacity: 0.6 }]} />
+          <Text style={styles.legendText}>Rythme actuel</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendDot,
+              { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.textMuted, borderStyle: "dashed" },
+            ]}
+          />
+          <Text style={styles.legendText}>Nécessaire</Text>
         </View>
       </View>
 
-      <Animated.View style={{ opacity: pathOpacity, height: 160 }}>
-        <Svg viewBox="0 0 300 120" width="100%" height="100%">
+      <Animated.View style={{ opacity: pathOpacity, height: 170 }}>
+        <Svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
           <Defs>
-            <LinearGradient id="optFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={colors.primary} stopOpacity={0.25} />
+            <LinearGradient id="realFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity={0.22} />
               <Stop offset="100%" stopColor={colors.primary} stopOpacity={0} />
             </LinearGradient>
           </Defs>
 
-          {/* Grid */}
-          <Line x1="0" y1="30" x2="300" y2="30" stroke="#C8C4D550" strokeDasharray="2" strokeWidth="0.5" />
-          <Line x1="0" y1="60" x2="300" y2="60" stroke="#C8C4D550" strokeDasharray="2" strokeWidth="0.5" />
-          <Line x1="0" y1="90" x2="300" y2="90" stroke="#C8C4D550" strokeDasharray="2" strokeWidth="0.5" />
+          {[0.25, 0.5, 0.75].map((f) => (
+            <Line
+              key={f}
+              x1={PAD.l}
+              y1={PAD.t + plotH * f}
+              x2={W - PAD.r}
+              y2={PAD.t + plotH * f}
+              stroke="#C8C4D550"
+              strokeDasharray="2"
+              strokeWidth="0.5"
+            />
+          ))}
+
+          {/* Aujourd'hui */}
+          <Line
+            x1={x(traj.today)}
+            y1={PAD.t}
+            x2={x(traj.today)}
+            y2={PAD.t + plotH}
+            stroke={`${colors.primary}40`}
+            strokeDasharray="2 3"
+            strokeWidth="0.75"
+          />
+
+          {/* Échéance */}
+          <Line
+            x1={x(traj.deadline)}
+            y1={PAD.t}
+            x2={x(traj.deadline)}
+            y2={PAD.t + plotH}
+            stroke="#C8C4D5"
+            strokeWidth="0.75"
+          />
 
           {/* Cible */}
-          <Line x1="0" y1="12" x2="300" y2="12" stroke={colors.textMuted} strokeDasharray="4 4" strokeWidth="1.5" />
-          <SvgText x="4" y="24" fill={colors.textMuted} fontSize="9">
-            Cible {target > 0 ? `${Math.round(target / 1000)}k` : "—"}
+          <Line
+            x1={PAD.l}
+            y1={y(traj.target)}
+            x2={W - PAD.r}
+            y2={y(traj.target)}
+            stroke={colors.textMuted}
+            strokeDasharray="4 4"
+            strokeWidth="1"
+          />
+          <SvgText x={PAD.l + 2} y={y(traj.target) - 4} fill={colors.textMuted} fontSize="9">
+            {`Cible ${formatMoney(traj.target, currency)}`}
           </SvgText>
 
-          {/* Trajectoire actuelle (trait plein, en dessous) */}
-          <Path d="M0 100 Q 60 88, 120 72 T 220 48 T 300 32" fill="none" stroke="#C7C5D1" strokeWidth="2.5" strokeDasharray="6 4" />
+          {/* Rythme nécessaire */}
+          {neededPath ? (
+            <Path d={neededPath} fill="none" stroke={colors.textMuted} strokeDasharray="3 4" strokeWidth="1.5" />
+          ) : null}
 
-          {/* Trajectoire optimisée (remplissage) */}
-          <Path d="M0 100 Q 60 88, 120 72 T 220 30 T 300 8 L 300 120 L 0 120 Z" fill="url(#optFill)" />
+          {/* Réel */}
+          <Path d={areaPath} fill="url(#realFill)" />
+          <Path d={realPath} fill="none" stroke={colors.primary} strokeWidth="2.5" strokeLinejoin="round" />
 
-          {/* Trajectoire optimisée (ligne) */}
-          <Path d="M0 100 Q 60 88, 120 72 T 220 30 T 300 8" fill="none" stroke={colors.primary} strokeWidth="2.5" />
-          <Circle cx="300" cy="8" r="4" fill={colors.primary} stroke="#FFFFFF" strokeWidth="2" />
-          <Circle cx="300" cy="32" r="3" fill="#C7C5D1" />
+          {/* Rythme actuel */}
+          {pacePath && traj.paceEnd ? (
+            <>
+              <Path d={pacePath} fill="none" stroke={colors.accent} strokeDasharray="5 4" strokeWidth="2" opacity="0.6" />
+              <Circle cx={x(traj.paceEnd[0])} cy={y(traj.paceEnd[1])} r="3" fill={colors.accent} opacity="0.7" />
+            </>
+          ) : null}
+
+          <Circle cx={x(traj.today)} cy={y(traj.current)} r="4" fill={colors.primary} stroke="#FFFFFF" strokeWidth="2" />
         </Svg>
       </Animated.View>
 
       <View style={styles.chartXAxis}>
-        <Text style={styles.chartXLabel}>Auj.</Text>
-        <Text style={styles.chartXLabel}>S2 25</Text>
-        <Text style={styles.chartXLabel}>S1 26</Text>
-        <Text style={styles.chartXLabel}>S2 26</Text>
+        {ticks.map((tick) => (
+          <Text
+            key={tick.label}
+            numberOfLines={1}
+            style={[styles.chartXLabel, { left: `${pct(tick.t)}%` }]}
+          >
+            {tick.label}
+          </Text>
+        ))}
+      </View>
+
+      <View style={[styles.chartStatus, { backgroundColor: `${status.tone}12` }]}>
+        <MaterialCommunityIcons
+          color={status.tone}
+          name={status.tone === colors.success ? "check-circle-outline" : "alert-circle-outline"}
+          size={16}
+        />
+        <Text style={[styles.chartStatusText, { color: status.tone }]}>{status.text}</Text>
       </View>
     </View>
   );
@@ -208,23 +339,37 @@ export default function SavingsDetail() {
   }, [load]);
 
   const contributions = goal?.contributions ?? [];
-  const pct = goal
-    ? Math.round((goal.current_amount / goal.target_amount) * 100)
-    : 0;
-  const remainder = goal ? goal.target_amount - goal.current_amount : 0;
+  const pct =
+    goal && goal.target_amount > 0
+      ? Math.round((goal.current_amount / goal.target_amount) * 100)
+      : 0;
+  const remainder = goal ? Math.max(goal.target_amount - goal.current_amount, 0) : 0;
   const deadlineLabel = goal ? monthLabel(goal.deadline) : "";
   const contributionCount = contributions.length;
 
-  const recentAvg = useMemo(() => {
-    if (contributions.length === 0) return 0;
-    const last = contributions
-      .slice(-3)
-      .reduce((s, c) => s + c.amount, 0);
-    return Math.round(last / Math.min(3, contributions.length));
-  }, [contributions]);
+  const traj = useMemo(
+    () =>
+      goal
+        ? buildSavingsTrajectory({
+            contributions,
+            current: goal.current_amount,
+            target: goal.target_amount,
+            deadline: goal.deadline,
+            today: new Date(),
+          })
+        : null,
+    [goal, contributions],
+  );
+  const monthlyPace = Math.round(traj?.monthlyPace ?? 0);
 
   const rationale = goal
-    ? `Vos versements vers "${goal.name}" sont ${contributions.length > 0 ? "réguliers et constatés" : "à venir"}. Au rythme actuel (≈ ${formatMoney(recentAvg, currency)}/mois), poursuivez cet effort pour atteindre votre objectif plus tôt.`
+    ? contributions.length > 0
+      ? `Vous versez en moyenne ≈ ${formatMoney(monthlyPace, currency)}/mois sur "${goal.name}" (3 derniers mois).${
+          traj?.neededPace != null
+            ? ` Pour tenir l'échéance, il faut ≈ ${formatMoney(traj.neededPace, currency)}/mois.`
+            : ""
+        }`
+      : `Aucun versement pour l'instant sur "${goal.name}". Commencez par un petit montant régulier.`
     : "Aucun objectif d'épargne trouvé pour ce compte.";
 
   const MAX_VISIBLE = 6;
@@ -265,6 +410,18 @@ export default function SavingsDetail() {
 
   const hiddenCount = contributionCount - visibleGroups.reduce((s, g) => s + g.items.length, 0);
 
+  const contribute = () =>
+    goal &&
+    router.push({
+      pathname: "/add-contribution",
+      params: {
+        goalId: goal.id,
+        goal: goal.name,
+        current: String(goal.current_amount),
+        target: String(goal.target_amount),
+      },
+    });
+
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <ScrollView
@@ -277,7 +434,24 @@ export default function SavingsDetail() {
         {/* ── Header ── */}
         <FadeIn delay={0}>
           <View style={styles.header}>
-            <BackButton size={24} />
+            <View style={styles.headerTop}>
+              <BackButton size={24} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Verser de l'argent sur ${goal?.name ?? "l'objectif"}`}
+                disabled={!goal}
+                hitSlop={8}
+                onPress={contribute}
+                style={({ pressed }) => [
+                  styles.contributeBtn,
+                  pressed && styles.contributePressed,
+                  !goal && { opacity: 0.5 },
+                ]}
+              >
+                <MaterialCommunityIcons color={colors.primary} name="plus" size={16} />
+                <Text style={styles.contributeText}>Verser</Text>
+              </Pressable>
+            </View>
             <View style={styles.headerMeta}>
               <View style={styles.headerCategoryRow}>
                 <MaterialCommunityIcons name="piggy-bank" size={16} color={colors.primary} />
@@ -291,7 +465,6 @@ export default function SavingsDetail() {
                 <Text style={[styles.trendText, { color: colors.success }]}>{pct}% atteint</Text>
               </View>
             </View>
-            <View style={{ width: 24 }} />
           </View>
         </FadeIn>
 
@@ -312,39 +485,6 @@ export default function SavingsDetail() {
               </Text>
             </View>
           </View>
-        </FadeIn>
-
-        {/* ── Verser de l'argent ── */}
-        <FadeIn delay={150}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Verser de l'argent sur ${goal?.name ?? "l'objectif"}`}
-            disabled={!goal}
-            onPress={() =>
-              goal &&
-              router.push({
-                pathname: "/add-contribution",
-                params: {
-                  goalId: goal.id,
-                  goal: goal.name,
-                  current: String(goal.current_amount),
-                  target: String(goal.target_amount),
-                },
-              })
-            }
-            style={({ pressed }) => [
-              styles.contributeBtn,
-              pressed && { opacity: 0.75 },
-              !goal && { opacity: 0.5 },
-            ]}
-          >
-            <MaterialCommunityIcons
-              color="#FFFFFF"
-              name="bank-transfer-in"
-              size={22}
-            />
-            <Text style={styles.contributeText}>Verser de l'argent</Text>
-          </Pressable>
         </FadeIn>
 
         {/* ── Grille 2 cols ── */}
@@ -372,7 +512,7 @@ export default function SavingsDetail() {
 
         {/* ── Graphique ── */}
         <FadeIn delay={300}>
-          <TrajectoryChart target={goal?.target_amount ?? 0} />
+          {traj ? <TrajectoryChart currency={currency} traj={traj} /> : null}
         </FadeIn>
 
         {/* ── Perspectives ── */}
@@ -393,11 +533,11 @@ export default function SavingsDetail() {
                 <MaterialCommunityIcons name="flash" size={18} color={colors.primary} />
               </View>
               <Text style={[styles.perspectiveValue, { color: colors.primary }]}>
-                ≈ {formatMoney(recentAvg, currency)}/mois
+                ≈ {formatMoney(monthlyPace, currency)}/mois
               </Text>
               <View style={styles.perspectiveBadge}>
                 <Text style={styles.perspectiveBadgeText}>
-                  {contributionCount > 0 ? "Moyenne récente" : "En attente de versements"}
+                  {contributionCount > 0 ? "Moyenne 3 derniers mois" : "En attente de versements"}
                 </Text>
               </View>
             </View>
@@ -486,8 +626,9 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 32 },
 
   /* Header */
-  header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  headerMeta: { alignItems: "center", flex: 1, gap: 6 },
+  header: { gap: 4, marginTop: 4 },
+  headerTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  headerMeta: { alignItems: "center", gap: 6 },
   headerCategoryRow: { alignItems: "center", flexDirection: "row", gap: 6 },
   headerCategory: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
   headerAmount: { color: colors.text, fontSize: 40, fontWeight: "800", letterSpacing: -1, lineHeight: 44 },
@@ -528,20 +669,15 @@ const styles = StyleSheet.create({
   /* Versement */
   contributeBtn: {
     alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    elevation: 4,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 99,
     flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-    marginTop: 16,
-    paddingVertical: 15,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  contributeText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  contributePressed: { opacity: 0.7 },
+  contributeText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
 
   /* Grille */
   grid: { flexDirection: "row", gap: 12, marginTop: 16 },
@@ -572,14 +708,31 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 1,
   },
-  chartHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
+  chartHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   chartTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
-  chartLegend: { alignItems: "center", flexDirection: "row", gap: 10 },
+  chartLegend: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 8 },
   legendItem: { alignItems: "center", flexDirection: "row", gap: 4 },
   legendDot: { borderRadius: 99, height: 8, width: 8 },
   legendText: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
-  chartXAxis: { flexDirection: "row", justifyContent: "space-between", marginTop: 8, paddingHorizontal: 4 },
-  chartXLabel: { color: colors.textMuted, fontSize: 10, fontWeight: "600" },
+  chartXAxis: { height: 16, marginHorizontal: 22, marginTop: 4, position: "relative" },
+  chartXLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: "600",
+    marginLeft: -22,
+    position: "absolute",
+    textAlign: "center",
+    width: 44,
+  },
+  chartStatus: {
+    alignItems: "flex-start",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    padding: 10,
+  },
+  chartStatusText: { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 
   /* Perspectives */
   sectionEyebrow: {

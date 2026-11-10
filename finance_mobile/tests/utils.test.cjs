@@ -250,3 +250,75 @@ test("buildSpendingSeries handles past and future months", () => {
   assert.equal(future.todayDay, 0);
   assert.equal(future.projectedEnd, null);
 });
+
+test("groupAmountInput groups thousands while typing", () => {
+  const { groupAmountInput } = load("src/shared/utils/amountInput.ts");
+  assert.equal(groupAmountInput("0"), "0");
+  assert.equal(groupAmountInput("1250"), "1 250");
+  assert.equal(groupAmountInput("1250000,5"), "1 250 000,5");
+  assert.equal(groupAmountInput("12,"), "12,");
+  assert.equal(groupAmountInput("3500.75"), "3 500,75");
+});
+
+test("buildSavingsTrajectory: pace, needed pace and reach date from real contributions", () => {
+  const { buildSavingsTrajectory } = load("src/shared/utils/savingsTrajectory.ts");
+  const today = new Date(2026, 10, 10, 12);
+  const t = buildSavingsTrajectory({
+    contributions: [
+      { amount: 30000, created_at: "2026-08-15T10:00:00Z" },
+      { amount: 30000, created_at: "2026-09-15T10:00:00Z" },
+      { amount: 30000, created_at: "2026-10-15T10:00:00Z" },
+    ],
+    current: 100000,
+    target: 400000,
+    deadline: "2027-06-30",
+    today,
+  });
+  // 10 000 de départ (100 000 - 90 000 versés)
+  assert.equal(t.real[0][1], 10000);
+  assert.equal(t.real[t.real.length - 1][1], 100000);
+  // 90 000 sur la fenêtre de 3 mois
+  assert.ok(Math.abs(t.monthlyPace - 30000) < 600);
+  // 300 000 restants sur ~7,6 mois
+  assert.ok(t.neededPace > 38000 && t.neededPace < 41000);
+  // au rythme actuel : ~10 mois -> après l'échéance
+  assert.ok(t.reachDate > t.deadline);
+  assert.equal(t.reached, false);
+});
+
+test("buildSavingsTrajectory: reached goal and no contributions", () => {
+  const { buildSavingsTrajectory } = load("src/shared/utils/savingsTrajectory.ts");
+  const today = new Date(2026, 10, 10);
+  const done = buildSavingsTrajectory({
+    contributions: [{ amount: 500, created_at: "2026-11-01T08:00:00Z" }],
+    current: 500,
+    target: 500,
+    deadline: "2026-12-31",
+    today,
+  });
+  assert.equal(done.reached, true);
+  assert.equal(done.neededPace, null);
+  assert.equal(done.reachDate, null);
+
+  const idle = buildSavingsTrajectory({ contributions: [], current: 0, target: 1000, deadline: "2027-01-31", today });
+  assert.equal(idle.monthlyPace, 0);
+  assert.equal(idle.reachDate, null);
+  assert.ok(idle.neededPace > 0);
+});
+
+test("buildSavingsTrajectory: server timestamps with microseconds and a brand-new goal", () => {
+  const { buildSavingsTrajectory, parseInstant } = load("src/shared/utils/savingsTrajectory.ts");
+  assert.equal(parseInstant("2026-11-09T14:34:33.981549+00:00"), Date.UTC(2026, 10, 9, 14, 34, 33, 981));
+  const today = new Date(Date.UTC(2026, 10, 10, 12));
+  const t = buildSavingsTrajectory({
+    contributions: [{ amount: 40000, created_at: "2026-11-09T14:34:33.981549+00:00" }],
+    current: 40000,
+    target: 2000000,
+    deadline: "2027-11-09",
+    today,
+  });
+  // le versement d'hier est bien compté, et l'historique couvre au moins un mois
+  assert.equal(t.real.length, 3);
+  assert.equal(t.real[1][1], 40000);
+  assert.ok(t.today - t.start >= 29 * 86400000);
+});
