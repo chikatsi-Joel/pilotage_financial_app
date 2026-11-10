@@ -1,23 +1,12 @@
 import Constants from "expo-constants";
-import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import { notifications as api } from "../api/notifications";
 import { deviceTimezone } from "../utils/notificationPrefs";
+import { loadDevice, loadNotifications } from "./native";
 
 const TOKEN_KEY = "pilotage-push-token";
-
-/** Une notification reçue pendant que l'application est ouverte s'affiche quand même. */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
 
 export type PushStatus = "granted" | "denied" | "unsupported" | "unavailable";
 
@@ -28,6 +17,9 @@ function projectId(): string | undefined {
 
 /** Autorisation actuelle, sans rien demander à l'utilisateur. */
 export async function pushPermission(): Promise<PushStatus> {
+  const Notifications = loadNotifications();
+  const Device = loadDevice();
+  if (!Notifications || !Device) return "unavailable";
   if (!Device.isDevice) return "unsupported";
   const { status } = await Notifications.getPermissionsAsync();
   return status === "granted" ? "granted" : "denied";
@@ -39,6 +31,9 @@ export async function pushPermission(): Promise<PushStatus> {
  */
 export async function registerForPush(userId: string): Promise<PushStatus> {
   try {
+    const Notifications = loadNotifications();
+    const Device = loadDevice();
+    if (!Notifications || !Device) return "unavailable";
     if (!Device.isDevice) return "unsupported"; // simulateur : pas de push
 
     if (Platform.OS === "android") {
