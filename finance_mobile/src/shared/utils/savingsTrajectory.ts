@@ -22,6 +22,8 @@ export interface SavingsTrajectory {
   reachDate: number | null;
   /** Fin du trait « rythme actuel » [instant, montant] ; null si atteint ou rythme nul. */
   paceEnd: [number, number] | null;
+  /** Montant prévu à l'échéance au rythme actuel ; null si atteint ou échéance passée. */
+  projectedAtDeadline: number | null;
 }
 
 const DAY = 86_400_000;
@@ -109,5 +111,7 @@ export function buildSavingsTrajectory({
     neededPace,
     reachDate,
     paceEnd,
+    projectedAtDeadline:
+      !reached && due > now ? current + monthlyPace * ((due - now) / MONTH) : null,
   };
 }

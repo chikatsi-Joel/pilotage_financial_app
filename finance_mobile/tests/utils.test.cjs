@@ -281,6 +281,8 @@ test("buildSavingsTrajectory: pace, needed pace and reach date from real contrib
   assert.ok(Math.abs(t.monthlyPace - 30000) < 600);
   // 300 000 restants sur ~7,6 mois
   assert.ok(t.neededPace > 38000 && t.neededPace < 41000);
+  // montant prévu à l'échéance : 100 000 + 30 000 x ~7,6 mois
+  assert.ok(t.projectedAtDeadline > 320000 && t.projectedAtDeadline < 335000);
   // au rythme actuel : ~10 mois -> après l'échéance
   assert.ok(t.reachDate > t.deadline);
   assert.equal(t.reached, false);

@@ -153,6 +153,7 @@ const TrajectoryChart = ({
   }
   const areaPath = `${realPath} V ${y(0).toFixed(1)} H ${x(first[0]).toFixed(1)} Z`;
 
+  const projected = traj.projectedAtDeadline;
   const showNeeded = traj.neededPace !== null && traj.deadline > traj.today;
   const neededPath = showNeeded
     ? `M ${x(traj.today).toFixed(1)} ${y(traj.current).toFixed(1)} L ${x(traj.deadline).toFixed(1)} ${y(traj.target).toFixed(1)}`
@@ -282,6 +283,60 @@ const TrajectoryChart = ({
             </>
           ) : null}
 
+          {/* Projection à l'échéance au rythme actuel, repérée sur l'axe comme la cible */}
+          {projected !== null && projected < traj.target ? (
+            <>
+              <Line
+                x1={PAD.l}
+                y1={y(projected)}
+                x2={x(traj.deadline)}
+                y2={y(projected)}
+                stroke={colors.accent}
+                strokeDasharray="2 3"
+                strokeWidth="1"
+                opacity="0.3"
+              />
+              <SvgText
+                x={PAD.l + 2}
+                y={
+                  y(traj.target) - y(projected) < 14
+                    ? y(projected) + 11
+                    : y(projected) - 4
+                }
+                fill={colors.accent}
+                fontSize="9"
+                fontWeight="600"
+                opacity="0.55"
+              >
+                {`Projection ${formatMoney(projected, currency)}`}
+              </SvgText>
+              <Circle
+                cx={x(traj.deadline)}
+                cy={y(projected)}
+                r="4"
+                fill="#FFFFFF"
+                stroke={colors.accent}
+                strokeWidth="1.5"
+                opacity="0.5"
+              />
+            </>
+          ) : null}
+
+          {/* Cible atteinte avant l'échéance : date estimée au point d'arrivée */}
+          {traj.reachDate !== null && traj.reachDate <= traj.deadline && traj.paceEnd ? (
+            <SvgText
+              x={Math.min(x(traj.paceEnd[0]), W - PAD.r) - 6}
+              y={y(traj.paceEnd[1]) + 13}
+              fill={colors.accent}
+              fontSize="9"
+              fontWeight="600"
+              opacity="0.55"
+              textAnchor="end"
+            >
+              {`Projection : cible vers ${shortMonth(traj.reachDate)}`}
+            </SvgText>
+          ) : null}
+
           <Circle cx={x(traj.today)} cy={y(traj.current)} r="4" fill={colors.primary} stroke="#FFFFFF" strokeWidth="2" />
         </Svg>
       </Animated.View>
@@ -297,6 +352,32 @@ const TrajectoryChart = ({
           </Text>
         ))}
       </View>
+
+      {projected !== null ? (
+        <View style={styles.projRow}>
+          <View style={styles.projCell}>
+            <Text style={styles.projLabel}>Projection à l'échéance</Text>
+            <Text style={[styles.projValue, { color: colors.accent }]}>
+              ≈ {formatMoney(projected, currency)}
+            </Text>
+            <Text style={styles.projSub}>
+              si vous gardez ce rythme · {monthLabel(new Date(traj.deadline).toISOString())}
+            </Text>
+          </View>
+          <View style={styles.projDivider} />
+          <View style={styles.projCell}>
+            <Text style={styles.projLabel}>Part de la cible</Text>
+            <Text style={styles.projValue}>
+              {Math.min(Math.round((projected / Math.max(traj.target, 1)) * 100), 999)} %
+            </Text>
+            <Text style={styles.projSub}>
+              {projected >= traj.target
+                ? "cible dépassée"
+                : `manque ≈ ${formatMoney(traj.target - projected, currency)}`}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={[styles.chartStatus, { backgroundColor: `${status.tone}12` }]}>
         <MaterialCommunityIcons
@@ -727,6 +808,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     width: 44,
   },
+  projRow: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    flexDirection: "row",
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  projCell: { alignItems: "center", flex: 1, gap: 1, paddingHorizontal: 6 },
+  projDivider: { backgroundColor: colors.border, height: 36, width: 1 },
+  projLabel: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 11 },
+  projValue: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 15, opacity: 0.75 },
+  projSub: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10 },
   chartStatus: {
     alignItems: "flex-start",
     borderRadius: 12,

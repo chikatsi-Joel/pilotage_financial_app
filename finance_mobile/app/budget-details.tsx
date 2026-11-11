@@ -15,8 +15,11 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { describeTrend } from "../src/shared/utils/trend";
 import Svg, {
   Circle,
+  Defs,
   Line,
+  LinearGradient,
   Path,
+  Stop,
   Text as SvgText,
 } from "react-native-svg";
 
@@ -167,6 +170,10 @@ const SpendingChart = ({
   const realPath = real
     .map(([d, v], i) => `${i ? "L" : "M"} ${x(d).toFixed(1)} ${yFor(v).toFixed(1)}`)
     .join(" ");
+  const areaPath = `${realPath} L ${x(todayDay).toFixed(1)} ${yFor(0).toFixed(1)} L ${x(0).toFixed(1)} ${yFor(0).toFixed(1)} Z`;
+  const vsHabitual = projectedEnd !== null && baseline > 0 ? projectedEnd / baseline - 1 : null;
+  const [py, pm] = (period || "2026-01").split("-").map(Number);
+  const monthShort = new Date(py, (pm || 1) - 1, 1).toLocaleDateString("fr-FR", { month: "short" });
 
   const habPath = `M ${x(0).toFixed(1)} ${yFor(0).toFixed(1)} L ${x(lastDay).toFixed(1)} ${yFor(baseline).toFixed(1)}`;
   const projPath =
@@ -191,14 +198,21 @@ const SpendingChart = ({
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
-            <Text style={styles.legendText}>Fin de mois</Text>
+            <Text style={styles.legendText}>Projection</Text>
           </View>
         </View>
       </View>
 
       <Animated.View style={{ opacity: pathOpacity, height: 160 }}>
         <Svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
-          {/* Grid */}
+          <Defs>
+            <LinearGradient id="catRealFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={tint} stopOpacity={0.22} />
+              <Stop offset="100%" stopColor={tint} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+
+          {/* Grille */}
           {gridYs.map((gy) => (
             <Line
               key={gy}
@@ -212,34 +226,65 @@ const SpendingChart = ({
             />
           ))}
 
-          {/* Habituel (cumul attendu) */}
-          <Path
-            d={habPath}
-            stroke={colors.textMuted}
-            strokeDasharray="4 4"
-            strokeWidth="1.5"
-            fill="none"
-          />
-          <SvgText x={x(2)} y={Math.max(yFor(baseline) - 5, 10)} fill={colors.textMuted} fontSize="9">
-            Habituel
-          </SvgText>
+          {/* Aujourd'hui */}
+          {projectedEnd !== null ? (
+            <Line
+              x1={x(todayDay)}
+              y1={PAD.t}
+              x2={x(todayDay)}
+              y2={PAD.t + plotH}
+              stroke={`${tint}40`}
+              strokeDasharray="2 3"
+              strokeWidth="0.75"
+            />
+          ) : null}
 
-          {/* Projection de fin de mois (mois en cours uniquement) */}
+          {/* Habituel (cumul attendu au fil du mois) */}
+          {baseline > 0 ? (
+            <>
+              <Path d={habPath} stroke={colors.textMuted} strokeDasharray="4 4" strokeWidth="1.25" fill="none" opacity="0.7" />
+              <SvgText
+                x={x(lastDay) - 2}
+                y={Math.min(yFor(baseline) + 11, PAD.t + plotH - 2)}
+                fill={colors.textMuted}
+                fontSize="8.5"
+                textAnchor="end"
+              >
+                {`Habituel ${formatMoney(baseline, currency)}`}
+              </SvgText>
+            </>
+          ) : null}
+
+          {/* Projection de fin de mois (mois en cours uniquement), discrète */}
           {projPath && projectedEnd !== null ? (
             <>
-              <Path
-                d={projPath}
+              <Line
+                x1={PAD.l}
+                y1={yFor(projectedEnd)}
+                x2={x(lastDay)}
+                y2={yFor(projectedEnd)}
                 stroke={colors.accent}
-                strokeDasharray="2 4"
-                strokeWidth="2"
-                fill="none"
-                opacity="0.75"
+                strokeDasharray="2 3"
+                strokeWidth="1"
+                opacity="0.3"
               />
-              <Circle cx={x(lastDay)} cy={yFor(projectedEnd)} r="3" fill={colors.accent} opacity="0.8" />
+              <SvgText
+                x={PAD.l + 2}
+                y={Math.max(yFor(projectedEnd) - 4, 9)}
+                fill={colors.accent}
+                fontSize="8.5"
+                fontWeight="600"
+                opacity="0.6"
+              >
+                {`Projection ${formatMoney(projectedEnd, currency)}`}
+              </SvgText>
+              <Path d={projPath} stroke={colors.accent} strokeDasharray="2 4" strokeWidth="2" fill="none" opacity="0.6" />
+              <Circle cx={x(lastDay)} cy={yFor(projectedEnd)} r="3.5" fill="#FFFFFF" stroke={colors.accent} strokeWidth="1.5" opacity="0.7" />
             </>
           ) : null}
 
           {/* Réel (cumul du mois) */}
+          <Path d={areaPath} fill="url(#catRealFill)" />
           <Path
             d={realPath}
             fill="none"
@@ -252,18 +297,43 @@ const SpendingChart = ({
         </Svg>
       </Animated.View>
 
-      <View style={styles.chartFooter}>
-        <Text style={styles.chartFooterText}>
-          Dépensé : {formatMoney(cumulative, currency)}
+      <View style={styles.chartAxis}>
+        <Text style={[styles.chartAxisLabel, { left: "0%" }]}>1 {monthShort}</Text>
+        {projectedEnd !== null && todayDay / lastDay > 0.18 && todayDay / lastDay < 0.82 ? (
+          <Text style={[styles.chartAxisLabel, { left: `${(todayDay / lastDay) * 100}%` }]}>Auj.</Text>
+        ) : null}
+        <Text style={[styles.chartAxisLabel, { left: "100%" }]}>
+          {lastDay} {monthShort}
         </Text>
-        {projectedEnd !== null ? (
-          <Text style={[styles.chartFooterText, { color: colors.accent }]}>
-            Fin de mois estimée : ≈ {formatMoney(projectedEnd, currency)}
+      </View>
+
+      <View style={styles.chartSummary}>
+        <View style={styles.chartSummaryCell}>
+          <Text style={styles.chartSummaryLabel}>Dépensé à ce jour</Text>
+          <Text style={styles.chartSummaryValue}>{formatMoney(cumulative, currency)}</Text>
+        </View>
+        <View style={styles.chartSummaryDivider} />
+        <View style={styles.chartSummaryCell}>
+          <Text style={styles.chartSummaryLabel}>
+            {projectedEnd !== null ? "Projection fin de mois" : "Habituel"}
           </Text>
-        ) : null}
-        {baseline > 0 ? (
-          <Text style={styles.chartFooterText}>Habituel : {formatMoney(baseline, currency)}</Text>
-        ) : null}
+          <Text style={[styles.chartSummaryValue, projectedEnd !== null && { color: colors.accent, opacity: 0.8 }]}>
+            {projectedEnd !== null ? `≈ ${formatMoney(projectedEnd, currency)}` : formatMoney(baseline, currency)}
+          </Text>
+          {vsHabitual !== null ? (
+            <Text
+              style={[
+                styles.chartSummarySub,
+                { color: vsHabitual > 0.05 ? colors.danger : vsHabitual < -0.05 ? colors.success : colors.textMuted },
+              ]}
+            >
+              {vsHabitual > 0 ? "+" : "−"}
+              {Math.abs(Math.round(vsHabitual * 100))} % vs habituel
+            </Text>
+          ) : projectedEnd !== null ? (
+            <Text style={styles.chartSummarySub}>si vous gardez ce rythme</Text>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -907,18 +977,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: interFonts.medium,
   },
-  chartFooter: {
-    columnGap: 14,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 8,
-    rowGap: 2,
-  },
-  chartFooterText: {
+  chartAxis: { height: 16, marginHorizontal: 22, marginTop: 2, position: "relative" },
+  chartAxisLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontFamily: interFonts.semibold,
+    fontFamily: interFonts.medium,
+    fontSize: 10,
+    marginLeft: -22,
+    position: "absolute",
+    textAlign: "center",
+    width: 44,
   },
+  chartSummary: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    flexDirection: "row",
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  chartSummaryCell: { alignItems: "center", flex: 1, gap: 1, paddingHorizontal: 6 },
+  chartSummaryDivider: { backgroundColor: colors.border, height: 36, width: 1 },
+  chartSummaryLabel: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 11 },
+  chartSummaryValue: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 15 },
+  chartSummarySub: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10 },
 
   /* Perspectives */
   sectionEyebrow: {
