@@ -301,6 +301,11 @@ export interface WhatIfRequest {
   reduction_percent: number;
 }
 
+export interface MonthlyTotal {
+  period: string;
+  total: number;
+}
+
 export interface WhatIfResult {
   period: string;
   category_name: string;
