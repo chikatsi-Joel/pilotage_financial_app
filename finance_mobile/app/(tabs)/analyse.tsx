@@ -21,7 +21,7 @@ import { useAppStore } from "../../src/shared/store";
 import type { CategoryAnalytics } from "../../src/shared/types";
 import { groupByDate } from "../../src/shared/utils/paging";
 import { formatMoney } from "../../src/shared/utils/money";
-import { colors } from "../../src/ui/theme";
+import { colors, interFonts } from "../../src/ui/theme";
 import { expenseTag, type ExpenseTagKind } from "../../src/shared/utils/optimization";
 
 /** Couleurs des étiquettes : essentielle (bleu), optimisable (violet), autre (gris). */
@@ -435,15 +435,15 @@ const styles = StyleSheet.create({
   },
   headerEyebrow: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   headerTitle: {
     color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
+    fontSize: 29,
+    fontFamily: interFonts.bold,
     letterSpacing: -0.5,
     marginTop: 2,
   },
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  addCatText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  addCatText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
   analyseBtn: {
     alignItems: "center",
     backgroundColor: `${colors.primary}1A`,
@@ -484,8 +484,8 @@ const styles = StyleSheet.create({
   },
   analyseBtnText: {
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontFamily: interFonts.bold,
   },
 
   content: { padding: 16, paddingTop: 38 },
@@ -496,8 +496,8 @@ const styles = StyleSheet.create({
   /* Summary */
   sectionTitle: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontFamily: interFonts.semibold,
     marginTop: 4,
   },
   summaryGrid: { flexDirection: "row", gap: 12 },
@@ -529,12 +529,12 @@ const styles = StyleSheet.create({
     width: 80,
   },
   summaryIconRow: { alignItems: "center", flexDirection: "row", gap: 4 },
-  summaryLabel: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  summaryLabel: { color: colors.text, fontSize: 12, fontFamily: interFonts.medium },
   summaryValue: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "600",
-    lineHeight: 28,
+    fontSize: 20,
+    fontFamily: interFonts.semibold,
+    lineHeight: 26,
   },
 
   /* Day groups */
@@ -545,8 +545,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 6,
   },
-  dayLabel: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },
-  dayTotal: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  dayLabel: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.semibold },
+  dayTotal: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
 
   /* Transactions */
   txCardSpaced: { marginBottom: 10 },
@@ -585,12 +585,12 @@ const styles = StyleSheet.create({
   },
   txIconShifted: { marginLeft: 4 },
   txContent: { flex: 1, gap: 2, minWidth: 0 },
-  txTitle: { color: colors.text, fontSize: 16, fontWeight: "400" },
-  txCategory: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  txTitle: { color: colors.text, fontSize: 15, fontFamily: interFonts.medium },
+  txCategory: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   txRight: { alignItems: "flex-end", gap: 4 },
-  txAmount: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  txAmount: { color: colors.text, fontSize: 15, fontFamily: interFonts.semibold },
   txPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  txPillText: { fontSize: 12, fontWeight: "600" },
+  txPillText: { fontSize: 11, fontFamily: interFonts.semibold },
 
   /* Bottom nav */
   bottomNav: {
@@ -602,6 +602,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   navItem: { alignItems: "center", flex: 1, gap: 2, justifyContent: "center" },
-  navLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  navLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
   navLabelActive: { color: colors.primary },
 });

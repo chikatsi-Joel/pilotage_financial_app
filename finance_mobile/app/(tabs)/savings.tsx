@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
-import { colors } from "../../src/ui/theme";
+import { colors, interFonts } from "../../src/ui/theme";
 import { EmptyState } from "../../src/ui/components";
 import { savings as savingsApi } from "../../src/shared/api/savings";
 import { useAppStore } from "../../src/shared/store";
@@ -669,17 +669,17 @@ const styles = StyleSheet.create({
   totalSection: { alignItems: "center", gap: 4, marginTop: 16 },
   totalLabel: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   totalAmount: {
     color: colors.text,
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -1,
-    lineHeight: 56,
+    lineHeight: 52,
     textShadowColor: "rgba(88,76,185,0.15)",
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 16,
@@ -699,8 +699,8 @@ const styles = StyleSheet.create({
   },
   totalPillText: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
   },
 
   /* Progress */
@@ -745,19 +745,19 @@ const styles = StyleSheet.create({
   progressLeft: { gap: 4 },
   progressTitle: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
   },
   progressSub: {
     color: colors.textMuted,
-    fontSize: 16,
+    fontSize: 15, fontFamily: interFonts.regular,
   },
 
   /* Goals */
   goalsTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 18,
+    fontFamily: interFonts.semibold,
   },
   sectionHeader: {
     alignItems: "center",
@@ -775,8 +775,8 @@ const styles = StyleSheet.create({
   },
   addGoalText: {
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontFamily: interFonts.bold,
   },
   goalsList: { gap: 16 },
   goalCard: {
@@ -805,13 +805,13 @@ const styles = StyleSheet.create({
   },
   goalName: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
   },
   goalSub: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
   goalPctBadge: {
     backgroundColor: `${colors.primary}0D`,
@@ -834,8 +834,8 @@ const styles = StyleSheet.create({
   },
   goalPctText: {
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
   },
   goalBottom: { gap: 8 },
   goalAmounts: {
@@ -844,13 +844,13 @@ const styles = StyleSheet.create({
   },
   goalCurrent: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
   goalTarget: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
 
   /* AI Insight */
@@ -894,14 +894,14 @@ const styles = StyleSheet.create({
   insightContent: { flex: 1, gap: 4 },
   insightLabel: {
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
   },
-  insightDot: { fontSize: 8 },
+  insightDot: { fontSize: 9, fontFamily: interFonts.regular },
   insightText: {
     color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14, fontFamily: interFonts.regular,
+    lineHeight: 20,
   },
   insightBtn: {
     alignSelf: "flex-start",
@@ -913,8 +913,8 @@ const styles = StyleSheet.create({
   },
   insightBtnText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
 
   /* FAB */
@@ -941,8 +941,8 @@ const styles = StyleSheet.create({
   },
   fabText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.5,
   },
 
@@ -977,25 +977,25 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 18,
+    fontFamily: interFonts.bold,
   },
   modalGoal: {
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
     marginTop: 4,
   },
   modalCurrent: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 12,
+    fontFamily: interFonts.medium,
     marginTop: 2,
   },
   fieldLabel: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.5,
     marginBottom: 6,
     marginTop: 18,
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15, fontFamily: interFonts.regular,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -1028,8 +1028,8 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: "row", gap: 12, marginTop: 24 },
   createErrorText: {
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
     marginTop: 14,
   },
   modalCancel: {
@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 14,
   },
-  modalCancelText: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  modalCancelText: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
   modalSave: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -1049,7 +1049,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 14,
   },
-  modalSaveText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  modalSaveText: { color: "#FFFFFF", fontSize: 15, fontFamily: interFonts.bold },
 });
 
 const cpStyles = StyleSheet.create({
@@ -1057,7 +1057,7 @@ const cpStyles = StyleSheet.create({
   center: { alignItems: "center", height: "100%", justifyContent: "center", position: "absolute", width: "100%" },
   pct: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
 });

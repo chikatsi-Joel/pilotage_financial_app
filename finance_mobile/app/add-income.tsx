@@ -17,7 +17,7 @@ import DateTimePicker, {
 import { router, useLocalSearchParams } from "expo-router";
 
 import { ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 import { incomes as incomesApi } from "../src/shared/api/incomes";
 import { useAppStore } from "../src/shared/store";
 import { formatMoney } from "../src/shared/utils/money";
@@ -402,21 +402,21 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     marginBottom: 4,
   },
   amountRow: { alignItems: "flex-end", flexDirection: "row" },
   amountValue: {
     color: colors.text,
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -2,
   },
   amountCurrency: {
     color: colors.textMuted,
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 22,
+    fontFamily: interFonts.semibold,
     marginBottom: 2,
     marginLeft: 8,
   },
@@ -424,8 +424,8 @@ const styles = StyleSheet.create({
   /* Type d'entrée */
   fieldTitle: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
@@ -457,14 +457,14 @@ const styles = StyleSheet.create({
   sourceIconActive: { backgroundColor: colors.primary },
   sourceLabel: {
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
     textAlign: "center",
   },
-  sourceLabelActive: { color: colors.primary, fontWeight: "800" },
+  sourceLabelActive: { color: colors.primary, fontFamily: interFonts.bold },
   sourceHint: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 10, fontFamily: interFonts.regular,
     textAlign: "center",
   },
 
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
-  customInput: { color: colors.text, flex: 1, fontSize: 16 },
+  customInput: { color: colors.text, flex: 1, fontSize: 15, fontFamily: interFonts.regular },
 
   /* Récurrent */
   recurringRow: {
@@ -490,8 +490,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   recurringCopy: { flex: 1, gap: 2 },
-  recurringTitle: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  recurringSub: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
+  recurringTitle: { color: colors.text, fontSize: 14, fontFamily: interFonts.bold },
+  recurringSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, lineHeight: 15 },
   toggle: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 99,
@@ -515,16 +515,16 @@ const styles = StyleSheet.create({
 
   /* Date */
   dateRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  dateRowLabel: { color: colors.text, fontSize: 15, fontWeight: "600", flex: 1 },
+  dateRowLabel: { color: colors.text, fontSize: 14, fontFamily: interFonts.semibold, flex: 1 },
   datePill: {
     backgroundColor: `${colors.primary}1A`,
     borderRadius: 99,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  datePillText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  datePillText: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
   pickerDone: { alignSelf: "flex-end", paddingVertical: 4 },
-  pickerDoneText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
+  pickerDoneText: { color: colors.primary, fontSize: 15, fontFamily: interFonts.semibold },
 
   /* Aperçu */
   previewCard: {
@@ -536,20 +536,20 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontFamily: interFonts.semibold,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   previewValue: {
     color: colors.primary,
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 20,
+    fontFamily: interFonts.bold,
   },
-  previewMeta: { color: colors.textMuted, fontSize: 12 },
+  previewMeta: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
 
   /* Erreur */
-  errorText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  errorText: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
 
   /* Sauvegarder */
   saveBtn: {
@@ -566,5 +566,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
-  saveText: { color: "#FFFFFF", fontSize: 20, fontWeight: "600" },
+  saveText: { color: "#FFFFFF", fontSize: 18, fontFamily: interFonts.semibold },
 });

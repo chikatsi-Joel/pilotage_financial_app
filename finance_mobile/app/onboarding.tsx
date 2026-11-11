@@ -28,7 +28,7 @@ import {
 } from "../src/shared/utils/authForm";
 import { useAppStore } from "../src/shared/store";
 import { BrandMark } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 
 type Mode = "login" | "register" | "verify";
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
@@ -469,8 +469,8 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, gap: 24, justifyContent: "center", padding: 20 },
 
   hero: { alignItems: "center", gap: 6 },
-  brand: { color: colors.primary, fontSize: 28, fontWeight: "800", letterSpacing: -0.5, marginTop: 6 },
-  tagline: { color: colors.textMuted, fontSize: 14 },
+  brand: { color: colors.primary, fontSize: 26, fontFamily: interFonts.bold, letterSpacing: -0.5, marginTop: 6 },
+  tagline: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.regular },
 
   card: {
     backgroundColor: colors.surface,
@@ -501,17 +501,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 3,
   },
-  tabText: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
-  tabTextActive: { color: colors.primary, fontWeight: "700" },
+  tabText: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.semibold },
+  tabTextActive: { color: colors.primary, fontFamily: interFonts.bold },
 
   headings: { gap: 4 },
-  title: { color: colors.text, fontSize: 22, fontWeight: "800", letterSpacing: -0.4 },
-  subtitle: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-  emailStrong: { color: colors.text, fontWeight: "700" },
+  title: { color: colors.text, fontSize: 20, fontFamily: interFonts.bold, letterSpacing: -0.4 },
+  subtitle: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.regular, lineHeight: 18 },
+  emailStrong: { color: colors.text, fontFamily: interFonts.bold },
 
   field: { gap: 6 },
-  fieldLabel: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  fieldHint: { color: colors.textMuted, fontSize: 12 },
+  fieldLabel: { color: colors.text, fontSize: 12, fontFamily: interFonts.semibold },
+  fieldHint: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   inputRow: {
     alignItems: "center",
     backgroundColor: colors.background,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputRowFocused: { backgroundColor: colors.surface, borderColor: colors.primary },
-  input: { color: colors.text, flex: 1, fontSize: 16, paddingVertical: 13 },
+  input: { color: colors.text, flex: 1, fontSize: 15, fontFamily: interFonts.regular, paddingVertical: 13 },
 
   errorBox: {
     alignItems: "flex-start",
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
   },
-  errorText: { color: colors.danger, flex: 1, fontSize: 13, fontWeight: "600", lineHeight: 18 },
+  errorText: { color: colors.danger, flex: 1, fontSize: 12, fontFamily: interFonts.semibold, lineHeight: 17 },
 
   button: {
     alignItems: "center",
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.55 },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  buttonText: { color: "#FFFFFF", fontSize: 15, fontFamily: interFonts.bold },
 
   verifyIcon: {
     alignItems: "center",
@@ -568,12 +568,12 @@ const styles = StyleSheet.create({
   },
   codeBoxFilled: { backgroundColor: colors.surface, borderColor: `${colors.primary}66` },
   codeBoxCurrent: { borderColor: colors.primary },
-  codeDigit: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  codeDigit: { color: colors.text, fontSize: 20, fontFamily: interFonts.bold },
   codeHidden: { ...StyleSheet.absoluteFill, color: "transparent", opacity: 0.01 },
   verifyLinks: { alignItems: "center", gap: 14, paddingTop: 2 },
-  link: { color: colors.primary, fontSize: 14, fontWeight: "700" },
-  linkMuted: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
+  link: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
+  linkMuted: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.semibold },
 
   footer: { alignItems: "center", flexDirection: "row", gap: 6, justifyContent: "center" },
-  footerText: { color: colors.textMuted, fontSize: 12 },
+  footerText: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
 });

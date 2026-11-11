@@ -18,7 +18,7 @@ import { useAppStore } from "../src/shared/store";
 import type { NotificationPreferences } from "../src/shared/types";
 import { formatHour, stepHour } from "../src/shared/utils/notificationPrefs";
 import { ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 
 type Toggle = "budget_alerts" | "savings_milestones" | "weekly_summary" | "ai_insights" | "daily_reminder";
 
@@ -252,8 +252,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   bannerCopy: { flex: 1, gap: 4 },
-  bannerTitle: { color: colors.warning, fontSize: 15, fontWeight: "700" },
-  bannerText: { color: colors.text, fontSize: 13, lineHeight: 18 },
+  bannerTitle: { color: colors.warning, fontSize: 14, fontFamily: interFonts.bold },
+  bannerText: { color: colors.text, fontSize: 12, fontFamily: interFonts.regular, lineHeight: 17 },
   bannerActions: { alignItems: "center", flexDirection: "row", gap: 16, marginTop: 6 },
   bannerBtn: {
     backgroundColor: colors.primary,
@@ -261,9 +261,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  bannerBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
-  link: { color: colors.primary, fontSize: 13, fontWeight: "700" },
-  error: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  bannerBtnText: { color: "#FFFFFF", fontSize: 12, fontFamily: interFonts.bold },
+  link: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
+  error: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -274,8 +274,8 @@ const styles = StyleSheet.create({
   row: { alignItems: "center", flexDirection: "row", gap: 12, padding: 16 },
   rowBorder: { borderTopColor: colors.border, borderTopWidth: 1 },
   rowCopy: { flex: 1, gap: 2 },
-  rowTitle: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  rowSub: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
+  rowTitle: { color: colors.text, fontSize: 14, fontFamily: interFonts.semibold },
+  rowSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, lineHeight: 15 },
   hourRow: { justifyContent: "space-between" },
   stepper: { alignItems: "center", flexDirection: "row", gap: 14 },
   stepBtn: {
@@ -286,14 +286,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 32,
   },
-  hour: { color: colors.text, fontSize: 17, fontWeight: "700", minWidth: 56, textAlign: "center" },
-  tz: { color: colors.textMuted, fontSize: 12, textAlign: "center" },
+  hour: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold, minWidth: 56, textAlign: "center" },
+  tz: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, textAlign: "center" },
   testBtn: {
     alignItems: "center",
     backgroundColor: colors.primarySoft,
     borderRadius: 16,
     paddingVertical: 14,
   },
-  testText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
-  testResult: { color: colors.textMuted, fontSize: 13, textAlign: "center" },
+  testText: { color: colors.primary, fontSize: 14, fontFamily: interFonts.bold },
+  testResult: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular, textAlign: "center" },
 });

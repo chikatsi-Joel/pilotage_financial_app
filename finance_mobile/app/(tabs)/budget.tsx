@@ -18,7 +18,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors } from "../../src/ui/theme";
+import { colors, interFonts } from "../../src/ui/theme";
 import { budget as budgetApi } from "../../src/shared/api/budget";
 import { categories as categoriesApi } from "../../src/shared/api/categories";
 import { useAppStore } from "../../src/shared/store";
@@ -1197,13 +1197,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 17,
+    fontFamily: interFonts.bold,
   },
   emptySubtitle: {
     color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12, fontFamily: interFonts.regular,
+    lineHeight: 18,
     marginTop: 8,
     textAlign: "center",
   },
@@ -1219,8 +1219,8 @@ const styles = StyleSheet.create({
   },
   emptyCtaText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13,
+    fontFamily: interFonts.bold,
   },
 
   /* Header */
@@ -1233,15 +1233,15 @@ const styles = StyleSheet.create({
   },
   headerEyebrow: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   headerTitle: {
     color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
+    fontSize: 29,
+    fontFamily: interFonts.bold,
     letterSpacing: -0.5,
     marginTop: 2,
   },
@@ -1255,8 +1255,8 @@ const styles = StyleSheet.create({
   },
   monthText: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
   },
 
   /* Hero */
@@ -1299,16 +1299,16 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 12,
+    fontFamily: interFonts.medium,
     letterSpacing: 0.5,
   },
   heroAmount: {
     color: colors.text,
-    fontSize: 36,
-    fontWeight: "800",
+    fontSize: 33,
+    fontFamily: interFonts.bold,
     letterSpacing: -1,
-    lineHeight: 40,
+    lineHeight: 37,
   },
   heroPill: {
     alignItems: "center",
@@ -1327,8 +1327,8 @@ const styles = StyleSheet.create({
     width: 6,
   },
   heroPillText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
   heroRow: {
     alignItems: "center",
@@ -1339,8 +1339,8 @@ const styles = StyleSheet.create({
   },
   heroSpent: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
   },
   heroPillNarrow: {
     marginTop: 0,
@@ -1387,13 +1387,13 @@ const styles = StyleSheet.create({
   },
   decisionTitle: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 13,
+    fontFamily: interFonts.bold,
   },
   decisionText: {
     color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12, fontFamily: interFonts.regular,
+    lineHeight: 17,
   },
   decisionBtn: {
     alignItems: "center",
@@ -1408,8 +1408,8 @@ const styles = StyleSheet.create({
   },
   decisionBtnText: {
     color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontFamily: interFonts.bold,
   },
 
   /* Ring */
@@ -1429,13 +1429,13 @@ const styles = StyleSheet.create({
   },
   ringPct: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 15,
+    fontFamily: interFonts.bold,
   },
   ringLabel: {
     color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 9,
+    fontFamily: interFonts.semibold,
     marginTop: -2,
   },
 
@@ -1449,8 +1449,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 18,
+    fontFamily: interFonts.bold,
   },
   countBadge: {
     backgroundColor: `${colors.primary}10`,
@@ -1460,8 +1460,8 @@ const styles = StyleSheet.create({
   },
   countText: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
   addCatBtn: {
     alignItems: "center",
@@ -1473,7 +1473,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  addCatText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  addCatText: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
 
   /* Modal */
   modalBackdrop: {
@@ -1506,14 +1506,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 18,
+    fontFamily: interFonts.bold,
     marginBottom: 8,
   },
   fieldLabel: {
     color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.5,
     marginBottom: 6,
     marginTop: 14,
@@ -1525,20 +1525,20 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15, fontFamily: interFonts.regular,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   fieldHint: {
     color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11, fontFamily: interFonts.regular,
+    lineHeight: 15,
     marginTop: 6,
   },
   fieldError: {
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
     marginTop: 12,
   },
   essentialRow: { flexDirection: "row", gap: 10 },
@@ -1558,11 +1558,11 @@ const styles = StyleSheet.create({
   },
   essentialOptText: {
     color: colors.textMuted,
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: interFonts.semibold,
     textAlign: "center",
   },
-  essentialOptTextActive: { color: colors.primary, fontWeight: "800" },
+  essentialOptTextActive: { color: colors.primary, fontFamily: interFonts.bold },
   iconRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   iconChoice: {
     alignItems: "center",
@@ -1594,7 +1594,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 14,
   },
-  modalCancelText: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  modalCancelText: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
   modalSave: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -1603,7 +1603,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 14,
   },
-  modalSaveText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  modalSaveText: { color: "#FFFFFF", fontSize: 15, fontFamily: interFonts.bold },
 
   /* Liste */
   list: {
@@ -1647,13 +1647,13 @@ const styles = StyleSheet.create({
   },
   cardName: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: interFonts.semibold,
   },
   cardPct: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
   cardEssential: {
     alignSelf: "flex-start",
@@ -1665,8 +1665,8 @@ const styles = StyleSheet.create({
   },
   cardEssentialText: {
     color: colors.primary,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
   },
   cardRight: {
     alignItems: "center",
@@ -1689,18 +1689,18 @@ const styles = StyleSheet.create({
   },
   cardAllocatedText: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
   },
   cardAllocatedOver: {
     color: colors.danger,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
   cardAmount: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontFamily: interFonts.bold,
   },
 
   /* Toggle */

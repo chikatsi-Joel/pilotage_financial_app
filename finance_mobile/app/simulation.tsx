@@ -19,7 +19,7 @@ import { useAppStore } from "../src/shared/store";
 import type { CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { EmptyState, ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 
 function percentLabel(value: number): string {
   return `${Math.round(value)}%`;
@@ -403,13 +403,13 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: "rgba(255,255,255,0.80)",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   heroRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  heroAmount: { color: "#FFFFFF", fontSize: 40, fontWeight: "700", letterSpacing: -1.5, lineHeight: 48, flexShrink: 1 },
+  heroAmount: { color: "#FFFFFF", fontSize: 37, fontFamily: interFonts.bold, letterSpacing: -1.5, lineHeight: 44, flexShrink: 1 },
   heroBadge: {
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.15)",
@@ -419,9 +419,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  heroBadgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
+  heroBadgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: interFonts.semibold },
   heroMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
-  errorText: { color: colors.danger, fontSize: 13, fontWeight: "600", marginBottom: 8 },
+  errorText: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold, marginBottom: 8 },
   retry: {
     alignSelf: "flex-start",
     backgroundColor: colors.primary,
@@ -429,11 +429,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  retryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  retryText: { color: "#FFFFFF", fontSize: 12, fontFamily: interFonts.bold },
 
   section: { gap: 4, marginTop: 28 },
-  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "600", paddingHorizontal: 16 },
-  sectionDesc: { color: colors.textMuted, fontSize: 16, lineHeight: 24, paddingHorizontal: 16 },
+  sectionTitle: { color: colors.text, fontSize: 18, fontFamily: interFonts.semibold, paddingHorizontal: 16 },
+  sectionDesc: { color: colors.textMuted, fontSize: 15, fontFamily: interFonts.regular, lineHeight: 22, paddingHorizontal: 16 },
 
   card: {
     backgroundColor: "#FFFFFF",
@@ -450,24 +450,24 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   chip: { backgroundColor: colors.surfaceMuted, borderRadius: 99, paddingHorizontal: 14, paddingVertical: 8 },
   chipActive: { backgroundColor: colors.primary },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  chipText: { color: colors.text, fontSize: 12, fontFamily: interFonts.medium },
   chipTextActive: { color: "#FFFFFF" },
 
   sliderHead: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   sliderLabel: { alignItems: "center", flexDirection: "row", gap: 8 },
-  sliderLabelText: { color: colors.text, fontSize: 14, fontWeight: "500" },
-  sliderVal: { color: colors.primary, fontSize: 20, fontWeight: "600" },
+  sliderLabelText: { color: colors.text, fontSize: 13, fontFamily: interFonts.medium },
+  sliderVal: { color: colors.primary, fontSize: 18, fontFamily: interFonts.semibold },
   slider: { height: 32, marginHorizontal: -8 },
   sliderRange: { flexDirection: "row", justifyContent: "space-between" },
-  sliderRangeText: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  sliderRangeText: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
   divider: { backgroundColor: colors.border, height: 1, marginVertical: 12 },
 
   resultRow: { flexDirection: "row", gap: 12 },
   resultRowLast: { marginTop: 12 },
   resultCell: { flex: 1, gap: 2 },
-  resultLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  resultValue: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  resultSub: { color: colors.textMuted, fontSize: 11 },
+  resultLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
+  resultValue: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
+  resultSub: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular },
 
   reco: {
     backgroundColor: "#DCE9FF",
@@ -479,8 +479,8 @@ const styles = StyleSheet.create({
   },
   recoEyebrow: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
@@ -494,9 +494,9 @@ const styles = StyleSheet.create({
     width: 40,
   },
   recoCopy: { flex: 1, gap: 4 },
-  recoTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
-  recoDesc: { color: colors.textMuted, fontSize: 16, lineHeight: 24 },
-  recoImpact: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  recoTitle: { color: colors.text, fontSize: 18, fontFamily: interFonts.semibold },
+  recoDesc: { color: colors.textMuted, fontSize: 15, fontFamily: interFonts.regular, lineHeight: 22 },
+  recoImpact: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
   recoBtns: { flexDirection: "row", gap: 12 },
   btnIgnore: {
     backgroundColor: colors.surface,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  btnIgnoreText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
+  btnIgnoreText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.medium },
   btnApply: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -521,5 +521,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
   },
-  btnApplyText: { color: "#FFFFFF", fontSize: 14, fontWeight: "500" },
+  btnApplyText: { color: "#FFFFFF", fontSize: 13, fontFamily: interFonts.medium },
 });

@@ -19,7 +19,7 @@ import { router } from "expo-router";
 import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
 import { ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 import { monthLabel } from "../src/shared/utils/date";
 
 function formatDateDisplay(dateStr: string): string {
@@ -265,12 +265,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     width: 32,
   },
-  iconLabel: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },
+  iconLabel: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.medium },
 
   /* Form */
   formSection: { gap: 16, marginTop: 32, paddingHorizontal: 16 },
   field: { gap: 6 },
-  fieldLabel: { color: colors.text, fontSize: 14, fontWeight: "500" },
+  fieldLabel: { color: colors.text, fontSize: 13, fontFamily: interFonts.medium },
   inputRow: {
     alignItems: "center",
     backgroundColor: "#E5EEFF",
@@ -281,10 +281,10 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     paddingVertical: 14,
   },
-  input: { color: colors.text, flex: 1, fontSize: 16 },
-  inputSuffix: { color: colors.textMuted, fontSize: 16 },
+  input: { color: colors.text, flex: 1, fontSize: 15, fontFamily: interFonts.regular },
+  inputSuffix: { color: colors.textMuted, fontSize: 15, fontFamily: interFonts.regular },
   pickerDone: { alignSelf: "flex-end", paddingVertical: 4 },
-  pickerDoneText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
+  pickerDoneText: { color: colors.primary, fontSize: 15, fontFamily: interFonts.semibold },
 
   /* Estimator */
   estimatorCard: {
@@ -306,21 +306,21 @@ const styles = StyleSheet.create({
   estimatorHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   estimatorTitle: {
     color: "#160066",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  estimatorDesc: { color: "#4234A2", fontSize: 16, lineHeight: 24 },
+  estimatorDesc: { color: "#4234A2", fontSize: 15, fontFamily: interFonts.regular, lineHeight: 22 },
   estimatorRow: { alignItems: "flex-end", flexDirection: "row", gap: 8, marginTop: 4 },
   estimatorAmount: {
     color: "#160066",
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -2,
-    lineHeight: 56,
+    lineHeight: 52,
   },
-  estimatorUnit: { color: "#4234A2", fontSize: 20, fontWeight: "600", marginBottom: 4 },
+  estimatorUnit: { color: "#4234A2", fontSize: 18, fontFamily: interFonts.semibold, marginBottom: 4 },
 
   /* CTA */
   ctaContainer: {
@@ -354,6 +354,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
-  ctaText: { color: "#FFFFFF", fontSize: 20, fontWeight: "600" },
+  ctaText: { color: "#FFFFFF", fontSize: 18, fontFamily: interFonts.semibold },
   ctaButtonDisabled: { opacity: 0.7 },
 });

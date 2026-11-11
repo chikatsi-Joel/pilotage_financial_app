@@ -26,7 +26,7 @@ import { useAppStore } from "../src/shared/store";
 import type { CategoryAnalytics, SavingsGoalSummary } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { ProgressBar, ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 
 // ═══════════════════════════════════════════════════════════
 //  TYPES
@@ -244,7 +244,7 @@ const ptStyles = StyleSheet.create({
   row: { flexDirection: "row", gap: 6 },
   chip: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 },
   chipActive: { backgroundColor: colors.text },
-  text: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
+  text: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
   textActive: { color: "#FFFFFF" },
 });
 
@@ -389,23 +389,23 @@ const hStyles = StyleSheet.create({
     shadowRadius: 12,
   },
   top: { gap: 2 },
-  label: { color: colors.textMuted, fontSize: 13, fontWeight: "500" },
-  amount: { color: colors.text, fontSize: 34, fontWeight: "700", letterSpacing: -1.5 },
+  label: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.medium },
+  amount: { color: colors.text, fontSize: 31, fontFamily: interFonts.bold, letterSpacing: -1.5 },
   trend: { alignItems: "center", flexDirection: "row", gap: 4, marginTop: 4 },
-  trendText: { color: colors.success, fontSize: 13, fontWeight: "600" },
+  trendText: { color: colors.success, fontSize: 12, fontFamily: interFonts.semibold },
   divider: { backgroundColor: "#F0F0F5", height: 1 },
   grid: { flexDirection: "row", gap: 8 },
   burn: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   burnLeft: { alignItems: "center", flexDirection: "row", gap: 6 },
-  burnLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
-  burnValue: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  burnLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
+  burnValue: { color: colors.text, fontSize: 12, fontFamily: interFonts.bold },
 });
 
 const hsStyles = StyleSheet.create({
   col: { flex: 1, gap: 2 },
-  label: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
-  value: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  delta: { fontSize: 11, fontWeight: "600", marginTop: 2 },
+  label: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
+  value: { color: colors.text, fontSize: 14, fontFamily: interFonts.bold },
+  delta: { fontSize: 10, fontFamily: interFonts.semibold, marginTop: 2 },
   deltaUp: { color: colors.success },
   deltaDown: { color: "#E91E63" },
   deltaMuted: { color: colors.textMuted },
@@ -522,11 +522,11 @@ function AreaChart({ months, currency }: { months: MonthPoint[]; currency: strin
 const acStyles = StyleSheet.create({
   wrap: { gap: 12 },
   header: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },
-  title: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
   legend: { flexDirection: "row", gap: 12 },
   dotWrap: { alignItems: "center", flexDirection: "row", gap: 5 },
   dot: { borderRadius: 99, height: 7, width: 7 },
-  dotLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
+  dotLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -622,18 +622,18 @@ const pfStyles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 12,
   },
-  title: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
   metrics: { flexDirection: "row", justifyContent: "space-between" },
   bars: { gap: 12 },
   footer: { alignItems: "center", flexDirection: "row", gap: 8 },
-  footerText: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
+  footerText: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
   chips: { flexDirection: "row", gap: 6 },
   chip: {
     backgroundColor: `${colors.danger}10`,
     borderRadius: 6,
     color: colors.danger,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontFamily: interFonts.semibold,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -642,18 +642,18 @@ const pfStyles = StyleSheet.create({
 const pmStyles = StyleSheet.create({
   col: { alignItems: "center", gap: 6 },
   icon: { alignItems: "center", borderRadius: 10, height: 32, justifyContent: "center", width: 32 },
-  value: { color: colors.text, fontSize: 16, fontWeight: "700" },
-  label: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
+  value: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
+  label: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
 });
 
 const pbStyles = StyleSheet.create({
   row: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   left: { alignItems: "center", flexDirection: "row", gap: 8 },
-  label: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  label: { color: colors.text, fontSize: 12, fontFamily: interFonts.medium },
   right: { alignItems: "center", flexDirection: "row", gap: 10 },
   track: { backgroundColor: "#F0F0F5", borderRadius: 99, height: 5, width: 80 },
   fill: { borderRadius: 99, height: 5 },
-  value: { color: colors.text, fontSize: 13, fontWeight: "700", minWidth: 32, textAlign: "right" },
+  value: { color: colors.text, fontSize: 12, fontFamily: interFonts.bold, minWidth: 32, textAlign: "right" },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -725,13 +725,13 @@ const fcStyles = StyleSheet.create({
     justifyContent: "center",
     width: 40,
   },
-  title: { color: colors.text, fontSize: 16, fontWeight: "700" },
-  sub: { color: colors.textMuted, fontSize: 12, fontWeight: "500", marginTop: 2 },
+  title: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
+  sub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium, marginTop: 2 },
   body: { flexDirection: "row", gap: 16 },
   col: { flex: 1, gap: 4 },
-  label: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
-  amount: { color: colors.text, fontSize: 20, fontWeight: "700" },
-  delta: { color: colors.success, fontSize: 12, fontWeight: "600" },
+  label: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
+  amount: { color: colors.text, fontSize: 18, fontFamily: interFonts.bold },
+  delta: { color: colors.success, fontSize: 11, fontFamily: interFonts.semibold },
   sep: { backgroundColor: "#E4E6F0", width: 1 },
 });
 
@@ -814,17 +814,17 @@ function DonutChart({
 const dnStyles = StyleSheet.create({
   card: { gap: 16 },
   header: { paddingHorizontal: 4 },
-  title: { color: colors.text, fontSize: 17, fontWeight: "700" },
-  sub: { color: colors.textMuted, fontSize: 12, fontWeight: "500", marginTop: 2 },
+  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
+  sub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium, marginTop: 2 },
   body: { alignItems: "center", flexDirection: "row", gap: 24 },
   wrap: { alignItems: "center", justifyContent: "center" },
   center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
-  total: { color: colors.text, fontSize: 18, fontWeight: "700" },
+  total: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
   legend: { flex: 1, gap: 10 },
   row: { alignItems: "center", flexDirection: "row", gap: 8 },
   dot: { borderRadius: 99, height: 8, width: 8 },
-  name: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "500" },
-  pct: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
+  name: { color: colors.text, flex: 1, fontSize: 12, fontFamily: interFonts.medium },
+  pct: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -874,14 +874,14 @@ function CategoryBars({
 
 const cbStyles = StyleSheet.create({
   wrap: { gap: 14 },
-  title: { color: colors.text, fontSize: 17, fontWeight: "700", paddingHorizontal: 4 },
-  empty: { color: colors.textMuted, fontSize: 13, fontStyle: "italic", paddingHorizontal: 4 },
+  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold, paddingHorizontal: 4 },
+  empty: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular, fontStyle: "italic", paddingHorizontal: 4 },
   row: { gap: 8 },
   top: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   left: { alignItems: "center", flexDirection: "row", gap: 10 },
   icon: { alignItems: "center", borderRadius: 8, height: 28, justifyContent: "center", width: 28 },
-  name: { color: colors.text, fontSize: 14, fontWeight: "500" },
-  amount: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  name: { color: colors.text, fontSize: 13, fontFamily: interFonts.medium },
+  amount: { color: colors.text, fontSize: 13, fontFamily: interFonts.bold },
   track: { backgroundColor: "#F0F0F5", borderRadius: 99, height: 8, overflow: "hidden" },
   fill: { borderRadius: 99, height: "100%" },
 });
@@ -917,7 +917,7 @@ function InsightAlerts({ insights }: { insights: Insight[] }) {
 
 const inStyles = StyleSheet.create({
   wrap: { gap: 10 },
-  title: { color: colors.text, fontSize: 17, fontWeight: "700", paddingHorizontal: 4 },
+  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold, paddingHorizontal: 4 },
   row: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
@@ -932,7 +932,7 @@ const inStyles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 4,
   },
-  text: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "500", lineHeight: 18 },
+  text: { color: colors.text, flex: 1, fontSize: 12, fontFamily: interFonts.medium, lineHeight: 17 },
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
   scroll: { gap: 24, padding: 16, paddingBottom: 32 },
   errorText: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: 13, fontFamily: interFonts.regular,
     paddingVertical: 24,
     textAlign: "center",
   },

@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
 import { formatMoney } from "../src/shared/utils/money";
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     width: 42,
   },
   goalCopy: { flex: 1, gap: 2 },
-  goalName: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  goalProgress: { color: colors.textMuted, fontSize: 13 },
+  goalName: { color: colors.text, fontSize: 14, fontFamily: interFonts.bold },
+  goalProgress: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular },
 
   /* Montant */
   amountCard: {
@@ -230,21 +230,21 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     marginBottom: 4,
   },
   amountRow: { alignItems: "flex-end", flexDirection: "row" },
   amountValue: {
     color: colors.text,
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -2,
   },
   amountCurrency: {
     color: colors.textMuted,
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 22,
+    fontFamily: interFonts.semibold,
     marginBottom: 2,
     marginLeft: 8,
   },
@@ -259,16 +259,16 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontFamily: interFonts.semibold,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  previewValue: { color: colors.primary, fontSize: 22, fontWeight: "800" },
-  previewMeta: { color: colors.textMuted, fontSize: 12 },
+  previewValue: { color: colors.primary, fontSize: 20, fontFamily: interFonts.bold },
+  previewMeta: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
 
   /* Erreur */
-  errorText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  errorText: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
 
   /* Sauvegarder */
   saveBtn: {
@@ -285,5 +285,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
-  saveText: { color: "#FFFFFF", fontSize: 20, fontWeight: "600" },
+  saveText: { color: "#FFFFFF", fontSize: 18, fontFamily: interFonts.semibold },
 });

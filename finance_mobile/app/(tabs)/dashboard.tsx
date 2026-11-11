@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 
-import { colors } from "../../src/ui/theme";
+import { colors, interFonts } from "../../src/ui/theme";
 import { ProfileMenu } from "../../src/ui/ProfileMenu";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
@@ -135,8 +135,8 @@ const donutStyles = StyleSheet.create({
   },
   pct: {
     color: colors.accent,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
 });
 
@@ -256,14 +256,14 @@ const alertStyles = StyleSheet.create({
     width: 32,
   },
   pill: { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 2 },
-  pillText: { fontSize: 12, fontWeight: "600" },
+  pillText: { fontSize: 11, fontFamily: interFonts.semibold },
   label: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 15,
+    fontFamily: interFonts.medium,
     marginTop: 4,
   },
-  subtitle: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  subtitle: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -333,7 +333,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 const legendStyles = StyleSheet.create({
   item: { alignItems: "center", flexDirection: "row", gap: 6 },
   dot: { borderRadius: 99, height: 12, width: 12 },
-  text: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  text: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
 });
 
 const chartStyles = StyleSheet.create({
@@ -395,7 +395,7 @@ const chartStyles = StyleSheet.create({
     height: "100%",
   },
   bar: { borderRadius: 4, width: 12 },
-  barLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  barLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
   legend: {
     borderTopColor: "#DCE9FF",
     borderTopWidth: 1,
@@ -421,15 +421,22 @@ function StatTile({
   sub,
   tone,
   trend,
+  onPress,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: string;
   trend?: TileTrend | null;
+  onPress?: () => void;
 }) {
   return (
-    <View style={tileStyles.tile}>
+    <Pressable
+      accessibilityRole={onPress ? "button" : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [tileStyles.tile, pressed && tileStyles.tilePressed]}
+    >
       <View pointerEvents="none" style={tileStyles.orb} />
       <View pointerEvents="none" style={tileStyles.orbSmall} />
       <Text style={tileStyles.label}>{label}</Text>
@@ -437,12 +444,19 @@ function StatTile({
         {value}
       </Text>
       {trend ? (
-        <Text numberOfLines={1} style={[tileStyles.trend, { color: trend.good ? "#3E8B67" : "#B4544B" }]}>
-          {trend.up ? "↑" : "↓"} {trend.text}
-        </Text>
+        <View
+          style={[
+            tileStyles.trendPill,
+            { backgroundColor: trend.good ? "#3E8B6714" : "#B4544B14" },
+          ]}
+        >
+          <Text numberOfLines={1} style={[tileStyles.trend, { color: trend.good ? "#3E8B67" : "#B4544B" }]}>
+            {trend.up ? "↑" : "↓"} {trend.text}
+          </Text>
+        </View>
       ) : null}
       {sub ? <Text numberOfLines={1} style={tileStyles.sub}>{sub}</Text> : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -477,16 +491,24 @@ const tileStyles = StyleSheet.create({
     position: "absolute",
     width: 50,
   },
-  trend: { fontSize: 12, fontWeight: "700" },
+  tilePressed: { opacity: 0.8 },
+  trendPill: {
+    alignSelf: "flex-start",
+    borderRadius: 99,
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  trend: { fontSize: 10, fontFamily: interFonts.semibold },
   label: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.6,
     textTransform: "uppercase",
   },
-  value: { color: colors.text, fontSize: 19, fontWeight: "700", marginTop: 2 },
-  sub: { color: colors.textMuted, fontSize: 11 },
+  value: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold, marginTop: 2 },
+  sub: { fontFamily: interFonts.regular, color: colors.textMuted, fontSize: 10 },
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -764,14 +786,24 @@ export default function Dashboard() {
 
         {/* ── Ce mois en chiffres ── */}
         {data && (
+          <View style={styles.statsHead}>
+            <Text style={styles.sectionTitle}>Ce mois</Text>
+            <Text style={styles.statsMonth}>
+              {MONTHS_FR[month - 1]} {year}
+            </Text>
+          </View>
+        )}
+        {data && (
           <View style={styles.statsGrid}>
             <StatTile
               label="Revenus"
+              onPress={() => router.push("/income-sources")}
               trend={incomeTrend}
               value={formatMoney(data.income, currency)}
             />
             <StatTile
               label="Dépenses"
+              onPress={() => router.push("/analyse")}
               trend={expenseTrend}
               sub={
                 data.income > 0
@@ -782,6 +814,7 @@ export default function Dashboard() {
             />
             <StatTile
               label="Taux d'épargne"
+              onPress={() => router.push("/savings")}
               trend={rateTrend}
               sub={data.income > 0 ? "de vos revenus" : "aucun revenu saisi"}
               tone={data.savings_rate >= 0 ? colors.success : colors.danger}
@@ -938,9 +971,9 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
+    lineHeight: 18,
     textAlign: "center",
   },
   retryBtn: {
@@ -949,7 +982,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  retryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+  retryText: { color: "#FFFFFF", fontSize: 13, fontFamily: interFonts.bold },
 
   /* Header */
   header: {
@@ -959,7 +992,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     zIndex: 10,
   },
-  headerTitle: { color: colors.text, fontSize: 20, fontWeight: "600" },
+  headerTitle: { color: colors.text, fontSize: 18, fontFamily: interFonts.semibold },
   headerActions: { alignItems: "center", flexDirection: "row", gap: 10 },
   incomeBtn: {
     alignItems: "center",
@@ -981,7 +1014,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  quickAddText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
+  quickAddText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.medium },
   avatar: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -1023,17 +1056,17 @@ const styles = StyleSheet.create({
   },
   soldeLabel: {
     color: "#474552",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   soldeAmount: {
     color: colors.primary,
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -2,
-    lineHeight: 56,
+    lineHeight: 52,
   },
   soldeTrend: {
     alignItems: "center",
@@ -1041,7 +1074,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
   },
-  soldeTrendText: { color: colors.accent, fontSize: 12, fontWeight: "600" },
+  soldeTrendText: { color: colors.accent, fontSize: 11, fontFamily: interFonts.semibold },
   soldeContribRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -1050,19 +1083,21 @@ const styles = StyleSheet.create({
   },
   soldeContribText: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
 
   /* Vigilance */
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: -8 },
+  statsHead: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between" },
+  statsMonth: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.medium },
   vigilanceHead: { gap: 2 },
-  vigilanceSub: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
+  vigilanceSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
   sectionTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "600",
-    lineHeight: 28,
+    fontSize: 18,
+    fontFamily: interFonts.semibold,
+    lineHeight: 26,
   },
   alertsScroll: { gap: 12 },
 
@@ -1079,7 +1114,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  chartFilterText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
+  chartFilterText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.medium },
 
   /* ═══ Épargne Projetée ═══ */
   projectedCard: {
@@ -1106,22 +1141,22 @@ const styles = StyleSheet.create({
   },
   projectedLabel: {
     color: "#474552",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   projectedDate: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
   projectedAmount: {
     color: colors.primary,
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -2,
-    lineHeight: 56,
+    lineHeight: 52,
   },
   projectedCompare: {
     alignItems: "center",
@@ -1131,8 +1166,8 @@ const styles = StyleSheet.create({
   },
   projectedCompareLabel: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
   projectedDelta: {
     alignItems: "center",
@@ -1145,8 +1180,8 @@ const styles = StyleSheet.create({
   },
   projectedDeltaText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
   },
   projectedBarRow: {
     alignItems: "center",
@@ -1168,8 +1203,8 @@ const styles = StyleSheet.create({
   },
   projectedBarMarker: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 10,
+    fontFamily: interFonts.medium,
     minWidth: 28,
   },
 
@@ -1211,21 +1246,21 @@ const styles = StyleSheet.create({
   savingsLeft: { flex: 1, gap: 2 },
   savingsLabel: {
     color: "#4B3B7C",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   savingsAmount: {
     color: "#3A2D66",
-    fontSize: 24,
-    fontWeight: "600",
-    lineHeight: 32,
+    fontSize: 22,
+    fontFamily: interFonts.semibold,
+    lineHeight: 29,
   },
   savingsGoal: {
     color: "#6E55A8",
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
     marginTop: 4,
   },
 });

@@ -23,7 +23,7 @@ import DateTimePicker, {
 import { router, useLocalSearchParams } from "expo-router";
 
 import { ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 import { categories as categoriesApi } from "../src/shared/api/categories";
 import { expenses as expensesApi } from "../src/shared/api/expenses";
 import { receipts as receiptsApi } from "../src/shared/api/receipts";
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   modeBtnActive: { backgroundColor: colors.primary },
-  modeBtnText: { color: colors.primary, fontSize: 14, fontWeight: "600" },
+  modeBtnText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.semibold },
   modeBtnTextActive: { color: "#FFFFFF" },
 
   /* Scan */
@@ -1093,11 +1093,11 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 24,
   },
-  scanTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  scanTitle: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
   scanSubtitle: {
     color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12, fontFamily: interFonts.regular,
+    lineHeight: 17,
     textAlign: "center",
   },
   takeBtn: {
@@ -1111,7 +1111,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     width: "100%",
   },
-  takeBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  takeBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: interFonts.bold },
   galleryBtn: {
     alignItems: "center",
     backgroundColor: `${colors.primary}1A`,
@@ -1124,7 +1124,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     width: "100%",
   },
-  galleryBtnText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
+  galleryBtnText: { color: colors.primary, fontSize: 14, fontFamily: interFonts.bold },
   receiptPreview: {
     backgroundColor: "#EFF4FF",
     borderRadius: 16,
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 14,
   },
-  scanBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  scanBtnText: { color: "#FFFFFF", fontSize: 14, fontFamily: interFonts.bold },
   scanGhostBtn: {
     alignItems: "center",
     backgroundColor: "#E5EEFF",
@@ -1149,7 +1149,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 16,
   },
-  scanGhostText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  scanGhostText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
 
   /* Amount card */
   amountCard: {
@@ -1167,8 +1167,8 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     marginBottom: 4,
   },
   amountRow: { alignItems: "flex-end", flexDirection: "row", maxWidth: "100%" },
@@ -1176,14 +1176,14 @@ const styles = StyleSheet.create({
   amountValue: {
     color: colors.text,
     flexShrink: 1,
-    fontSize: 48,
-    fontWeight: "700",
+    fontSize: 44,
+    fontFamily: interFonts.bold,
     letterSpacing: -2,
   },
   amountCurrency: {
     color: colors.textMuted,
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 22,
+    fontFamily: interFonts.semibold,
     marginBottom: 2,
     marginLeft: 4,
   },
@@ -1202,25 +1202,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   detailDivider: { backgroundColor: "#D3E4FE", height: 1, marginLeft: 44 },
-  dateRowLabel: { color: colors.text, fontSize: 15, fontWeight: "600", flex: 1 },
+  dateRowLabel: { color: colors.text, fontSize: 14, fontFamily: interFonts.semibold, flex: 1 },
   datePill: {
     backgroundColor: `${colors.primary}1A`,
     borderRadius: 99,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  datePillText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  datePillText: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
   pickerDone: { alignSelf: "flex-end", paddingVertical: 4 },
-  pickerDoneText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
+  pickerDoneText: { color: colors.primary, fontSize: 15, fontFamily: interFonts.semibold },
 
   /* Note */
-  noteInput: { color: colors.text, flex: 1, fontSize: 15, paddingVertical: 14 },
+  noteInput: { color: colors.text, flex: 1, fontSize: 14, fontFamily: interFonts.regular, paddingVertical: 14 },
 
   /* Categories */
   catTitle: {
     color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
@@ -1255,12 +1255,12 @@ const styles = StyleSheet.create({
   catIconActive: { backgroundColor: colors.primary },
   catLabel: {
     color: colors.text,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
     textAlign: "center",
   },
   catLabelLines: { minHeight: 30 },
-  catLabelActive: { color: colors.primary, fontWeight: "700" },
+  catLabelActive: { color: colors.primary, fontFamily: interFonts.bold },
   catIconMore: {
     alignItems: "center",
     backgroundColor: "#D3E4FE",
@@ -1271,13 +1271,13 @@ const styles = StyleSheet.create({
   },
   catLabelMore: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
     textAlign: "center",
   },
 
   /* Error */
-  errorText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  errorText: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
 
   /* Save */
   saveBtn: {
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
-  saveText: { color: "#FFFFFF", fontSize: 20, fontWeight: "600" },
+  saveText: { color: "#FFFFFF", fontSize: 18, fontFamily: interFonts.semibold },
 
   /* Scanner */
   cameraRoot: { backgroundColor: "#000000", flex: 1 },
@@ -1308,8 +1308,8 @@ const styles = StyleSheet.create({
   },
   cameraPermText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14, fontFamily: interFonts.regular,
+    lineHeight: 20,
     textAlign: "center",
   },
   captureGhost: {
@@ -1320,7 +1320,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 16,
   },
-  captureGhostText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  captureGhostText: { color: "#FFFFFF", fontSize: 15, fontFamily: interFonts.bold },
   capturePrimary: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -1331,7 +1331,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 16,
   },
-  capturePrimaryText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  capturePrimaryText: { color: "#FFFFFF", fontSize: 15, fontFamily: interFonts.bold },
   captureActions: {
     bottom: 48,
     flexDirection: "row",
@@ -1356,7 +1356,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   cameraCloseSpacer: { width: 40 },
-  cameraHint: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
+  cameraHint: { color: "#FFFFFF", fontSize: 13, fontFamily: interFonts.semibold },
   cameraMiddle: { alignItems: "center", flex: 1, justifyContent: "center" },
   scanFrame: {
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -1441,11 +1441,11 @@ const styles = StyleSheet.create({
   analyzeCornerTR: { borderRightWidth: 3, borderTopWidth: 3, borderTopRightRadius: 8, right: 8, top: 8 },
   analyzeCornerBL: { borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8, bottom: 8, left: 8 },
   analyzeCornerBR: { borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8, bottom: 8, right: 8 },
-  analyzeTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  analyzeTitle: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
   analyzeSteps: { alignSelf: "stretch", gap: 10 },
   analyzeStepRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  analyzeStepText: { color: "#8A8B9E", fontSize: 14, fontWeight: "500" },
-  analyzeStepCurrent: { color: colors.text, fontWeight: "700" },
+  analyzeStepText: { color: "#8A8B9E", fontSize: 13, fontFamily: interFonts.medium },
+  analyzeStepCurrent: { color: colors.text, fontFamily: interFonts.bold },
   analyzeStepDone: { color: colors.textMuted },
   analyzeTrack: {
     alignSelf: "stretch",
@@ -1455,5 +1455,5 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   analyzeFill: { backgroundColor: colors.primary, borderRadius: 99, height: 6 },
-  analyzeHint: { color: colors.textMuted, fontSize: 12, textAlign: "center" },
+  analyzeHint: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, textAlign: "center" },
 });

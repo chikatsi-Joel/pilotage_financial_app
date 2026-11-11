@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 
 import { EmptyState, ScreenHeader } from "../src/ui/components";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 import { incomes as incomesApi } from "../src/shared/api/incomes";
 import { useAppStore } from "../src/shared/store";
 import { formatMoney } from "../src/shared/utils/money";
@@ -297,8 +297,8 @@ const styles = StyleSheet.create({
 
   errorText: {
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
   },
 
   summaryCard: {
@@ -310,17 +310,17 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   summaryValue: {
     color: colors.primary,
-    fontSize: 26,
-    fontWeight: "800",
+    fontSize: 24,
+    fontFamily: interFonts.bold,
   },
-  summarySub: { color: colors.textMuted, fontSize: 12 },
+  summarySub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
 
   row: {
     alignItems: "center",
@@ -345,8 +345,8 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, gap: 6 },
   rowSource: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontFamily: interFonts.bold,
   },
   rowTextInactive: { color: colors.textMuted },
   rowMeta: { alignItems: "center", flexDirection: "row", gap: 8 },
@@ -357,12 +357,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   chipRecurring: { backgroundColor: "#DDF5E9" },
-  chipText: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
-  rowDate: { color: colors.textMuted, fontSize: 12 },
+  chipText: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.bold },
+  rowDate: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   rowAmount: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 14,
+    fontFamily: interFonts.bold,
   },
   rowEdit: { padding: 2 },
 

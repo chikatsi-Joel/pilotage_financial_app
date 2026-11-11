@@ -7,6 +7,7 @@ import { useAppStore } from "../shared/store";
 import type { AIAnalysis } from "../shared/types";
 import { pickRelevantPoints } from "../shared/utils/aiPoints";
 import { colors } from "./theme";
+import { interFonts } from "./theme";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -100,12 +101,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  btnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
-  hint: { color: colors.textMuted, fontSize: 12 },
-  error: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  btnText: { color: "#FFFFFF", fontSize: 12, fontFamily: interFonts.bold },
+  hint: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
+  error: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
   result: { gap: 6 },
-  warn: { color: colors.warning, fontSize: 12, fontWeight: "600" },
-  summary: { color: colors.text, fontSize: 14, lineHeight: 21 },
+  warn: { color: colors.warning, fontSize: 11, fontFamily: interFonts.semibold },
+  summary: { color: colors.text, fontSize: 13, fontFamily: interFonts.regular, lineHeight: 19 },
   point: { alignItems: "flex-start", flexDirection: "row", gap: 2 },
-  pointText: { color: colors.text, flex: 1, fontSize: 13, lineHeight: 19 },
+  pointText: { color: colors.text, flex: 1, fontSize: 12, fontFamily: interFonts.regular, lineHeight: 17 },
 });

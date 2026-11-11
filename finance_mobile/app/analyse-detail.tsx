@@ -22,7 +22,7 @@ import { system as systemApi } from "../src/shared/api/system";
 import { useAppStore } from "../src/shared/store";
 import type { AIAnalysis, AIHealth, Recommendation } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
 //  Types
@@ -667,28 +667,28 @@ const styles = StyleSheet.create({
   summaryHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   summaryTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 18,
+    fontFamily: interFonts.semibold,
   },
   summaryText: {
     color: colors.textMuted,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15, fontFamily: interFonts.regular,
+    lineHeight: 22,
   },
   fallbackBadge: {
     color: colors.warning,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
     textTransform: "uppercase",
   },
   warningBadge: {
     color: colors.danger,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 14,
+    fontSize: 13, fontFamily: interFonts.regular,
     fontStyle: "italic",
     paddingVertical: 8,
   },
@@ -696,8 +696,8 @@ const styles = StyleSheet.create({
   /* Deviations */
   sectionLabel: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
@@ -728,17 +728,17 @@ const styles = StyleSheet.create({
   },
   devTitle: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontFamily: interFonts.semibold,
   },
   devCost: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
   },
   devDesc: {
     color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13, fontFamily: interFonts.regular,
+    lineHeight: 18,
   },
   devDetailBox: {
     backgroundColor: "#F5F5F5",
@@ -751,8 +751,8 @@ const styles = StyleSheet.create({
   devDetailText: {
     color: colors.textMuted,
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12, fontFamily: interFonts.regular,
+    lineHeight: 17,
   },
   devExpandHint: {
     alignItems: "center",
@@ -763,8 +763,8 @@ const styles = StyleSheet.create({
   },
   devExpandText: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: interFonts.medium,
   },
 
   /* Advice */
@@ -781,8 +781,8 @@ const styles = StyleSheet.create({
   adviceHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   adviceTitle: {
     color: "#160066",
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 18,
+    fontFamily: interFonts.semibold,
   },
   adviceList: { gap: 12 },
   adviceItem: {
@@ -808,13 +808,13 @@ const styles = StyleSheet.create({
   },
   adviceItemTitle: {
     color: "#160066",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
   },
   adviceItemDesc: {
     color: "#4234A2",
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13, fontFamily: interFonts.regular,
+    lineHeight: 18,
   },
   checkCircle: {
     alignItems: "center",
@@ -835,8 +835,8 @@ const styles = StyleSheet.create({
   },
   impactBadgeText: {
     color: "#160066",
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
   },
 
   /* CTA */
@@ -856,8 +856,8 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 13,
+    fontFamily: interFonts.medium,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
@@ -880,8 +880,8 @@ const styles = StyleSheet.create({
   navItemActive: {},
   navLabel: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
   },
   navLabelActive: {
     color: colors.primary,

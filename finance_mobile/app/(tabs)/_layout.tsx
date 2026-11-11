@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { colors } from "../../src/ui/theme";
+import { colors, interFonts } from "../../src/ui/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
     marginTop: 2,
   },
   pill: {

@@ -21,6 +21,7 @@ import {
 } from "../shared/utils/receiptItems";
 import { formatMoney } from "../shared/utils/money";
 import { colors } from "./theme";
+import { interFonts } from "./theme";
 
 interface Props {
   lines: DraftLine[];
@@ -190,8 +191,8 @@ export function ReceiptItemsReview({
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
   head: { gap: 2 },
-  title: { color: colors.text, fontSize: 18, fontWeight: "800" },
-  sub: { color: colors.textMuted, fontSize: 13 },
+  title: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
+  sub: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular },
   row: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -202,11 +203,11 @@ const styles = StyleSheet.create({
   },
   rowInvalid: { borderColor: colors.danger },
   rowTop: { alignItems: "center", flexDirection: "row", gap: 10 },
-  labelInput: { color: colors.text, flex: 1, fontSize: 15, fontWeight: "600", padding: 0 },
+  labelInput: { color: colors.text, flex: 1, fontSize: 14, fontFamily: interFonts.semibold, padding: 0 },
   amountInput: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 14,
+    fontFamily: interFonts.bold,
     minWidth: 70,
     padding: 0,
     textAlign: "right",
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  catChipText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+  catChipText: { color: colors.primary, fontSize: 11, fontFamily: interFonts.bold },
   addBtn: {
     alignItems: "center",
     alignSelf: "flex-start",
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
   },
-  addText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  addText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
   totalCard: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 16,
@@ -237,19 +238,19 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   totalRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  totalLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
-  totalValue: { color: colors.primary, fontSize: 20, fontWeight: "800" },
-  warn: { color: colors.warning, fontSize: 12, fontWeight: "600" },
-  error: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  totalLabel: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.bold },
+  totalValue: { color: colors.primary, fontSize: 18, fontFamily: interFonts.bold },
+  warn: { color: colors.warning, fontSize: 11, fontFamily: interFonts.semibold },
+  error: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
   confirm: {
     alignItems: "center",
     backgroundColor: colors.primary,
     borderRadius: 99,
     paddingVertical: 14,
   },
-  confirmText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  confirmText: { color: "#FFFFFF", fontSize: 14, fontFamily: interFonts.bold },
   ghost: { alignItems: "center", paddingVertical: 8 },
-  ghostText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  ghostText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
   backdrop: {
     backgroundColor: "rgba(11,28,48,0.55)",
     flex: 1,
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     maxHeight: "60%",
     padding: 20,
   },
-  sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "800", marginBottom: 8 },
+  sheetTitle: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold, marginBottom: 8 },
   sheetItem: { paddingVertical: 12 },
-  sheetItemText: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  sheetItemText: { color: colors.text, fontSize: 14, fontFamily: interFonts.semibold },
 });

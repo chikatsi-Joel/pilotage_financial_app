@@ -13,7 +13,7 @@ import { ai as aiApi } from "../src/shared/api/ai";
 import { useAppStore } from "../src/shared/store";
 import type { AIAnalysisStored, CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
-import { colors } from "../src/ui/theme";
+import { colors, interFonts } from "../src/ui/theme";
 import { capitalize } from "../src/shared/utils/format";
 import { summarizeSeason, type SeasonalitySummary } from "../src/shared/utils/seasonality";
 
@@ -98,11 +98,11 @@ const aiStyles = StyleSheet.create({
     width: 44,
   },
   copy: { flex: 1, gap: 4 },
-  label: { color: colors.primary, fontSize: 15, fontWeight: "800" },
+  label: { color: colors.primary, fontSize: 14, fontFamily: interFonts.bold },
   summary: {
     color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12, fontFamily: interFonts.regular,
+    lineHeight: 18,
   },
   button: {
     alignItems: "center",
@@ -116,8 +116,8 @@ const aiStyles = StyleSheet.create({
   },
   buttonText: {
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 12,
+    fontFamily: interFonts.bold,
   },
 });
 
@@ -194,11 +194,11 @@ const driftStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  name: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  name: { color: colors.text, fontSize: 14, fontFamily: interFonts.bold },
   amounts: { alignItems: "center", flexDirection: "row", gap: 6 },
-  current: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  sep: { color: colors.textMuted, fontSize: 10 },
-  baseline: { color: colors.textMuted, fontSize: 12 },
+  current: { color: colors.text, fontSize: 12, fontFamily: interFonts.bold },
+  sep: { color: colors.textMuted, fontSize: 9, fontFamily: interFonts.regular },
+  baseline: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   scoreRail: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 4,
@@ -379,8 +379,8 @@ const whatIfStyles = StyleSheet.create({
     left: -26,
     width: 80,
   },
-  title: { color: colors.text, fontSize: 17, fontWeight: "800" },
-  subtitle: { color: colors.textMuted, fontSize: 12, marginTop: -8 },
+  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
+  subtitle: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, marginTop: -8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     alignItems: "center",
@@ -394,7 +394,7 @@ const whatIfStyles = StyleSheet.create({
     paddingVertical: 6,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.text, fontSize: 12, fontWeight: "600" },
+  chipText: { color: colors.text, fontSize: 11, fontFamily: interFonts.semibold },
   chipTextActive: { color: "#FFFFFF" },
   segment: {
     backgroundColor: colors.surface,
@@ -404,11 +404,11 @@ const whatIfStyles = StyleSheet.create({
   },
   segmentBtn: { alignItems: "center", borderRadius: 9, flex: 1, paddingVertical: 8 },
   segmentBtnActive: { backgroundColor: colors.primarySoft },
-  segmentText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  segmentText: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.bold },
   segmentTextActive: { color: colors.primary },
   compare: { gap: 8 },
   compareRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  compareLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "600", width: 78 },
+  compareLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold, width: 78 },
   track: {
     backgroundColor: `${colors.primary}12`,
     borderRadius: 99,
@@ -418,8 +418,8 @@ const whatIfStyles = StyleSheet.create({
   },
   fillBefore: { backgroundColor: "#B9B3DE", borderRadius: 99, height: 8 },
   fillAfter: { backgroundColor: colors.primary, borderRadius: 99, height: 8 },
-  compareValue: { color: colors.text, fontSize: 12, fontWeight: "800", minWidth: 76, textAlign: "right" },
-  basis: { color: colors.textMuted, fontSize: 11 },
+  compareValue: { color: colors.text, fontSize: 11, fontFamily: interFonts.bold, minWidth: 76, textAlign: "right" },
+  basis: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular },
   gainBox: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -428,10 +428,10 @@ const whatIfStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  gainLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "600" },
-  gain: { color: colors.success, fontSize: 24, fontWeight: "800" },
-  gainPer: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  gainSub: { color: colors.textMuted, fontSize: 12 },
+  gainLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.semibold },
+  gain: { color: colors.success, fontSize: 22, fontFamily: interFonts.bold },
+  gainPer: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
+  gainSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   button: {
     alignItems: "center",
     alignSelf: "center",
@@ -439,7 +439,7 @@ const whatIfStyles = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
   },
-  buttonText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  buttonText: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -610,9 +610,9 @@ const recoStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  trendText: { fontSize: 12, fontWeight: "700" },
-  name: { color: colors.text, fontSize: 16, fontWeight: "700", marginTop: 8 },
-  context: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  trendText: { fontSize: 11, fontFamily: interFonts.bold },
+  name: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold, marginTop: 8 },
+  context: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, lineHeight: 16 },
   gainBox: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -620,10 +620,10 @@ const recoStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  gainLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "600" },
-  gain: { color: colors.success, fontSize: 20, fontWeight: "800" },
-  gainPer: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  year: { color: colors.textMuted, fontSize: 11 },
+  gainLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.semibold },
+  gain: { color: colors.success, fontSize: 18, fontFamily: interFonts.bold },
+  gainPer: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
+  year: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular },
   btn: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -633,7 +633,7 @@ const recoStyles = StyleSheet.create({
     minHeight: 38,
   },
   btnDim: { opacity: 0.7 },
-  btnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  btnText: { color: "#FFFFFF", fontSize: 12, fontFamily: interFonts.bold },
   done: {
     alignItems: "center",
     flexDirection: "row",
@@ -642,7 +642,7 @@ const recoStyles = StyleSheet.create({
     marginTop: 10,
     minHeight: 38,
   },
-  doneText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  doneText: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.bold },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -679,8 +679,8 @@ const histStyles = StyleSheet.create({
     width: 10,
   },
   copy: { flex: 1, gap: 3 },
-  title: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  summary: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  title: { color: colors.text, fontSize: 13, fontFamily: interFonts.bold },
+  summary: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, lineHeight: 16 },
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -821,7 +821,7 @@ const seasonStyles = StyleSheet.create({
     marginTop: 12,
     padding: 18,
   },
-  subtitle: { color: colors.text, fontSize: 13, lineHeight: 20 },
+  subtitle: { color: colors.text, fontSize: 12, fontFamily: interFonts.regular, lineHeight: 18 },
   chart: {
     alignItems: "flex-end",
     flexDirection: "row",
@@ -850,8 +850,8 @@ const seasonStyles = StyleSheet.create({
   },
   barProjected: { backgroundColor: `${colors.primary}40` },
   barReal: { backgroundColor: colors.primary, width: "100%" },
-  colLabel: { bottom: -16, color: colors.textMuted, fontSize: 10, position: "absolute" },
-  colLabelActive: { color: colors.primary, fontWeight: "800" },
+  colLabel: { bottom: -16, color: colors.textMuted, fontSize: 9, fontFamily: interFonts.regular, position: "absolute" },
+  colLabelActive: { color: colors.primary, fontFamily: interFonts.bold },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   legendItem: { alignItems: "center", flexDirection: "row", gap: 5 },
   legendSwatch: { borderRadius: 3, height: 10, width: 10 },
@@ -861,7 +861,7 @@ const seasonStyles = StyleSheet.create({
     borderTopWidth: 1,
     width: 14,
   },
-  legendText: { color: colors.textMuted, fontSize: 11, fontWeight: "600" },
+  legendText: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.semibold },
   metrics: {
     borderTopColor: colors.border,
     borderTopWidth: 1,
@@ -870,8 +870,8 @@ const seasonStyles = StyleSheet.create({
     paddingTop: 14,
   },
   metric: { alignItems: "center", flex: 1, gap: 4 },
-  metricValue: { color: colors.text, fontSize: 14, fontWeight: "800" },
-  metricLabel: { color: colors.textMuted, fontSize: 11, textAlign: "center" },
+  metricValue: { color: colors.text, fontSize: 13, fontFamily: interFonts.bold },
+  metricLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular, textAlign: "center" },
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1135,14 +1135,14 @@ const styles = StyleSheet.create({
   headerLeft: { alignItems: "center", flexDirection: "row", gap: 12 },
   eyebrow: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
     letterSpacing: 0.8,
   },
   title: {
     color: colors.text,
-    fontSize: 25,
-    fontWeight: "800",
+    fontSize: 23,
+    fontFamily: interFonts.bold,
     marginTop: 4,
   },
   periodButton: {
@@ -1156,14 +1156,14 @@ const styles = StyleSheet.create({
   },
   periodText: {
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontFamily: interFonts.bold,
   },
   listGap: { gap: 10 },
-  errorText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
+  errorText: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 12, fontFamily: interFonts.regular,
     textAlign: "center",
     paddingVertical: 16,
   },

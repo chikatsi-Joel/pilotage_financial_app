@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { initialsOf } from "../shared/utils/profile";
 import { colors } from "./theme";
+import { interFonts } from "./theme";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -265,12 +266,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 56,
   },
-  avatarText: { color: "#FFFFFF", fontSize: 20, fontWeight: "800", letterSpacing: 0.5 },
+  avatarText: { color: "#FFFFFF", fontSize: 18, fontFamily: interFonts.bold, letterSpacing: 0.5 },
   profileCopy: { flex: 1, gap: 4 },
-  name: { color: colors.text, fontSize: 18, fontWeight: "700" },
+  name: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
   statusRow: { alignItems: "center", flexDirection: "row", gap: 6 },
   statusDot: { backgroundColor: colors.success, borderRadius: 4, height: 8, width: 8 },
-  status: { color: colors.textMuted, fontSize: 13 },
+  status: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular },
 
   list: {
     backgroundColor: colors.background,
@@ -290,8 +291,8 @@ const styles = StyleSheet.create({
     width: 40,
   },
   rowCopy: { flex: 1, gap: 2 },
-  rowTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
-  rowSub: { color: colors.textMuted, fontSize: 12 },
+  rowTitle: { color: colors.text, fontSize: 15, fontFamily: interFonts.semibold },
+  rowSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
 
   confirm: { alignItems: "center", gap: 10, paddingVertical: 4 },
   confirmIcon: {
@@ -302,11 +303,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 56,
   },
-  confirmTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
+  confirmTitle: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
   confirmText: {
     color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13, fontFamily: interFonts.regular,
+    lineHeight: 18,
     textAlign: "center",
   },
   confirmActions: { alignSelf: "stretch", flexDirection: "row", gap: 12, marginTop: 8 },
@@ -319,8 +320,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   btnGhost: { backgroundColor: colors.primarySoft },
-  btnGhostText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
+  btnGhostText: { color: colors.primary, fontSize: 14, fontFamily: interFonts.bold },
   btnDanger: { backgroundColor: colors.danger },
-  btnDangerText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  btnDangerText: { color: "#FFFFFF", fontSize: 14, fontFamily: interFonts.bold },
   pressed: { opacity: 0.85 },
 });

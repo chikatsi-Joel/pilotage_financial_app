@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { NUMPAD_KEYS, type NumpadKey } from "../shared/utils/amountInput";
 import { colors } from "./theme";
+import { interFonts } from "./theme";
 
 interface NumpadProps {
   onPress: (key: NumpadKey) => void;
@@ -53,6 +54,6 @@ const styles = StyleSheet.create({
     width: "30.33%",
   },
   numpadBtnDel: { backgroundColor: "#E5EEFF", elevation: 0, shadowOpacity: 0 },
-  numpadText: { color: colors.text, fontSize: 24, fontWeight: "600" },
+  numpadText: { color: colors.text, fontSize: 22, fontFamily: interFonts.semibold },
   pressed: { opacity: 0.75 },
 });
