@@ -761,15 +761,10 @@ export default function Budget() {
             {data && (
               <FadeIn delay={140}>
                 <View style={styles.decisionCard}>
+                  <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb1]} />
+                  <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb2]} />
+                  <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb3]} />
                   <View style={styles.decisionHeader}>
-                    <View
-                      style={[
-                        styles.decisionDot,
-                        decision?.accepted_total != null && {
-                          backgroundColor: colors.success,
-                        },
-                      ]}
-                    />
                     <Text style={styles.decisionTitle}>
                       {decision?.accepted_total != null
                         ? "Décision enregistrée"
@@ -1360,18 +1355,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
     marginTop: 14,
+    overflow: "hidden",
     padding: 16,
+    position: "relative",
+  },
+  decisionOrb1: {
+    backgroundColor: `${colors.primary}10`,
+    height: 120,
+    right: -36,
+    top: -48,
+    width: 120,
+  },
+  decisionOrb2: {
+    backgroundColor: `${colors.primary}08`,
+    bottom: -40,
+    height: 90,
+    left: -28,
+    width: 90,
+  },
+  decisionOrb3: {
+    backgroundColor: `${colors.primary}0D`,
+    bottom: -22,
+    height: 54,
+    left: 40,
+    width: 54,
   },
   decisionHeader: {
     alignItems: "center",
     flexDirection: "row",
     gap: 8,
-  },
-  decisionDot: {
-    backgroundColor: colors.primary,
-    borderRadius: 99,
-    height: 9,
-    width: 9,
   },
   decisionTitle: {
     color: colors.text,

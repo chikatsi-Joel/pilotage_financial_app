@@ -338,6 +338,9 @@ export default function Savings() {
 
         {/* ── Global progress ── */}
         <View style={styles.progressCard}>
+          <View pointerEvents="none" style={[styles.progressOrb, styles.progressOrb1]} />
+          <View pointerEvents="none" style={[styles.progressOrb, styles.progressOrb2]} />
+          <View pointerEvents="none" style={[styles.progressOrb, styles.progressOrb3]} />
           <View style={styles.progressLeft}>
             <Text style={styles.progressTitle}>Progression globale</Text>
             <Text style={styles.progressSub}>
@@ -703,17 +706,41 @@ const styles = StyleSheet.create({
   /* Progress */
   progressCard: {
     alignItems: "flex-end",
-    backgroundColor: "rgba(255,255,255,0.70)",
-    borderColor: "rgba(255,255,255,0.40)",
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
+    overflow: "hidden",
     padding: 24,
+    position: "relative",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06,
     shadowRadius: 32,
+  },
+  progressOrb: { borderRadius: 999, position: "absolute" },
+  progressOrb1: {
+    backgroundColor: `${colors.primary}10`,
+    height: 120,
+    right: -36,
+    top: -48,
+    width: 120,
+  },
+  progressOrb2: {
+    backgroundColor: `${colors.primary}08`,
+    bottom: -40,
+    height: 90,
+    left: -28,
+    width: 90,
+  },
+  progressOrb3: {
+    backgroundColor: `${colors.primary}0D`,
+    bottom: -22,
+    height: 54,
+    left: 40,
+    width: 54,
   },
   progressLeft: { gap: 4 },
   progressTitle: {
