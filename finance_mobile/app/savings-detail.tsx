@@ -27,9 +27,14 @@ import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
 import type { SavingsGoal } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
-import { colors } from "../src/ui/theme";
+import { colors, fonts, interFonts } from "../src/ui/theme";
 import { capitalize } from "../src/shared/utils/format";
-import { buildSavingsTrajectory, type SavingsTrajectory } from "../src/shared/utils/savingsTrajectory";
+import {
+  buildSavingsTrajectory,
+  parseInstant,
+  type SavingsTrajectory,
+} from "../src/shared/utils/savingsTrajectory";
+import { groupByDate } from "../src/shared/utils/paging";
 
 /* ------------------------------------------------------------------ */
 //  Helpers
@@ -37,6 +42,23 @@ import { buildSavingsTrajectory, type SavingsTrajectory } from "../src/shared/ut
 
 const monthLabel = (iso: string) =>
   capitalize(new Date(iso).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+
+/** Jour local « AAAA-MM-JJ » d'un horodatage serveur. */
+const localDay = (iso: string) => {
+  const d = new Date(parseInstant(iso));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const dayLabel = (day: string) => {
+  const d = new Date(`${day}T12:00:00`);
+  const label = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return day === today ? `Aujourd'hui, ${label}` : label;
+};
+
+const timeLabel = (iso: string) =>
+  new Date(parseInstant(iso)).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
 /* ------------------------------------------------------------------ */
 //  Animation d'entrée
@@ -374,41 +396,14 @@ export default function SavingsDetail() {
 
   const MAX_VISIBLE = 6;
 
-  const monthGroups = useMemo(() => {
-    const map = new Map<string, { month: string; items: SavingsGoal["contributions"] }>();
-    for (const c of contributions) {
-      const key = c.created_at.slice(0, 7);
-      const existing = map.get(key);
-      if (existing) {
-        existing.items = [...existing.items, c];
-      } else {
-        map.set(key, { month: monthLabel(`${key}-01`), items: [c] });
-      }
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([, g]) => g);
-  }, [contributions]);
+  /** Versements du plus récent au plus ancien, regroupés par jour (date locale). */
+  const dayGroups = useMemo(() => {
+    const sorted = [...contributions].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const shown = showAll ? sorted : sorted.slice(0, MAX_VISIBLE);
+    return groupByDate(shown.map((c) => ({ ...c, date: localDay(c.created_at) })));
+  }, [contributions, showAll]);
 
-  const visibleGroups = useMemo(() => {
-    if (showAll) return monthGroups.map((g) => ({ ...g, complete: true }));
-    const out: { month: string; items: typeof contributions; complete: boolean }[] = [];
-    let n = 0;
-    for (const g of monthGroups) {
-      if (n >= MAX_VISIBLE) break;
-      const room = MAX_VISIBLE - n;
-      if (g.items.length <= room) {
-        out.push({ ...g, complete: true });
-        n += g.items.length;
-      } else {
-        out.push({ ...g, items: g.items.slice(0, room), complete: false });
-        n = MAX_VISIBLE;
-      }
-    }
-    return out;
-  }, [monthGroups, showAll]);
-
-  const hiddenCount = contributionCount - visibleGroups.reduce((s, g) => s + g.items.length, 0);
+  const hiddenCount = showAll ? 0 : Math.max(contributionCount - MAX_VISIBLE, 0);
 
   const contribute = () =>
     goal &&
@@ -544,55 +539,63 @@ export default function SavingsDetail() {
           </View>
         </FadeIn>
 
-        {/* ── Historique des cotisations ── */}
+        {/* ── Historique des cotisations : frise par jour ── */}
         <FadeIn delay={500}>
-          <View style={styles.historyHeaderRow}>
-            <Text style={styles.sectionEyebrow}>Historique des cotisations</Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{contributionCount} versements</Text>
-            </View>
+          <View style={styles.ledgerHead}>
+            <Text style={styles.ledgerTitle}>Historique des versements</Text>
+            {contributionCount > 0 ? (
+              <Text style={styles.ledgerTotal}>
+                {contributionCount} versement{contributionCount > 1 ? "s" : ""}
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.historyBox}>
-            {visibleGroups.map((g) => (
-              <View key={g.month} style={styles.dayGroup}>
-                <View style={styles.dayHeader}>
-                  <Text style={styles.dayLabel}>{g.month}</Text>
-                  {g.complete && (
-                    <Text style={styles.dayTotal}>
-                      +{formatMoney(g.items.reduce((s, c) => s + c.amount, 0), currency)}
+          {contributionCount === 0 ? (
+            <Text style={styles.emptyText}>Aucun versement pour l'instant.</Text>
+          ) : (
+            <View style={styles.ledger}>
+              <View pointerEvents="none" style={styles.ledgerOrb} />
+              {dayGroups.map((day) => (
+                <View key={day.date} style={styles.tlDay}>
+                  <View style={styles.tlDayHead}>
+                    <Text style={styles.tlDayLabel}>{dayLabel(day.date)}</Text>
+                    <View style={styles.tlDayRule} />
+                    <Text style={styles.tlDayTotal}>
+                      +{formatMoney(day.items.reduce((s, c) => s + c.amount, 0), currency)}
                     </Text>
-                  )}
-                </View>
-                <View style={styles.txList}>
-                  {g.items.map((c) => (
-                    <View key={c.id} style={styles.txCard}>
-                      <View style={[styles.txIcon, { backgroundColor: `${colors.primary}18` }]}>
-                        <MaterialCommunityIcons color={colors.primary} name="bank-transfer-in" size={20} />
-                      </View>
-                      <View style={styles.txContent}>
-                        <Text style={styles.txTitle} numberOfLines={1}>Versement</Text>
-                        <Text style={styles.txCategory} numberOfLines={1}>{goal?.name}</Text>
-                      </View>
-                      <View style={styles.txRight}>
-                        <Text style={[styles.txAmount, { color: colors.primary }]}>+{formatMoney(c.amount, currency)}</Text>
-                        <View style={[styles.txPill, { backgroundColor: "#DCE9FF" }]}>
-                          <Text style={[styles.txPillText, { color: colors.text }]}>Cotisation</Text>
+                  </View>
+                  {day.items.map((c, i) => {
+                    const last = i === day.items.length - 1;
+                    return (
+                      <View key={c.id} style={styles.tlRow}>
+                        <View style={styles.tlRail}>
+                          <View
+                            style={[styles.tlLine, i === 0 && styles.tlLineFirst, last && styles.tlLineLast]}
+                          />
+                          <View style={styles.tlDot} />
+                        </View>
+                        <View style={styles.tlCopy}>
+                          <Text numberOfLines={1} style={styles.tlNote}>
+                            Versement
+                          </Text>
+                          <Text style={styles.tlTime}>{timeLabel(c.created_at)}</Text>
+                        </View>
+                        <View style={styles.tlPill}>
+                          <Text style={styles.tlPillText}>+{formatMoney(c.amount, currency)}</Text>
                         </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
-              </View>
-            ))}
-            {hiddenCount > 0 && (
-              <Pressable style={styles.seeMoreBtn} onPress={() => setShowAll(true)}>
-                <MaterialCommunityIcons name="chevron-down" size={16} color={colors.primary} />
-                <Text style={styles.seeMoreText}>
-                  Voir les {hiddenCount} versements précédents
-                </Text>
-              </Pressable>
-            )}
-          </View>
+              ))}
+              {hiddenCount > 0 ? (
+                <Pressable onPress={() => setShowAll(true)} style={styles.ledgerMore}>
+                  <Text style={styles.ledgerMoreText}>
+                    Voir les {hiddenCount} versement{hiddenCount > 1 ? "s" : ""} précédent{hiddenCount > 1 ? "s" : ""}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )}
         </FadeIn>
 
         {/* ── Bloc IA Gemma ── */}
@@ -630,9 +633,9 @@ const styles = StyleSheet.create({
   headerTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   headerMeta: { alignItems: "center", gap: 6 },
   headerCategoryRow: { alignItems: "center", flexDirection: "row", gap: 6 },
-  headerCategory: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
-  headerAmount: { color: colors.text, fontSize: 40, fontWeight: "800", letterSpacing: -1, lineHeight: 44 },
-  headerCurrency: { fontSize: 20, fontWeight: "700" },
+  headerCategory: { fontSize: 11, fontFamily: interFonts.bold, letterSpacing: 0.8, textTransform: "uppercase" },
+  headerAmount: { color: colors.text, fontSize: 37, fontFamily: interFonts.bold, letterSpacing: -1, lineHeight: 40 },
+  headerCurrency: { fontSize: 18, fontFamily: interFonts.bold },
   trendBadge: {
     alignItems: "center",
     borderRadius: 99,
@@ -642,7 +645,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  trendText: { fontSize: 12, fontWeight: "700" },
+  trendText: { fontSize: 11, fontFamily: interFonts.bold },
 
   /* Alerte */
   alertCard: {
@@ -663,8 +666,8 @@ const styles = StyleSheet.create({
   },
   alertIcon: { alignItems: "center", borderRadius: 12, height: 40, justifyContent: "center", width: 40 },
   alertContent: { flex: 1, gap: 2 },
-  alertTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  alertDesc: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  alertTitle: { color: colors.text, fontSize: 13, fontFamily: interFonts.bold },
+  alertDesc: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular, lineHeight: 17 },
 
   /* Versement */
   contributeBtn: {
@@ -677,7 +680,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   contributePressed: { opacity: 0.7 },
-  contributeText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  contributeText: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
 
   /* Grille */
   grid: { flexDirection: "row", gap: 12, marginTop: 16 },
@@ -689,9 +692,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   gridHeader: { alignItems: "center", flexDirection: "row", gap: 6 },
-  gridLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "600", letterSpacing: 0.5, textTransform: "uppercase" },
-  gridValue: { color: colors.text, fontSize: 18, fontWeight: "800", marginTop: 4 },
-  gridSub: { color: colors.textMuted, fontSize: 12 },
+  gridLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.semibold, letterSpacing: 0.5, textTransform: "uppercase" },
+  gridValue: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold, marginTop: 4 },
+  gridSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
 
   /* Graphique */
   chartBox: {
@@ -709,16 +712,16 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   chartHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  chartTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  chartTitle: { color: colors.text, fontSize: 13, fontFamily: interFonts.semibold },
   chartLegend: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 8 },
   legendItem: { alignItems: "center", flexDirection: "row", gap: 4 },
   legendDot: { borderRadius: 99, height: 8, width: 8 },
-  legendText: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
+  legendText: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
   chartXAxis: { height: 16, marginHorizontal: 22, marginTop: 4, position: "relative" },
   chartXLabel: {
     color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 9,
+    fontFamily: interFonts.semibold,
     marginLeft: -22,
     position: "absolute",
     textAlign: "center",
@@ -732,13 +735,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 10,
   },
-  chartStatusText: { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 17 },
+  chartStatusText: { flex: 1, fontSize: 11, fontFamily: interFonts.semibold, lineHeight: 16 },
 
   /* Perspectives */
   sectionEyebrow: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
     letterSpacing: 1,
     marginBottom: 10,
     marginTop: 24,
@@ -758,8 +761,8 @@ const styles = StyleSheet.create({
   },
   perspectiveHighlight: { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` },
   perspectiveHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  perspectiveLabel: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  perspectiveValue: { color: colors.text, fontSize: 20, fontWeight: "800", marginTop: 4 },
+  perspectiveLabel: { color: colors.text, fontSize: 12, fontFamily: interFonts.semibold },
+  perspectiveValue: { color: colors.text, fontSize: 18, fontFamily: interFonts.bold, marginTop: 4 },
   perspectiveBadge: {
     alignSelf: "flex-start",
     backgroundColor: colors.primary,
@@ -768,51 +771,71 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  perspectiveBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  perspectiveBadgeText: { color: "#FFFFFF", fontSize: 10, fontFamily: interFonts.bold },
 
-  /* Historique des cotisations */
-  historyHeaderRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  countBadge: { backgroundColor: `${colors.primary}0D`, borderRadius: 99, marginTop: 24, paddingHorizontal: 10, paddingVertical: 4 },
-  countBadgeText: { color: colors.primary, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  historyBox: { gap: 16 },
-  seeMoreBtn: {
-    alignItems: "center",
-    alignSelf: "center",
+  /* Historique des versements (frise, police Poppins) */
+  ledgerHead: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between" },
+  ledgerTitle: {
+    color: colors.text,
+    flex: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    marginBottom: 10,
+    marginTop: 24,
+  },
+  ledgerTotal: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 13 },
+  emptyText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 14, paddingVertical: 12, textAlign: "center" },
+  ledger: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 99,
+    borderRadius: 18,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    overflow: "hidden",
+    paddingBottom: 8,
+    paddingHorizontal: 14,
+    position: "relative",
   },
-  seeMoreText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
-  dayGroup: { gap: 10 },
-  dayHeader: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between" },
-  dayLabel: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },
-  dayTotal: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  txList: { gap: 10 },
-  txCard: {
+  ledgerOrb: {
+    backgroundColor: `${colors.primary}0D`,
+    borderRadius: 999,
+    height: 110,
+    position: "absolute",
+    right: -40,
+    top: -50,
+    width: 110,
+  },
+  tlDay: { paddingTop: 14 },
+  tlDayHead: { alignItems: "center", flexDirection: "row", gap: 10, marginBottom: 2 },
+  tlDayLabel: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13 },
+  tlDayRule: { backgroundColor: colors.border, flex: 1, height: 1 },
+  tlDayTotal: { color: colors.success, fontFamily: fonts.medium, fontSize: 13 },
+  tlRow: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 52, paddingRight: 4 },
+  tlRail: { alignItems: "center", alignSelf: "stretch", justifyContent: "center", width: 22 },
+  tlLine: { backgroundColor: `${colors.primary}33`, bottom: 0, position: "absolute", top: 0, width: 2 },
+  tlLineFirst: { top: "50%" },
+  tlLineLast: { bottom: "50%" },
+  tlDot: {
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
+    borderRadius: 99,
+    borderWidth: 3,
+    height: 12,
+    width: 12,
+  },
+  tlCopy: { flex: 1 },
+  tlNote: { color: colors.text, fontFamily: fonts.regular, fontSize: 14 },
+  tlTime: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 11 },
+  tlPill: { backgroundColor: colors.successSoft, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 },
+  tlPillText: { color: colors.success, fontFamily: fonts.semibold, fontSize: 13 },
+  ledgerMore: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: 8,
+    paddingBottom: 4,
+    paddingTop: 12,
   },
-  txIcon: { alignItems: "center", borderRadius: 99, height: 48, justifyContent: "center", width: 48 },
-  txContent: { flex: 1, gap: 2, minWidth: 0 },
-  txTitle: { color: colors.text, fontSize: 16, fontWeight: "400" },
-  txCategory: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  txRight: { alignItems: "flex-end", gap: 4 },
-  txAmount: { color: colors.text, fontSize: 16, fontWeight: "600" },
-  txPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  txPillText: { fontSize: 12, fontWeight: "600" },
+  ledgerMoreText: { color: colors.primary, fontFamily: fonts.semibold, fontSize: 13 },
 
   /* Insight IA */
   insightCard: {
@@ -850,7 +873,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   insightContent: { flex: 1, gap: 10 },
-  insightText: { color: colors.text, fontSize: 14, lineHeight: 22 },
+  insightText: { color: colors.text, fontSize: 13, fontFamily: interFonts.regular, lineHeight: 20 },
   insightBtn: {
     alignItems: "center",
     alignSelf: "flex-start",
@@ -861,5 +884,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  insightBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  insightBtnText: { color: "#FFFFFF", fontSize: 12, fontFamily: interFonts.bold },
 });

@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { describeTrend } from "../src/shared/utils/trend";
 import Svg, {
   Circle,
@@ -28,10 +28,11 @@ import { usePagedExpenses } from "../src/shared/hooks/usePagedExpenses";
 import { useAppStore } from "../src/shared/store";
 import type { CategoryAnalytics } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
-import { colors } from "../src/ui/theme";
+import { colors, fonts, interFonts } from "../src/ui/theme";
 import { formatPct } from "../src/shared/utils/format";
 import { buildSpendingSeries } from "../src/shared/utils/spendingChart";
-import { expenseTag, optimizationCoefficient } from "../src/shared/utils/optimization";
+import { groupByDate } from "../src/shared/utils/paging";
+import { optimizationCoefficient } from "../src/shared/utils/optimization";
 
 /* ------------------------------------------------------------------ */
 //  Types
@@ -57,7 +58,7 @@ function optFromScore(cat: CategoryAnalytics): OptLevel {
 }
 
 function txDate(iso: string): string {
-  const d = new Date(iso);
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
   const label = d.toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
@@ -430,7 +431,7 @@ export default function BudgetDetail() {
                             remaining >= 0
                               ? colors.success
                               : colors.danger,
-                          fontWeight: "700",
+                          fontFamily: interFonts.bold,
                         },
                       ]}
                     >
@@ -578,73 +579,67 @@ export default function BudgetDetail() {
         </FadeIn>
 
 
-        {/* ── Dépenses de la catégorie ── */}
+        {/* ── Dépenses de la catégorie : relevé groupé par jour ── */}
         <FadeIn delay={350}>
-          <Text style={styles.sectionEyebrow}>Dépenses du mois</Text>
+          <View style={styles.ledgerHead}>
+            <Text style={styles.ledgerTitle}>Dépenses du mois</Text>
+            {expenses.length > 0 ? (
+              <Text style={styles.ledgerTotal}>Total {formatMoney(amount, currency)}</Text>
+            ) : null}
+          </View>
           {expenses.length === 0 ? (
             <Text style={styles.emptyText}>
               Aucune dépense enregistrée pour {category} ce mois-ci.
             </Text>
           ) : (
-            <View style={styles.expensesList}>
-              {expenses.map((tx) => (
-                <View key={tx.id} style={styles.txCard}>
-                  <View
-                    style={[
-                      styles.txIcon,
-                      {
-                        backgroundColor: cat?.essential
-                          ? "#DCE9FF"
-                          : "#D3BBFF30",
-                      },
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name="credit-card-outline"
-                      size={22}
-                      color={cat?.essential ? colors.primary : colors.accent}
-                    />
-                  </View>
-                  <View style={styles.txContent}>
-                    <Text style={styles.txTitle} numberOfLines={1}>
-                      {tx.note || "Dépense"}
+            <View style={styles.ledger}>
+              <View pointerEvents="none" style={styles.ledgerOrb} />
+              {groupByDate(expenses.map((x) => ({ ...x, date: x.expense_date }))).map((day) => (
+                <View key={day.date} style={styles.tlDay}>
+                  <View style={styles.tlDayHead}>
+                    <Text style={styles.tlDayLabel}>{txDate(day.date)}</Text>
+                    <View style={styles.tlDayRule} />
+                    <Text style={styles.tlDayTotal}>
+                      {formatMoney(day.items.reduce((s, x) => s + x.amount, 0), currency)}
                     </Text>
-                    <Text style={styles.txDate}>{txDate(tx.expense_date)}</Text>
                   </View>
-                  <View style={styles.txRight}>
-                    <Text style={styles.txAmount}>
-                      -{formatMoney(tx.amount, currency)}
-                    </Text>
-                    <View
-                      style={[
-                        styles.txPill,
-                        {
-                          backgroundColor:
-                            expenseTag(cat).kind === "essential"
-                              ? "#DCE9FF"
-                              : expenseTag(cat).kind === "optimisable"
-                                ? "#D3BBFF30"
-                                : colors.surfaceMuted,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.txPillText,
-                          {
-                            color:
-                              expenseTag(cat).kind === "essential"
-                                ? colors.text
-                                : expenseTag(cat).kind === "optimisable"
-                                  ? colors.accent
-                                  : colors.textMuted,
-                          },
-                        ]}
+                  {day.items.map((tx, i) => {
+                    const last = i === day.items.length - 1;
+                    return (
+                      <Pressable
+                        key={tx.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Modifier ${tx.note || "la dépense"}`}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/add-expense",
+                            params: {
+                              id: tx.id,
+                              amount: String(tx.amount),
+                              categoryId: tx.category_id,
+                              date: tx.expense_date,
+                              note: tx.note ?? "",
+                            },
+                          })
+                        }
+                        style={({ pressed }) => [styles.tlRow, pressed && styles.tlRowPressed]}
                       >
-                        {expenseTag(cat).label}
-                      </Text>
-                    </View>
-                  </View>
+                        <View style={styles.tlRail}>
+                          <View style={[styles.tlLine, i === 0 && styles.tlLineFirst, last && styles.tlLineLast]} />
+                          <View style={[styles.tlDot, { borderColor: tint }]} />
+                        </View>
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.tlNote, !tx.note && styles.tlNoteEmpty]}
+                        >
+                          {tx.note || "Sans description"}
+                        </Text>
+                        <View style={styles.tlPill}>
+                          <Text style={styles.tlPillText}>−{formatMoney(tx.amount, currency)}</Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               ))}
               {hasMore || loadingMore ? (
@@ -652,12 +647,12 @@ export default function BudgetDetail() {
                   accessibilityRole="button"
                   disabled={loadingMore}
                   onPress={() => void loadMore()}
-                  style={styles.moreBtn}
+                  style={styles.ledgerMore}
                 >
                   {loadingMore ? (
                     <ActivityIndicator color={colors.primary} />
                   ) : (
-                    <Text style={styles.moreText}>Voir plus de dépenses</Text>
+                    <Text style={[styles.moreText, styles.ledgerMoreText]}>Voir les dépenses plus anciennes</Text>
                   )}
                 </Pressable>
               ) : null}
@@ -723,21 +718,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   headerCategory: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   headerAmount: {
     color: colors.text,
-    fontSize: 40,
-    fontWeight: "800",
+    fontSize: 37,
+    fontFamily: interFonts.bold,
     letterSpacing: -1,
-    lineHeight: 44,
+    lineHeight: 40,
   },
   headerAmountSmall: {
-    fontSize: 32,
-    lineHeight: 36,
+    fontSize: 29, fontFamily: interFonts.regular,
+    lineHeight: 33,
   },
   headerAllocated: {
     alignItems: "center",
@@ -746,17 +741,17 @@ const styles = StyleSheet.create({
   },
   headerAllocatedLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   headerAllocatedValue: {
-    fontSize: 13,
+    fontSize: 12, fontFamily: interFonts.regular,
   },
   headerCurrency: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 18,
+    fontFamily: interFonts.bold,
   },
   headerBadges: {
     alignItems: "center",
@@ -775,8 +770,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   trendText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
   optBadge: {
     alignItems: "center",
@@ -787,8 +782,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   optText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: interFonts.bold,
   },
 
   /* Alerte */
@@ -821,13 +816,13 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13,
+    fontFamily: interFonts.bold,
   },
   alertDesc: {
     color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12, fontFamily: interFonts.regular,
+    lineHeight: 17,
   },
 
   /* Grille */
@@ -850,20 +845,20 @@ const styles = StyleSheet.create({
   },
   gridLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontFamily: interFonts.semibold,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   gridValue: {
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 17,
+    fontFamily: interFonts.bold,
     marginTop: 4,
   },
   gridSub: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 11, fontFamily: interFonts.regular,
   },
 
   /* Graphique */
@@ -889,8 +884,8 @@ const styles = StyleSheet.create({
   },
   chartTitle: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
   },
   chartLegend: {
     alignItems: "center",
@@ -909,8 +904,8 @@ const styles = StyleSheet.create({
   },
   legendText: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 10,
+    fontFamily: interFonts.medium,
   },
   chartFooter: {
     columnGap: 14,
@@ -921,15 +916,15 @@ const styles = StyleSheet.create({
   },
   chartFooterText: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
   },
 
   /* Perspectives */
   sectionEyebrow: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
     letterSpacing: 1,
     marginBottom: 10,
     marginTop: 24,
@@ -937,47 +932,95 @@ const styles = StyleSheet.create({
   },
 
   /* Dépenses de la catégorie */
-  expensesList: { gap: 10 },
-  moreBtn: {
-    alignItems: "center",
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 12,
-    paddingVertical: 12,
+  ledgerHead: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  moreText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  ledgerTitle: {
+    color: colors.text,
+    flex: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    marginBottom: 10,
+    marginTop: 24,
+  },
+  ledgerTotal: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 13 },
+  ledger: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: "hidden",
+    paddingBottom: 8,
+    paddingHorizontal: 14,
+    position: "relative",
+  },
+  ledgerOrb: {
+    backgroundColor: `${colors.primary}0D`,
+    borderRadius: 999,
+    height: 110,
+    position: "absolute",
+    right: -40,
+    top: -50,
+    width: 110,
+  },
+  tlDay: { paddingTop: 14 },
+  tlDayHead: { alignItems: "center", flexDirection: "row", gap: 10, marginBottom: 2 },
+  tlDayLabel: { color: colors.text, fontFamily: fonts.semibold, fontSize: 13 },
+  tlDayRule: { backgroundColor: colors.border, flex: 1, height: 1 },
+  tlDayTotal: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 13 },
+  tlRow: {
+    alignItems: "center",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 48,
+    paddingRight: 4,
+  },
+  tlRowPressed: { backgroundColor: colors.surfaceMuted },
+  tlRail: { alignItems: "center", alignSelf: "stretch", justifyContent: "center", width: 22 },
+  tlLine: {
+    backgroundColor: `${colors.primary}33`,
+    bottom: 0,
+    position: "absolute",
+    top: 0,
+    width: 2,
+  },
+  tlLineFirst: { top: "50%" },
+  tlLineLast: { bottom: "50%" },
+  tlDot: {
+    backgroundColor: colors.surface,
+    borderRadius: 99,
+    borderWidth: 3,
+    height: 12,
+    width: 12,
+  },
+  tlNote: { color: colors.text, flex: 1, fontFamily: fonts.regular, fontSize: 14 },
+  tlNoteEmpty: { color: colors.textMuted, fontFamily: fonts.regular },
+  tlPill: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  tlPillText: { color: colors.primary, fontFamily: fonts.semibold, fontSize: 13 },
+  ledgerMoreText: { fontFamily: fonts.semibold, fontWeight: "normal" },
+  ledgerMore: {
+    alignItems: "center",
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: 8,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  moreText: { color: colors.primary, fontSize: 13, fontFamily: interFonts.bold },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 14,
+    fontSize: 13, fontFamily: interFonts.regular,
     paddingVertical: 12,
     textAlign: "center",
   },
-  txCard: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  txIcon: {
-    alignItems: "center",
-    borderRadius: 99,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  txContent: { flex: 1, gap: 2, minWidth: 0 },
-  txTitle: { color: colors.text, fontSize: 15, fontWeight: "500" },
-  txDate: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
-  txRight: { alignItems: "flex-end", gap: 4 },
-  txAmount: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  txPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  txPillText: { fontSize: 11, fontWeight: "700" },
   perspectivesRow: {
     flexDirection: "row",
     gap: 12,
@@ -1004,19 +1047,19 @@ const styles = StyleSheet.create({
   },
   perspectiveLabel: {
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontFamily: interFonts.semibold,
   },
   perspectiveValue: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "800",
+    fontSize: 18,
+    fontFamily: interFonts.bold,
     marginTop: 4,
   },
   perspectiveCoeff: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: interFonts.semibold,
     marginTop: 4,
   },
   perspectiveBadge: {
@@ -1029,8 +1072,8 @@ const styles = StyleSheet.create({
   },
   perspectiveBadgeText: {
     color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontFamily: interFonts.bold,
   },
 
   /* Insight IA */
@@ -1080,8 +1123,8 @@ const styles = StyleSheet.create({
   },
   insightText: {
     color: colors.text,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13, fontFamily: interFonts.regular,
+    lineHeight: 20,
   },
   insightBtn: {
     alignItems: "center",
@@ -1095,7 +1138,7 @@ const styles = StyleSheet.create({
   },
   insightBtnText: {
     color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontFamily: interFonts.bold,
   },
 });
