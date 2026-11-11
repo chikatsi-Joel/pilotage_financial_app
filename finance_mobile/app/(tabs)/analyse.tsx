@@ -22,6 +22,14 @@ import type { CategoryAnalytics } from "../../src/shared/types";
 import { groupByDate } from "../../src/shared/utils/paging";
 import { formatMoney } from "../../src/shared/utils/money";
 import { colors } from "../../src/ui/theme";
+import { expenseTag, type ExpenseTagKind } from "../../src/shared/utils/optimization";
+
+/** Couleurs des étiquettes : essentielle (bleu), optimisable (violet), autre (gris). */
+const TAG_TONE: Record<ExpenseTagKind, { bg: string; fg: string }> = {
+  essential: { bg: "#DCE9FF", fg: colors.text },
+  optimisable: { bg: "#D3BBFF30", fg: colors.accent },
+  other: { bg: colors.surfaceMuted, fg: colors.textMuted },
+};
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -135,6 +143,8 @@ export default function Depenses() {
         const cat = catById.get(e.category_id);
         const name = cat?.name ?? "Divers";
         const essential = cat?.essential ?? false;
+        const tag = expenseTag(cat);
+        const tone = TAG_TONE[tag.kind];
         return {
           id: e.id,
           categoryId: e.category_id,
@@ -145,9 +155,9 @@ export default function Depenses() {
           icon: categoryIcon(name),
           iconBg: essential ? "#DCE9FF" : "#D3BBFF30",
           iconColor: essential ? colors.primary : colors.accent,
-          pill: essential ? "Essentielle" : "Optimisable",
-          pillBg: essential ? "#DCE9FF" : "#D3BBFF30",
-          pillColor: essential ? colors.text : colors.accent,
+          pill: tag.label,
+          pillBg: tone.bg,
+          pillColor: tone.fg,
         };
       });
   }, [expenses, catById]);

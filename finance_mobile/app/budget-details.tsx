@@ -31,6 +31,7 @@ import { formatMoney } from "../src/shared/utils/money";
 import { colors } from "../src/ui/theme";
 import { formatPct } from "../src/shared/utils/format";
 import { buildSpendingSeries } from "../src/shared/utils/spendingChart";
+import { expenseTag, optimizationCoefficient } from "../src/shared/utils/optimization";
 
 /* ------------------------------------------------------------------ */
 //  Types
@@ -78,11 +79,6 @@ const OPT_META: Record<
   high: { label: "Optimisation élevée", icon: "lightning-bolt", bg: `${colors.success}12`, fg: colors.success },
 };
 
-const OPT_COEFFICIENT: Record<OptLevel, string> = {
-  low: "0,25",
-  medium: "0,60",
-  high: "1,00",
-};
 
 /* ------------------------------------------------------------------ */
 //  Animation d'entrée
@@ -571,7 +567,8 @@ export default function BudgetDetail() {
                 ≈ {formatMoney(potential, currency)}
               </Text>
               <Text style={styles.perspectiveCoeff}>
-                Coefficient d'optimisation : {OPT_COEFFICIENT[optLevel]}
+                Coefficient d'optimisation :{" "}
+                {cat ? `${optimizationCoefficient(cat.opportunity_score)} / 1` : "—"}
               </Text>
               <View style={[styles.perspectiveBadge, { backgroundColor: optMeta.fg }]}>
                 <Text style={styles.perspectiveBadgeText}>{optMeta.label}</Text>
@@ -622,9 +619,12 @@ export default function BudgetDetail() {
                       style={[
                         styles.txPill,
                         {
-                          backgroundColor: cat?.essential
-                            ? "#DCE9FF"
-                            : "#D3BBFF30",
+                          backgroundColor:
+                            expenseTag(cat).kind === "essential"
+                              ? "#DCE9FF"
+                              : expenseTag(cat).kind === "optimisable"
+                                ? "#D3BBFF30"
+                                : colors.surfaceMuted,
                         },
                       ]}
                     >
@@ -632,13 +632,16 @@ export default function BudgetDetail() {
                         style={[
                           styles.txPillText,
                           {
-                            color: cat?.essential
-                              ? colors.text
-                              : colors.accent,
+                            color:
+                              expenseTag(cat).kind === "essential"
+                                ? colors.text
+                                : expenseTag(cat).kind === "optimisable"
+                                  ? colors.accent
+                                  : colors.textMuted,
                           },
                         ]}
                       >
-                        {cat?.essential ? "Essentielle" : "Optimisable"}
+                        {expenseTag(cat).label}
                       </Text>
                     </View>
                   </View>
