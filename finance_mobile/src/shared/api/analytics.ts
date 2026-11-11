@@ -3,6 +3,7 @@ import type {
   Dashboard,
   CategoryAnalytics,
   AnalyticsRefreshResult,
+  MonthlyTotal,
 } from "../types";
 
 function path(userId: string) {
@@ -19,6 +20,11 @@ export const analytics = {
       .get<CategoryAnalytics[]>(`${path(userId)}/categories`, {
         params: { period },
       })
+      .then((r) => r.data),
+  /** Dépenses totales des `months` derniers mois, finissant à `period`. */
+  monthly: (userId: string, period: string, months = 12) =>
+    api
+      .get<MonthlyTotal[]>(`${path(userId)}/monthly`, { params: { period, months } })
       .then((r) => r.data),
   refresh: (userId: string, period: string) =>
     api

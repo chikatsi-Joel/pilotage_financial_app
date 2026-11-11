@@ -139,6 +139,13 @@ class ExpenseRead(ORMModel):
     note: str | None
 
 
+class MonthlyTotal(BaseModel):
+    """Dépenses totales d'un mois (YYYY-MM)."""
+
+    period: str
+    total: float
+
+
 class ExpenseDailyTotal(BaseModel):
     """Total depense un jour donne (pour les graphiques, sans charger les lignes)."""
 
