@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -27,7 +28,6 @@ import {
   validateAuthForm,
 } from "../src/shared/utils/authForm";
 import { useAppStore } from "../src/shared/store";
-import { BrandMark } from "../src/ui/components";
 import { colors, interFonts } from "../src/ui/theme";
 
 type Mode = "login" | "register" | "verify";
@@ -155,8 +155,12 @@ export default function Onboarding() {
         >
           {/* ── Marque ── */}
           <View style={styles.hero}>
-            <BrandMark small />
-            <Text style={styles.brand}>Lucia</Text>
+            <Image
+              accessibilityLabel="Lucia"
+              resizeMode="contain"
+              source={require("../assets/logo-full.png")}
+              style={styles.logo}
+            />
             <Text style={styles.tagline}>Vos finances, sous contrôle.</Text>
           </View>
 
@@ -469,7 +473,7 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, gap: 24, justifyContent: "center", padding: 20 },
 
   hero: { alignItems: "center", gap: 6 },
-  brand: { color: colors.primary, fontSize: 26, fontFamily: interFonts.bold, letterSpacing: -0.5, marginTop: 6 },
+  logo: { height: 120, width: 100 },
   tagline: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.regular },
 
   card: {

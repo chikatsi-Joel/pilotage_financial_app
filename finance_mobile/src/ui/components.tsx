@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,15 +14,16 @@ import { router } from "expo-router";
 import { colors } from "./theme";
 import { interFonts } from "./theme";
 
+/** Symbole du logo Lucia. */
 export function BrandMark({ small = false }: { small?: boolean }) {
+  const size = small ? 44 : 72;
   return (
-    <View style={[styles.brandMark, small && styles.brandMarkSmall]}>
-      <MaterialCommunityIcons
-        color="#FFFFFF"
-        name="chart-areaspline"
-        size={small ? 20 : 34}
-      />
-    </View>
+    <Image
+      accessibilityLabel="Lucia"
+      resizeMode="contain"
+      source={require("../../assets/logo-mark.png")}
+      style={{ height: size, width: size }}
+    />
   );
 }
 
