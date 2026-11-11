@@ -322,3 +322,61 @@ test("buildSavingsTrajectory: server timestamps with microseconds and a brand-ne
   assert.equal(t.real[1][1], 40000);
   assert.ok(t.today - t.start >= 29 * 86400000);
 });
+
+test("expenseTag: optimisable only with a meaningful score, and shows the coefficient", () => {
+  const { expenseTag, optimizationCoefficient } = load("src/shared/utils/optimization.ts");
+  assert.equal(optimizationCoefficient(0.7234), "0,72");
+  assert.equal(optimizationCoefficient(1.4), "1,00");
+  assert.deepEqual(expenseTag({ essential: true, opportunity_score: 0.9 }), { kind: "essential", label: "Essentielle" });
+  assert.deepEqual(expenseTag({ essential: false, opportunity_score: 0.5 }), { kind: "optimisable", label: "Optimisable · 0,50" });
+  assert.deepEqual(expenseTag({ essential: false, opportunity_score: 0.1 }), { kind: "other", label: "Non essentielle" });
+  assert.equal(expenseTag(undefined).kind, "other");
+});
+
+test("summarizeSeason projects the current month and compares it", () => {
+  const { summarizeSeason } = load("src/shared/utils/seasonality.ts");
+  const months = [
+    { period: "2025-11", total: 200 },
+    { period: "2025-12", total: 0 },
+    { period: "2026-09", total: 100 },
+    { period: "2026-10", total: 300 },
+    { period: "2026-11", total: 100 },
+  ];
+  const s = summarizeSeason(months, "2026-11", new Date(2026, 10, 10));
+  assert.equal(s.partial, true);
+  assert.equal(Math.round(s.projectedCurrent), 300); // 100 en 10 jours -> 300 sur 30
+  assert.equal(s.average, 200); // (200 + 100 + 300) / 3, les mois vides exclus
+  assert.equal(Math.round(s.vsAverage * 100), 50);
+  assert.equal(s.lastYear.period, "2025-11");
+  assert.equal(Math.round(s.vsLastYear * 100), 50);
+  assert.equal(s.peak.period, "2026-10");
+  assert.equal(s.enough, true);
+
+  const young = summarizeSeason([{ period: "2026-11", total: 50 }], "2026-11", new Date(2026, 10, 10));
+  assert.equal(young.enough, false);
+  assert.equal(young.average, null);
+});
+
+test("dailyAllowance spreads the remaining balance over the days left", () => {
+  const { dailyAllowance } = load("src/shared/utils/dailyAllowance.ts");
+  const a = dailyAllowance(200000, "2026-11", new Date(2026, 10, 11));
+  assert.equal(a.daysLeft, 20); // du 11 au 30 inclus
+  assert.equal(a.perDay, 10000);
+  assert.equal(dailyAllowance(-5000, "2026-11", new Date(2026, 10, 30)).perDay, 0);
+  assert.equal(dailyAllowance(1000, "2026-10", new Date(2026, 10, 11)), null);
+});
+
+test("previousRange compares the current month at the same date, a past month in full", () => {
+  const { previousRange, relativeChange, shiftPeriod } = load("src/shared/utils/monthCompare.ts");
+  assert.equal(shiftPeriod("2026-01", -1), "2025-12");
+  assert.deepEqual(previousRange("2026-11", new Date(2026, 10, 11)), {
+    period: "2026-10", from: "2026-10-01", to: "2026-10-11", sameDate: true,
+  });
+  // 31 mars -> février s'arrête au 28
+  assert.equal(previousRange("2026-03", new Date(2026, 2, 31)).to, "2026-02-28");
+  assert.deepEqual(previousRange("2026-09", new Date(2026, 10, 11)), {
+    period: "2026-08", from: "2026-08-01", to: "2026-08-31", sameDate: false,
+  });
+  assert.equal(relativeChange(112, 100).toFixed(2), "0.12");
+  assert.equal(relativeChange(50, 0), null);
+});

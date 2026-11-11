@@ -26,6 +26,9 @@ import type {
 import { formatMoney } from "../../src/shared/utils/money";
 import { formatPct } from "../../src/shared/utils/format";
 import { MONTHS_FR } from "../../src/shared/utils/date";
+import { dailyAllowance } from "../../src/shared/utils/dailyAllowance";
+import { previousRange, relativeChange } from "../../src/shared/utils/monthCompare";
+import { expenses as expensesApi } from "../../src/shared/api/expenses";
 
 // ═══════════════════════════════════════════════════════════
 //  TYPES & AIDES
@@ -404,6 +407,88 @@ const chartStyles = StyleSheet.create({
   },
 });
 
+interface TileTrend {
+  /** Hausse (true) ou baisse (false). */
+  up: boolean;
+  /** La variation est une bonne nouvelle (vert) ou non (rouge). */
+  good: boolean;
+  text: string;
+}
+
+function StatTile({
+  label,
+  value,
+  sub,
+  tone,
+  trend,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: string;
+  trend?: TileTrend | null;
+}) {
+  return (
+    <View style={tileStyles.tile}>
+      <View pointerEvents="none" style={tileStyles.orb} />
+      <View pointerEvents="none" style={tileStyles.orbSmall} />
+      <Text style={tileStyles.label}>{label}</Text>
+      <Text adjustsFontSizeToFit numberOfLines={1} style={[tileStyles.value, tone ? { color: tone } : null]}>
+        {value}
+      </Text>
+      {trend ? (
+        <Text numberOfLines={1} style={[tileStyles.trend, { color: trend.good ? "#3E8B67" : "#B4544B" }]}>
+          {trend.up ? "↑" : "↓"} {trend.text}
+        </Text>
+      ) : null}
+      {sub ? <Text numberOfLines={1} style={tileStyles.sub}>{sub}</Text> : null}
+    </View>
+  );
+}
+
+const tileStyles = StyleSheet.create({
+  tile: {
+    backgroundColor: "#EEF1FF",
+    borderColor: "#E2E7FB",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexBasis: "47%",
+    flexGrow: 1,
+    gap: 4,
+    overflow: "hidden",
+    padding: 12,
+    position: "relative",
+  },
+  orb: {
+    backgroundColor: `${colors.primary}10`,
+    borderRadius: 999,
+    height: 80,
+    position: "absolute",
+    right: -26,
+    top: -34,
+    width: 80,
+  },
+  orbSmall: {
+    backgroundColor: `${colors.primary}08`,
+    borderRadius: 999,
+    bottom: -22,
+    height: 50,
+    left: -18,
+    position: "absolute",
+    width: 50,
+  },
+  trend: { fontSize: 12, fontWeight: "700" },
+  label: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  value: { color: colors.text, fontSize: 19, fontWeight: "700", marginTop: 2 },
+  sub: { color: colors.textMuted, fontSize: 11 },
+});
+
 // ═══════════════════════════════════════════════════════════
 //  COMPOSANT PRINCIPAL
 // ═══════════════════════════════════════════════════════════
@@ -419,9 +504,44 @@ export default function Dashboard() {
   const openNotifications = useCallback(() => router.push("/notifications"), []);
 
   const [data, setData] = useState<Dashboard | null>(null);
+  const [prev, setPrev] = useState<{
+    income: number;
+    expenses: number;
+    savingsRate: number;
+    label: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Mois précédent, pour les flèches de tendance. Les dépenses sont comparées à date égale. */
+  const loadPrevious = useCallback(
+    async (uid: string) => {
+      const range = previousRange(period, new Date());
+      try {
+        const [prevDash, prevDaily] = await Promise.all([
+          analytics.dashboard(uid, range.period),
+          range.sameDate
+            ? expensesApi.daily(uid, { from: range.from, to: range.to })
+            : Promise.resolve(null),
+        ]);
+        const label = new Date(`${range.period}-01T12:00:00`).toLocaleDateString("fr-FR", {
+          month: "short",
+        });
+        setPrev({
+          income: prevDash.income,
+          expenses: prevDaily
+            ? prevDaily.reduce((s, d) => s + d.total, 0)
+            : prevDash.expenses,
+          savingsRate: prevDash.savings_rate,
+          label,
+        });
+      } catch {
+        setPrev(null);
+      }
+    },
+    [period],
+  );
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -429,6 +549,7 @@ export default function Dashboard() {
     try {
       if (!userId) throw new Error("no-session");
       setData(await analytics.dashboard(userId, period));
+      void loadPrevious(userId);
     } catch {
       if (!opts?.silent) {
         setData(null);
@@ -441,7 +562,7 @@ export default function Dashboard() {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [userId, period]);
+  }, [userId, period, loadPrevious]);
 
   const onRefresh = useCallback(async () => {
     if (!userId) return;
@@ -484,7 +605,32 @@ export default function Dashboard() {
   const projectedDate = `${lastDay} ${MONTHS_FR[month - 1].toLowerCase()} ${year}`;
 
   const goal = data?.savings_goal ?? null;
-  const trackMax = Math.max(goal?.target_amount ?? 0, solde, 1);
+  const projectedSavings = data?.savings ?? 0;
+  const trackMax = Math.max(goal?.target_amount ?? 0, projectedSavings, 1);
+  const allowance = data ? dailyAllowance(solde, period, new Date()) : null;
+  const variationUp = (data?.monthly_variation ?? 0) >= 0;
+
+  const pctTrend = (change: number | null, upIsGood: boolean): TileTrend | null =>
+    change === null || !prev || Math.round(change * 100) === 0
+      ? null
+      : {
+          up: change > 0,
+          good: change > 0 === upIsGood,
+          text: `${Math.abs(Math.round(change * 100))} % vs ${prev.label}`,
+        };
+  const incomeTrend = data ? pctTrend(relativeChange(data.income, prev?.income), true) : null;
+  const expenseTrend = data ? pctTrend(relativeChange(data.expenses, prev?.expenses), false) : null;
+  const rateDelta = data && prev && prev.income > 0 && data.income > 0
+    ? Math.round((data.savings_rate - prev.savingsRate) * 100)
+    : 0;
+  const rateTrend: TileTrend | null =
+    rateDelta !== 0 && prev
+      ? {
+          up: rateDelta > 0,
+          good: rateDelta > 0,
+          text: `${Math.abs(rateDelta)} pt${Math.abs(rateDelta) > 1 ? "s" : ""} vs ${prev.label}`,
+        }
+      : null;
 
   if (loading && !data) {
     return (
@@ -616,10 +762,59 @@ export default function Dashboard() {
           )}
         </View>
 
+        {/* ── Ce mois en chiffres ── */}
+        {data && (
+          <View style={styles.statsGrid}>
+            <StatTile
+              label="Revenus"
+              trend={incomeTrend}
+              value={formatMoney(data.income, currency)}
+            />
+            <StatTile
+              label="Dépenses"
+              trend={expenseTrend}
+              sub={
+                data.income > 0
+                  ? `${Math.round((data.expenses / data.income) * 100)} % des revenus`
+                  : undefined
+              }
+              value={formatMoney(data.expenses, currency)}
+            />
+            <StatTile
+              label="Taux d'épargne"
+              trend={rateTrend}
+              sub={data.income > 0 ? "de vos revenus" : "aucun revenu saisi"}
+              tone={data.savings_rate >= 0 ? colors.success : colors.danger}
+              value={`${Math.round(data.savings_rate * 100)} %`}
+            />
+            {allowance ? (
+              <StatTile
+                label="Par jour"
+                sub={`${allowance.daysLeft} jour${allowance.daysLeft > 1 ? "s" : ""} restant${allowance.daysLeft > 1 ? "s" : ""}`}
+                value={formatMoney(allowance.perDay, currency)}
+              />
+            ) : (
+              <StatTile
+                label="Économies possibles"
+                tone={colors.success}
+                value={formatMoney(data.potential_savings, currency)}
+              />
+            )}
+          </View>
+        )}
+
         {/* ── Vigilance Budgétaire ── */}
         {alerts.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Vigilance Budgétaire</Text>
+            <View style={styles.vigilanceHead}>
+              <Text style={styles.sectionTitle}>Vigilance Budgétaire</Text>
+              {data && data.potential_savings > 0 ? (
+                <Text style={styles.vigilanceSub}>
+                  {data.categories_in_drift} catégorie{data.categories_in_drift > 1 ? "s" : ""} en hausse ·{" "}
+                  {formatMoney(data.potential_savings, currency)} d'économies possibles
+                </Text>
+              ) : null}
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -658,7 +853,12 @@ export default function Dashboard() {
               <Text style={styles.projectedCompareLabel}>
                 vs mois dernier
               </Text>
-              <View style={styles.projectedDelta}>
+              <View
+                style={[
+                  styles.projectedDelta,
+                  { backgroundColor: variationUp ? "#4F9A78" : "#C2584F" },
+                ]}
+              >
                 <MaterialCommunityIcons
                   color="#FFFFFF"
                   name={
@@ -684,7 +884,7 @@ export default function Dashboard() {
                   styles.projectedBarFill,
                   {
                     width: `${Math.min(
-                      (solde / trackMax) * 100,
+                      (Math.max(projectedSavings, 0) / trackMax) * 100,
                       100
                     )}%`,
                   },
@@ -855,6 +1055,9 @@ const styles = StyleSheet.create({
   },
 
   /* Vigilance */
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  vigilanceHead: { gap: 2 },
+  vigilanceSub: { color: colors.textMuted, fontSize: 12, fontWeight: "600" },
   sectionTitle: {
     color: colors.text,
     fontSize: 20,
