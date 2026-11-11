@@ -53,7 +53,8 @@
         {
           "color": "#584CB9"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {

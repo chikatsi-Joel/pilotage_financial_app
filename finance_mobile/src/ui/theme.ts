@@ -17,6 +17,22 @@ export const colors = {
   border: "#DCE3F5",
 };
 
+/** Poppins (chargée dans app/_layout.tsx). Une famille par graisse : ne pas combiner avec fontWeight. */
+export const fonts = {
+  regular: "Poppins_400Regular",
+  medium: "Poppins_500Medium",
+  semibold: "Poppins_600SemiBold",
+  bold: "Poppins_700Bold",
+} as const;
+
+/** Inter (chargée dans app/_layout.tsx) : chiffres et intitulés du tableau de bord. */
+export const interFonts = {
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+  bold: "Inter_700Bold",
+} as const;
+
 export const paperTheme = {
   ...MD3LightTheme,
   colors: {
