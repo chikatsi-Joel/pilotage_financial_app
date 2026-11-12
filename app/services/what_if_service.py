@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Category, Expense
@@ -11,7 +11,7 @@ from app.schemas.common import WhatIfRead
 from app.services.analytics import money
 from app.services.analytics_service import get_period_totals
 from app.services.errors import NotFound
-from app.services.periods import month_bounds, shift_period
+from app.services.periods import month_bounds, period_of, shift_period
 from app.services.what_if import reference_amount, simulate_what_if
 
 HISTORY_MONTHS = 3
@@ -25,20 +25,27 @@ async def simulate( user_id: UUID, period: str, category_id: UUID, reduction_per
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
-    async def spent(first, last) -> Decimal:
-        res = await db.execute(
-            select(func.coalesce(func.sum(Expense.amount), Decimal("0"))).where(
-                Expense.user_id == user_id,
-                Expense.category_id == category_id,
-                Expense.expense_date.between(first, last),
-            )
+    # Mois courant + HISTORY_MONTHS mois précédents : un seul GROUP BY mois
+    first, _ = month_bounds(shift_period(period, -HISTORY_MONTHS))
+    year = extract("year", Expense.expense_date)
+    month = extract("month", Expense.expense_date)
+    rows = await db.execute(
+        select(year, month, func.sum(Expense.amount))
+        .where(
+            Expense.user_id == user_id,
+            Expense.category_id == category_id,
+            Expense.expense_date.between(first, end),
         )
-        return money(res.scalar_one())
+        .group_by(year, month)
+    )
+    spent = {f"{int(y):04d}-{int(m):02d}": total for y, m, total in rows.all()}
 
-    current_amount = await spent(start, end)
+    def spent_in(p: str) -> Decimal:
+        return money(spent.get(p, Decimal("0")))
+
+    current_amount = spent_in(period_of(start))
     history = [
-        await spent(*month_bounds(shift_period(period, -i)))
-        for i in range(1, HISTORY_MONTHS + 1)
+        spent_in(shift_period(period, -i)) for i in range(1, HISTORY_MONTHS + 1)
     ]
     reference, basis = reference_amount(current_amount, history)
 

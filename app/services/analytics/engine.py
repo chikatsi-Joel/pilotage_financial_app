@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable, Mapping
 from decimal import Decimal, ROUND_HALF_UP
 
 from app.core.config import settings
@@ -35,18 +36,32 @@ def money(value: Decimal | float | int) -> Decimal:
     )
 
 
+YearMonth = tuple[int, int]
+# Total mensuel par catégorie : {category_id: {(année, mois): total}}
+MonthlyTotals = Mapping[str, Mapping[YearMonth, float]]
+
+
 class FinancialAnalyticsEngine:
+
+    @staticmethod
+    def group_monthly(
+        expenses: Iterable[Expense],
+    ) -> dict[str, dict[YearMonth, float]]:
+        """Totaux mensuels par catégorie, en un seul passage sur les dépenses (O(n))."""
+        grouped: dict[str, dict[YearMonth, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+        for e in expenses:
+            grouped[e.category_id][(e.date.year, e.date.month)] += float(
+                e.amount
+            )
+        return grouped
 
     def monthly_series(
         self, category_id: str, expenses: list[Expense]
     ) -> list[float]:
-        grouped: dict[tuple[int, int], float] = defaultdict(float)
-        for e in expenses:
-            if e.category_id == category_id:
-                grouped[(e.date.year, e.date.month)] += float(
-                    e.amount
-                )
-        return [v for _, v in sorted(grouped.items())]
+        monthly = self.group_monthly(expenses).get(category_id, {})
+        return [v for _, v in sorted(monthly.items())]
 
     def analyze_category(
         self,
@@ -55,17 +70,26 @@ class FinancialAnalyticsEngine:
         year: int,
         month: int,
     ) -> CategoryAnalysis | None:
-        values = self.monthly_series(category.id, expenses)
+        return self.analyze_category_monthly(
+            category,
+            self.group_monthly(expenses).get(category.id, {}),
+            year,
+            month,
+        )
+
+    def analyze_category_monthly(
+        self,
+        category: Category,
+        monthly: Mapping[YearMonth, float],
+        year: int,
+        month: int,
+    ) -> CategoryAnalysis | None:
+        """Analyse d'une catégorie à partir de ses totaux mensuels (mois sans dépense absents)."""
+        values = [v for _, v in sorted(monthly.items())]
         if not values:
             return None
 
-        current = sum(
-            float(e.amount)
-            for e in expenses
-            if e.category_id == category.id
-            and e.date.year == year
-            and e.date.month == month
-        )
+        current = monthly.get((year, month), 0)
 
         baseline = robust_baseline(values)
         trend = theil_sen_trend(values)
@@ -160,12 +184,24 @@ class FinancialAnalyticsEngine:
         year: int,
         month: int,
     ) -> list[CategoryAnalysis]:
+        return self.analyze_monthly(
+            categories, self.group_monthly(expenses), year, month
+        )
+
+    def analyze_monthly(
+        self,
+        categories: list[Category],
+        monthly_totals: MonthlyTotals,
+        year: int,
+        month: int,
+    ) -> list[CategoryAnalysis]:
+        """Analyse toutes les catégories en O(catégories + mois) à partir des totaux mensuels."""
         result = [
             a
             for c in categories
             if (
-                a := self.analyze_category(
-                    c, expenses, year, month
+                a := self.analyze_category_monthly(
+                    c, monthly_totals.get(c.id, {}), year, month
                 )
             )
             is not None

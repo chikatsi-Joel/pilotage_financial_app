@@ -8,10 +8,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Category, Expense
 from app.schemas.common import ExpenseCreate
+from app.services.analytics import money
 from app.services.analytics_service import invalidate_snapshots
 from app.services.errors import NotFound
 from app.services.periods import period_of
 from app.services.pagination import paginate
+
+
+def _values(payload: ExpenseCreate) -> dict:
+    """Champs de la dépense, montant arrondi au centime comme le stocke la colonne NUMERIC(18,2).
+
+    La réponse renvoie ainsi la valeur enregistrée sans relire la ligne (`db.refresh`) : l'id est
+    généré côté Python et aucune colonne exposée n'a de valeur par défaut côté serveur.
+    """
+    values = payload.model_dump()
+    values["amount"] = money(values["amount"])
+    return values
 
 
 async def create(user_id: UUID, payload: ExpenseCreate, db: AsyncSession) -> Expense:
@@ -19,14 +31,13 @@ async def create(user_id: UUID, payload: ExpenseCreate, db: AsyncSession) -> Exp
     if not category or category.user_id != user_id:
         raise NotFound("Category not found")
 
-    expense = Expense(user_id=user_id, **payload.model_dump())
+    expense = Expense(user_id=user_id, **_values(payload))
     db.add(expense)
     await db.flush()
 
     period = period_of(expense.expense_date)
     await invalidate_snapshots(user_id, period, db)
     await db.commit()
-    await db.refresh(expense)
     return expense
 
 
@@ -45,15 +56,14 @@ async def create_many(
     if len(set(found)) != len(category_ids):
         raise NotFound("Category not found")
 
-    expenses = [Expense(user_id=user_id, **p.model_dump()) for p in payloads]
+    expenses = [Expense(user_id=user_id, **_values(p)) for p in payloads]
     db.add_all(expenses)
     await db.flush()
 
-    for period in {period_of(e.expense_date) for e in expenses}:
+    # Un seul recalcul par mois touché (trié : ordre de verrouillage stable entre requêtes).
+    for period in sorted({period_of(e.expense_date) for e in expenses}):
         await invalidate_snapshots(user_id, period, db)
     await db.commit()
-    for expense in expenses:
-        await db.refresh(expense)
     return expenses
 
 
@@ -135,7 +145,7 @@ async def update(
 
     old_period = period_of(expense.expense_date)
 
-    for key, value in payload.model_dump().items():
+    for key, value in _values(payload).items():
         setattr(expense, key, value)
     await db.flush()
 
@@ -145,7 +155,6 @@ async def update(
         await invalidate_snapshots(user_id, new_period, db)
 
     await db.commit()
-    await db.refresh(expense)
     return expense
 
 

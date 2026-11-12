@@ -12,8 +12,9 @@ from app.services import analytics_service, savings_service
 
 
 async def build_context(user_id: UUID, period: str, db: AsyncSession) -> dict[str, Any]:
+    # Un seul calcul des analytics (get_dashboard les recalculait une seconde fois).
     analytics = await analytics_service.compute_category_analytics(user_id, period, db)
-    dash = await analytics_service.get_dashboard(user_id, period, db)
+    dash = await analytics_service.build_dashboard(user_id, period, db, analytics)
     savings_goals = await savings_service.build_goal_analyses(user_id, period, db)
     total_contributions = await savings_service.get_total_contributions_for_period(
         user_id, period, db
@@ -69,5 +70,11 @@ async def build_context(user_id: UUID, period: str, db: AsyncSession) -> dict[st
 
 
 async def analyze(user_id: UUID, period: str, db: AsyncSession, provider: Any) -> dict[str, Any]:
-    """Contexte du mois + appel du fournisseur d'IA."""
-    return await provider.analyze(await build_context(user_id, period, db))
+    """Contexte du mois + appel du fournisseur d'IA.
+
+    La transaction de lecture est terminée avant l'appel au modèle (plusieurs secondes) : la
+    connexion retourne au pool au lieu d'être monopolisée pendant l'attente réseau.
+    """
+    context = await build_context(user_id, period, db)
+    await db.commit()
+    return await provider.analyze(context)

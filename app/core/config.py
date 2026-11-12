@@ -17,6 +17,9 @@ class Settings(BaseSettings):
         "http://localhost:19006",
     ]
     analytics_lookback_months: int = 6
+    # Profondeur d'historique (mois, période analysée incluse) agrégée pour les analytics
+    # par catégorie : borne le volume lu quand l'historique grandit.
+    analytics_history_months: int = 36
     min_history_months_for_baseline: int = 3
     attention_deviation_threshold: float = 0.20
     strong_deviation_threshold: float = 0.50

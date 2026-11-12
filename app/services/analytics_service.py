@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import Select, and_, case, delete, extract, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
+from app.core.config import settings
+from app.db.upsert import upsert
 from app.models import (
     Budget,
     Category,
@@ -31,7 +35,6 @@ from app.services.analytics.models import (
     CategoryType,
     OptimizationPotential,
 )
-from app.services.analytics.models import Expense as DomainExpense
 from app.services.periods import month_bounds, parse_period, shift_period
 
 _engine = FinancialAnalyticsEngine()
@@ -51,19 +54,6 @@ def _to_domain_category(c: Category) -> DomainCategory:
             c.optimization_potential.value.lower()
         ),
     )
-
-
-def _to_domain_expenses(
-    expenses: list[Expense],
-) -> list[DomainExpense]:
-    return [
-        DomainExpense(
-            amount=e.amount,
-            date=e.expense_date,
-            category_id=str(e.category_id),
-        )
-        for e in expenses
-    ]
 
 
 def _profile_to_dict(profile) -> dict:
@@ -87,53 +77,76 @@ def _profile_to_dict(profile) -> dict:
     }
 
 
-async def _sum_amount(
-    db: AsyncSession,
-    model,
-    user_id: UUID,
-    date_col,
-    start: date,
-    end: date,
-) -> Decimal:
-    result = await db.execute(
-        select(model.amount).where(
-            model.user_id == user_id,
-            date_col.between(start, end),
+def _income_sum(start: date, end: date) -> ColumnElement[Decimal]:
+    """SUM des revenus d'un mois : un revenu récurrent est une base mensuelle (compté dès
+    qu'il a commencé), un revenu ponctuel ne compte que dans son propre mois."""
+    return func.coalesce(
+        func.sum(
+            case(
+                (
+                    and_(Income.recurring.is_(True), Income.income_date <= end),
+                    Income.amount,
+                ),
+                (
+                    and_(
+                        Income.recurring.is_(False),
+                        Income.income_date.between(start, end),
+                    ),
+                    Income.amount,
+                ),
+                else_=0,
+            )
+        ),
+        0,
+    )
+
+
+def _expense_sum(start: date, end: date) -> ColumnElement[Decimal]:
+    """SUM des dépenses comprises entre start et end (inclus)."""
+    return func.coalesce(
+        func.sum(
+            case((Expense.expense_date.between(start, end), Expense.amount), else_=0)
+        ),
+        0,
+    )
+
+
+def _period_totals_query(
+    user_id: UUID, months: list[tuple[date, date]]
+) -> Select:
+    """Une seule requête : revenus puis dépenses de chaque mois de `months`, à plat.
+
+    Deux agrégats d'une ligne (revenus, dépenses) joints entre eux : un seul parcours de
+    chaque table, borné par l'index (user_id, date).
+    """
+    incomes = (
+        select(
+            *(_income_sum(s, e).label(f"income_{i}") for i, (s, e) in enumerate(months))
         )
+        .where(Income.user_id == user_id, Income.active.is_(True))
+        .subquery()
     )
-    return sum(result.scalars().all(), Decimal("0"))
-
-
-async def _income_total(
-    db: AsyncSession, user_id: UUID, start: date, end: date
-) -> Decimal:
-    """A recurring income is a monthly base; one-off incomes count in their own month only."""
-    recurring_result = await db.execute(
-        select(func.coalesce(func.sum(Income.amount), Decimal("0"))).where(
-            Income.user_id == user_id,
-            Income.active.is_(True),
-            Income.recurring.is_(True),
-            Income.income_date <= end,
+    expenses = (
+        select(
+            *(_expense_sum(s, e).label(f"expense_{i}") for i, (s, e) in enumerate(months))
         )
-    )
-    one_off_result = await db.execute(
-        select(func.coalesce(func.sum(Income.amount), Decimal("0"))).where(
-            Income.user_id == user_id,
-            Income.active.is_(True),
-            Income.recurring.is_(False),
-            Income.income_date.between(start, end),
+        .where(
+            Expense.user_id == user_id,
+            Expense.expense_date.between(
+                min(s for s, _ in months), max(e for _, e in months)
+            ),
         )
+        .subquery()
     )
-    return money(recurring_result.scalar_one()) + money(
-        one_off_result.scalar_one()
-    )
+    columns = []
+    for i in range(len(months)):
+        columns += [incomes.c[f"income_{i}"], expenses.c[f"expense_{i}"]]
+    return select(*columns).select_from(incomes).join(expenses, true())
 
 
-async def contributions_total(
-    db: AsyncSession, user_id: UUID, start: date, end: date
-) -> Decimal:
-    """Money already moved into savings goals during the period."""
-    result = await db.execute(
+def _contributions_sum(user_id: UUID, start: date, end: date) -> ColumnElement[Decimal]:
+    """Sous-requête scalaire : versements sur les objectifs d'épargne pendant la période."""
+    return (
         select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")))
         .join(SavingsGoal)
         .where(
@@ -141,7 +154,15 @@ async def contributions_total(
             SavingsContribution.created_at >= start,
             SavingsContribution.created_at < end + timedelta(days=1),
         )
+        .scalar_subquery()
     )
+
+
+async def contributions_total(
+    db: AsyncSession, user_id: UUID, start: date, end: date
+) -> Decimal:
+    """Money already moved into savings goals during the period."""
+    result = await db.execute(select(_contributions_sum(user_id, start, end)))
     return money(result.scalar_one())
 
 
@@ -161,6 +182,7 @@ async def _dashboard_extra(
     period: str,
     db: AsyncSession,
     current_savings: Decimal,
+    prev_savings: Decimal,
 ) -> tuple[
     list[WeeklyExpenseRead],
     list[float],
@@ -228,15 +250,6 @@ async def _dashboard_extra(
         )
         for i, (label, _, _) in enumerate(bands)
     ]
-
-    # income + expense du mois précédent en un seul aller-retour (UNION ALL)
-    prev_start, prev_end = month_bounds(shift_period(period))
-    prev_income = await _income_total(db, user_id, prev_start, prev_end)
-    prev_expense = await _sum_amount(
-        db, Expense, user_id, Expense.expense_date,
-        prev_start, prev_end,
-    )
-    prev_savings = prev_income - prev_expense
 
     monthly_variation = (
         (
@@ -308,17 +321,31 @@ async def compute_category_analytics(
         for c in category_result.scalars().all()
     ]
 
-    expense_result = await db.execute(
-        select(Expense).where(
-            Expense.user_id == user_id,
-            Expense.expense_date <= current_end,
+    # Totaux mensuels par catégorie agrégés par la base (GROUP BY catégorie, mois) sur une
+    # fenêtre bornée, au lieu de rapatrier chaque dépense de tout l'historique.
+    window_start, _ = month_bounds(
+        shift_period(period, -(settings.analytics_history_months - 1))
+    )
+    expense_year = extract("year", Expense.expense_date)
+    expense_month = extract("month", Expense.expense_date)
+    monthly_rows = await db.execute(
+        select(
+            Expense.category_id,
+            expense_year,
+            expense_month,
+            func.sum(Expense.amount),
         )
+        .where(
+            Expense.user_id == user_id,
+            Expense.expense_date.between(window_start, current_end),
+        )
+        .group_by(Expense.category_id, expense_year, expense_month)
     )
-    domain_expenses = _to_domain_expenses(expense_result.scalars().all())
+    monthly: dict[str, dict[tuple[int, int], float]] = defaultdict(dict)
+    for category_id, y, m, total in monthly_rows.all():
+        monthly[str(category_id)][(int(y), int(m))] = float(total)
 
-    results = _engine.analyze(
-        categories, domain_expenses, year, month
-    )
+    results = _engine.analyze_monthly(categories, monthly, year, month)
 
     return [
         CategoryAnalyticsRead(
@@ -339,7 +366,7 @@ async def compute_category_analytics(
     ]
 
 
-async def _build_dashboard(
+async def build_dashboard(
     user_id: UUID,
     period: str,
     db: AsyncSession,
@@ -351,10 +378,18 @@ async def _build_dashboard(
     diffèrent que par l'origine de `analytics`.
     """
     start, end = month_bounds(period)
+    prev_bounds = month_bounds(shift_period(period))
 
-    income_total, expense_total = await get_period_totals(user_id, period, db)
+    # Mois courant, mois précédent et versements d'épargne : une seule requête
+    totals = _period_totals_query(user_id, [(start, end), prev_bounds]).add_columns(
+        _contributions_sum(user_id, start, end)
+    )
+    income_total, expense_total, prev_income, prev_expense, contributions = (
+        await db.execute(totals)
+    ).one()
+    income_total = money(income_total)
+    contributions = money(contributions)
     savings = income_total - expense_total
-    contributions = await contributions_total(db, user_id, start, end)
     savings_rate = (
         (savings / income_total).quantize(Decimal("0.00001"))
         if income_total
@@ -368,7 +403,9 @@ async def _build_dashboard(
     )
 
     weekly, sparkline, monthly_variation, savings_goal = (
-        await _dashboard_extra(user_id, period, db, money(savings))
+        await _dashboard_extra(
+            user_id, period, db, money(savings), money(prev_income) - prev_expense
+        )
     )
 
     return DashboardRead(
@@ -396,7 +433,7 @@ async def get_dashboard(
 ) -> DashboardRead:
     """Dashboard recalculé intégralement (sans passer par le cache)."""
     analytics = await compute_category_analytics(user_id, period, db)
-    return await _build_dashboard(user_id, period, db, analytics)
+    return await build_dashboard(user_id, period, db, analytics)
 
 
 def _confidence_level(confidence: float) -> str:
@@ -417,6 +454,22 @@ def _drift_signal(drift_score: float) -> str:
     return "ATTENTION" if drift_score >= 0.5 else "NORMAL"
 
 
+# Colonnes réécrites quand la ligne (user_id, category_id, period) existe déjà.
+_ANALYTICS_UPDATE_COLUMNS = (
+    "baseline",
+    "trend",
+    "volatility",
+    "deviation",
+    "frequency",
+    "confidence",
+    "trend_direction",
+    "drift_signal",
+    "current_amount",
+    "estimated_saving",
+    "profile_data",
+)
+
+
 async def refresh_analytics(
     user_id: UUID, period: str, db: AsyncSession
 ) -> dict:
@@ -428,43 +481,32 @@ async def refresh_analytics(
     savings = income - expense
     rate = (savings / income) if income else Decimal("0")
 
-    snapshot_result = await db.execute(
-        select(MonthlySnapshot).where(
-            MonthlySnapshot.user_id == user_id,
-            MonthlySnapshot.period == period,
-        )
+    # INSERT … ON CONFLICT DO UPDATE : une requête pour le snapshot et une pour toutes les
+    # catégories, au lieu d'un SELECT puis INSERT/UPDATE par catégorie. Deux recalculs
+    # simultanés du même mois ne lèvent plus d'IntegrityError : le second met à jour.
+    await upsert(
+        db,
+        MonthlySnapshot,
+        [
+            {
+                "id": uuid4(),
+                "user_id": user_id,
+                "period": period,
+                "income": money(income),
+                "expenses": money(expense),
+                "savings": money(savings),
+                "savings_rate": rate,
+            }
+        ],
+        conflict_columns=("user_id", "period"),
+        update_columns=("income", "expenses", "savings", "savings_rate"),
     )
-    snapshot = snapshot_result.scalar_one_or_none()
-    if snapshot is None:
-        snapshot = MonthlySnapshot(
-            user_id=user_id,
-            period=period,
-            income=money(income),
-            expenses=money(expense),
-            savings=money(savings),
-            savings_rate=rate,
-        )
-        db.add(snapshot)
-    else:
-        snapshot.income = money(income)
-        snapshot.expenses = money(expense)
-        snapshot.savings = money(savings)
-        snapshot.savings_rate = rate
 
+    rows = []
     for a in analytics:
-        existing_result = await db.execute(
-            select(CategoryAnalytics).where(
-                CategoryAnalytics.user_id == user_id,
-                CategoryAnalytics.category_id
-                == a.category_id,
-                CategoryAnalytics.period == period,
-            )
-        )
-        existing = (
-            existing_result.scalar_one_or_none()
-        )
         p = a.profile
-        values = {
+        rows.append({
+            "id": uuid4(),
             "user_id": user_id,
             "category_id": a.category_id,
             "period": period,
@@ -483,17 +525,14 @@ async def refresh_analytics(
                 "essential": a.essential,
                 "opportunity_score": a.opportunity_score,
             },
-        }
-        if existing is None:
-            db.add(CategoryAnalytics(**values))
-        else:
-            for key, value in values.items():
-                if key not in {
-                    "user_id",
-                    "category_id",
-                    "period",
-                }:
-                    setattr(existing, key, value)
+        })
+    await upsert(
+        db,
+        CategoryAnalytics,
+        rows,
+        conflict_columns=("user_id", "category_id", "period"),
+        update_columns=_ANALYTICS_UPDATE_COLUMNS,
+    )
 
     await db.commit()
 
@@ -512,13 +551,10 @@ async def refresh_analytics(
 async def get_period_totals(
     user_id: UUID, period: str, db: AsyncSession
 ) -> tuple[Decimal, Decimal]:
-    start, end = month_bounds(period)
-    income = await _income_total(db, user_id, start, end)
-    expense = await _sum_amount(
-        db, Expense, user_id, Expense.expense_date,
-        start, end,
-    )
-    return income, expense
+    income, expense = (
+        await db.execute(_period_totals_query(user_id, [month_bounds(period)]))
+    ).one()
+    return money(income), expense
 
 
 async def invalidate_snapshots(
@@ -530,12 +566,8 @@ async def invalidate_snapshots(
             CategoryAnalytics.period == period,
         )
     )
-    await db.execute(
-        delete(MonthlySnapshot).where(
-            MonthlySnapshot.user_id == user_id,
-            MonthlySnapshot.period == period,
-        )
-    )
+    # Les lignes de catégories sont supprimées (une catégorie sans dépense ne doit plus
+    # apparaître) ; le snapshot du mois est toujours réécrit par l'upsert de refresh.
     await db.flush()
     await refresh_analytics(user_id, period, db)
 
@@ -603,38 +635,33 @@ async def _load_cached_analytics(
     entier est alors jugé obsolète. `allow_empty` accepte un cache vide
     (utilisateur sans catégorie) comme valide.
     """
+    # Catégories jointes (au lieu d'une 2e requête). populate_existing : l'upsert de
+    # refresh_analytics passe par SQL, les objets déjà présents dans la session seraient
+    # sinon renvoyés avec leurs anciennes valeurs.
     rows = (
         await db.execute(
-            select(CategoryAnalytics).where(
+            select(CategoryAnalytics, Category)
+            .outerjoin(
+                Category,
+                and_(
+                    Category.id == CategoryAnalytics.category_id,
+                    Category.user_id == user_id,
+                ),
+            )
+            .where(
                 CategoryAnalytics.user_id == user_id,
                 CategoryAnalytics.period == period,
             )
+            .execution_options(populate_existing=True)
         )
-    ).scalars().all()
+    ).all()
 
-    if (not rows and not allow_empty) or any(r.profile_data is None for r in rows):
+    if (not rows and not allow_empty) or any(
+        row.profile_data is None for row, _ in rows
+    ):
         return None
 
-    categories = {
-        c.id: c
-        for c in (
-            await db.execute(select(Category).where(Category.user_id == user_id))
-        ).scalars().all()
-    }
-    return [
-        _snapshot_to_category_read(row, categories.get(row.category_id))
-        for row in rows
-    ]
-
-
-async def get_category_analytics_snapshot(
-    user_id: UUID, period: str, db: AsyncSession
-) -> list[CategoryAnalyticsRead]:
-    cached = await _load_cached_analytics(user_id, period, db)
-    if cached is None:
-        await refresh_analytics(user_id, period, db)
-        cached = await _load_cached_analytics(user_id, period, db)
-    return cached or []
+    return [_snapshot_to_category_read(row, category) for row, category in rows]
 
 
 async def _has_monthly_snapshot(
@@ -650,10 +677,14 @@ async def _has_monthly_snapshot(
     ).first() is not None
 
 
-async def get_dashboard_snapshot(
+async def _cached_analytics_or_refresh(
     user_id: UUID, period: str, db: AsyncSession
-) -> DashboardRead:
-    """Dashboard depuis le cache d'analytics, rafraîchi une fois si nécessaire."""
+) -> list[CategoryAnalyticsRead]:
+    """Analytics du mois depuis le cache, recalculés une seule fois si absents ou obsolètes.
+
+    Le snapshot du mois atteste que le calcul a eu lieu : un cache vide est alors valide
+    (utilisateur sans dépense), ce qui évite de tout recalculer à chaque appel.
+    """
 
     async def cached() -> list[CategoryAnalyticsRead] | None:
         if not await _has_monthly_snapshot(user_id, period, db):
@@ -664,4 +695,18 @@ async def get_dashboard_snapshot(
     if analytics is None:
         await refresh_analytics(user_id, period, db)
         analytics = await cached()
-    return await _build_dashboard(user_id, period, db, analytics or [])
+    return analytics or []
+
+
+async def get_category_analytics_snapshot(
+    user_id: UUID, period: str, db: AsyncSession
+) -> list[CategoryAnalyticsRead]:
+    return await _cached_analytics_or_refresh(user_id, period, db)
+
+
+async def get_dashboard_snapshot(
+    user_id: UUID, period: str, db: AsyncSession
+) -> DashboardRead:
+    """Dashboard depuis le cache d'analytics, rafraîchi une fois si nécessaire."""
+    analytics = await _cached_analytics_or_refresh(user_id, period, db)
+    return await build_dashboard(user_id, period, db, analytics)

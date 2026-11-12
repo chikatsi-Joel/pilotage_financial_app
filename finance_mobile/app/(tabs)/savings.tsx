@@ -426,7 +426,7 @@ export default function Savings() {
           <View style={styles.goalsList}>
             {goals.map((g, i) => (
               <Link
-                key={g.name}
+                key={g.id}
                 asChild
                 href={{
                   pathname: "/savings-detail",

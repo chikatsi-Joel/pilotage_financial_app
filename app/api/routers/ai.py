@@ -50,10 +50,9 @@ class AIAnalysisStoredRead(BaseModel):
 async def analyze_period(period: str, user: UserDep, db: DbSession,):
     parse_period(period)
 
-    context = await ai_analysis_service.build_context(user.id, period, db)
-
     provider = get_ai_provider()
-    result = await provider.analyze(context)
+    # Contexte lu puis connexion libérée avant l'appel au modèle (voir ai_analysis_service).
+    result = await ai_analysis_service.analyze(user.id, period, db, provider)
 
     """entity = AIAnalysis(
         user_id=user.id,

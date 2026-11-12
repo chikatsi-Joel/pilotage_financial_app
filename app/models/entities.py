@@ -3,7 +3,10 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy import (
+    Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text,
+    UniqueConstraint, Uuid, desc, func,
+)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
@@ -166,7 +169,12 @@ class Expense(Base):
 
     user: Mapped[User] = relationship(back_populates="expenses")
     category: Mapped[Category] = relationship(back_populates="expenses")
-    __table_args__ = (Index("ix_expense_user_date", "user_id", "expense_date"), Index("ix_expense_category_date", "category_id", "expense_date"))
+    __table_args__ = (
+        # Liste paginée (tri expense_date DESC, id DESC) et filtres par période : couvre aussi
+        # l'ancien ix_expense_user_date (user_id, expense_date), supprimé en 0011.
+        Index("ix_expense_user_date_id", "user_id", desc("expense_date"), desc("id")),
+        Index("ix_expense_category_date", "category_id", "expense_date"),
+    )
 
 
 class SavingsGoal(Base):
@@ -181,6 +189,7 @@ class SavingsGoal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user: Mapped[User] = relationship(back_populates="savings_goals")
+    __table_args__ = (Index("ix_savings_goal_user", "user_id"),)
     contributions: Mapped[list["SavingsContribution"]] = relationship(
         back_populates="savings_goal", cascade="all, delete-orphan",
         order_by="SavingsContribution.created_at",
@@ -269,6 +278,12 @@ class Recommendation(Base):
     justification: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[RecommendationStatus] = mapped_column(Enum(RecommendationStatus), nullable=False, default=RecommendationStatus.PROPOSED)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_recommendation_user_period", "user_id", "period"),
+        # Suppression en cascade d'une catégorie (FK ON DELETE CASCADE) sans parcours complet.
+        Index("ix_recommendation_category", "category_id"),
+    )
 
 
 class AIAnalysis(Base):

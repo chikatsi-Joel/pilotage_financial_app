@@ -58,8 +58,9 @@ async def update_goal(
         if value is None and field != "description":
             continue  # null sur un champ obligatoire : ignoré plutôt qu'une erreur SQL
         setattr(goal, field, value)
+    # Pas de refresh : les contributions sont déjà chargées (selectinload) et la session ne
+    # les expire pas au commit (expire_on_commit=False).
     await db.commit()
-    await db.refresh(goal, attribute_names=["contributions"])
     return goal
 
 

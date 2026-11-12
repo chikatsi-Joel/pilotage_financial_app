@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Awaitable, Callable
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import delete, distinct, func, select
+from sqlalchemy import delete, distinct, extract, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +27,7 @@ from app.models import (
     Category,
     Expense,
     NotificationLog,
+    NotificationPreference,
     PushDevice,
     SavingsContribution,
     SavingsGoal,
@@ -67,8 +69,32 @@ def _local_now(now_utc: datetime, tz_name: str) -> datetime:
         return now_utc.astimezone(ZoneInfo("UTC"))
 
 
-async def _claim(db: AsyncSession, user_id: UUID, key: str) -> bool:
-    """Réserve la clé ; False si cette notification a déjà été envoyée."""
+async def _sent_keys(db: AsyncSession, user_id: UUID, keys: Iterable[str]) -> set[str]:
+    """Clés déjà réservées parmi `keys`, en une seule requête."""
+    wanted = list(dict.fromkeys(keys))
+    if not wanted:
+        return set()
+    rows = await db.execute(
+        select(NotificationLog.key).where(
+            NotificationLog.user_id == user_id, NotificationLog.key.in_(wanted)
+        )
+    )
+    return set(rows.scalars().all())
+
+
+async def _claim(
+    db: AsyncSession, user_id: UUID, key: str, sent: set[str] | None = None
+) -> bool:
+    """Réserve la clé ; False si cette notification a déjà été envoyée.
+
+    `sent` (clés déjà réservées, lues d'avance par `_sent_keys`) évite, à chaque passage de la
+    tâche planifiée, un INSERT voué à l'échec suivi d'un rollback. La contrainte unique reste
+    l'arbitre en cas de course entre deux passages simultanés.
+    """
+    if sent is None:
+        sent = await _sent_keys(db, user_id, [key])
+    if key in sent:
+        return False
     db.add(NotificationLog(user_id=user_id, key=key))
     try:
         await db.commit()
@@ -76,6 +102,12 @@ async def _claim(db: AsyncSession, user_id: UUID, key: str) -> bool:
         await db.rollback()
         return False
     return True
+
+
+async def _claim_all(db: AsyncSession, user_id: UUID, keys: list[str]) -> list[bool]:
+    """Réserve chaque clé, dans l'ordre ; une seule lecture des clés déjà envoyées."""
+    sent = await _sent_keys(db, user_id, keys)
+    return [await _claim(db, user_id, k, sent) for k in keys]
 
 
 async def _deliver(
@@ -109,6 +141,27 @@ async def _has_devices(db: AsyncSession, user_id: UUID) -> bool:
     return count > 0
 
 
+async def _push_context(
+    db: AsyncSession, user_id: UUID, preference: Any
+) -> tuple[bool, str]:
+    """(notification à envoyer ?, devise) en une seule requête : appareil enregistré,
+    préférence `preference` (activée par défaut si l'utilisateur n'a pas encore de
+    préférences) et devise de l'utilisateur. Valeurs brutes : rien à expirer ensuite."""
+    has_device, enabled, currency = (
+        await db.execute(
+            select(
+                select(PushDevice.id).where(PushDevice.user_id == user_id).exists(),
+                select(preference)
+                .where(NotificationPreference.user_id == user_id)
+                .scalar_subquery(),
+                select(User.currency).where(User.id == user_id).scalar_subquery(),
+            )
+        )
+    ).one()
+    # Pas encore de préférences : valeurs par défaut (alertes activées), comme get_preferences.
+    return bool(has_device) and (enabled is None or bool(enabled)), currency or ""
+
+
 # ── Alertes budget ───────────────────────────────────────────────────────
 
 
@@ -116,39 +169,70 @@ async def check_budget_alerts(
     user_id: UUID, pairs: set[tuple[UUID, str]], db: AsyncSession
 ) -> None:
     """Après une dépense : prévient quand une catégorie atteint 80 % puis 100 % de son budget."""
-    if not await _has_devices(db, user_id):
+    enabled, currency = await _push_context(db, user_id, NotificationPreference.budget_alerts)
+    if not enabled or not pairs:
         return
-    prefs = await push_service.get_preferences(user_id, db)
-    if not prefs.budget_alerts:
-        return
-    user = await db.get(User, user_id)
-    currency = user.currency if user else ""
 
-    for category_id, period in pairs:
-        category = await db.get(Category, category_id)
-        if not category or category.user_id != user_id:
-            continue
-        budget = category.monthly_budget
-        category_name = category.name
-        if not budget or budget <= 0:
-            continue
-        start, end = month_bounds(period)
-        spent = (
+    # Valeurs brutes lues d'avance (pas d'objets ORM) : un rollback de `_claim` expirerait les
+    # objets chargés et un accès paresseux ensuite lèverait MissingGreenlet.
+    categories = {
+        cid: (name, budget)
+        for cid, name, budget in (
             await db.execute(
-                select(func.coalesce(func.sum(Expense.amount), Decimal("0"))).where(
-                    Expense.user_id == user_id,
-                    Expense.category_id == category_id,
-                    Expense.expense_date.between(start, end),
+                select(Category.id, Category.name, Category.monthly_budget).where(
+                    Category.user_id == user_id,
+                    Category.id.in_({cid for cid, _ in pairs}),
                 )
             )
-        ).scalar_one()
+        ).all()
+        if budget and budget > 0
+    }
+    if not categories:
+        return
+
+    # Dépensé par (catégorie, mois) pour toutes les paires : un seul GROUP BY
+    bounds = [month_bounds(period) for _, period in pairs]
+    year = extract("year", Expense.expense_date)
+    month = extract("month", Expense.expense_date)
+    spent_by_pair = {
+        (cid, f"{int(y):04d}-{int(m):02d}"): total
+        for cid, y, m, total in (
+            await db.execute(
+                select(Expense.category_id, year, month, func.sum(Expense.amount))
+                .where(
+                    Expense.user_id == user_id,
+                    Expense.category_id.in_(list(categories)),
+                    Expense.expense_date.between(
+                        min(s for s, _ in bounds), max(e for _, e in bounds)
+                    ),
+                )
+                .group_by(Expense.category_id, year, month)
+            )
+        ).all()
+    }
+
+    alerts = []
+    for category_id, period in pairs:
+        if category_id not in categories:
+            continue
+        category_name, budget = categories[category_id]
+        spent = spent_by_pair.get((category_id, period), Decimal("0"))
         ratio = spent / budget * 100
         crossed = [t for t in BUDGET_THRESHOLDS if ratio >= t]
-        if not crossed:
-            continue
+        if crossed:
+            alerts.append((category_id, period, category_name, budget, spent, ratio, crossed))
+    if not alerts:
+        return
+
+    sent = await _sent_keys(
+        db,
+        user_id,
+        [f"budget:{a[0]}:{a[1]}:{t}" for a in alerts for t in a[6]],
+    )
+    for category_id, period, category_name, budget, spent, ratio, crossed in alerts:
         # Tous les paliers franchis sont réservés ; seul le plus haut est annoncé.
         keys = [f"budget:{category_id}:{period}:{t}" for t in crossed]
-        claimed = [await _claim(db, user_id, k) for k in keys]
+        claimed = [await _claim(db, user_id, k, sent) for k in keys]
         if not claimed[-1]:
             continue
         top = crossed[-1]
@@ -173,33 +257,37 @@ async def check_budget_alerts(
 
 
 async def check_savings_milestone(user_id: UUID, goal_id: UUID, db: AsyncSession) -> None:
-    if not await _has_devices(db, user_id):
+    enabled, currency = await _push_context(
+        db, user_id, NotificationPreference.savings_milestones
+    )
+    if not enabled:
         return
-    prefs = await push_service.get_preferences(user_id, db)
-    if not prefs.savings_milestones:
-        return
-    goal = await db.get(SavingsGoal, goal_id)
-    if not goal or goal.user_id != user_id or not goal.target_amount:
-        return
-    total = (
+    goal = (
         await db.execute(
-            select(func.coalesce(func.sum(SavingsContribution.amount), Decimal("0"))).where(
-                SavingsContribution.savings_goal_id == goal_id
+            select(
+                SavingsGoal.name,
+                SavingsGoal.target_amount,
+                func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")),
             )
+            .outerjoin(
+                SavingsContribution, SavingsContribution.savings_goal_id == SavingsGoal.id
+            )
+            .where(SavingsGoal.id == goal_id, SavingsGoal.user_id == user_id)
+            .group_by(SavingsGoal.id, SavingsGoal.name, SavingsGoal.target_amount)
         )
-    ).scalar_one()
-    goal_name, target = goal.name, goal.target_amount
+    ).first()
+    if goal is None or not goal[1]:
+        return
+    goal_name, target, total = goal
     ratio = total / target * 100
     crossed = [t for t in SAVINGS_THRESHOLDS if ratio >= t]
     if not crossed:
         return
     keys = [f"savings:{goal_id}:{t}" for t in crossed]
-    claimed = [await _claim(db, user_id, k) for k in keys]
+    claimed = await _claim_all(db, user_id, keys)
     if not claimed[-1]:
         return
     top = crossed[-1]
-    user = await db.get(User, user_id)
-    currency = user.currency if user else ""
     saved = f"Épargné {_amount(total)} / {_money(target, currency)}"
     if top >= 100:
         title = f"🎉 {goal_name} — objectif atteint !"
@@ -354,9 +442,16 @@ async def check_month_budget(user_id: UUID, local_today: date, db: AsyncSession)
     days_left = end.day - local_today.day + 1
 
     crossed = [t for t in MONTH_THRESHOLDS if share * 100 >= t]
+    pace_due = (
+        share < 1
+        and PACE_WINDOW[0] <= time_share <= PACE_WINDOW[1]
+        and share - time_share >= PACE_GAP
+    )
+    keys = [f"month:{period}:{t}" for t in crossed]
+    # Une seule lecture des clés déjà envoyées (paliers + rythme)
+    sent = await _sent_keys(db, user_id, keys + ([f"pace:{period}"] if pace_due else []))
     if crossed:
-        keys = [f"month:{period}:{t}" for t in crossed]
-        claimed = [await _claim(db, user_id, k) for k in keys]
+        claimed = [await _claim(db, user_id, k, sent) for k in keys]
         if claimed[-1]:
             top = crossed[-1]
             if top >= 100:
@@ -386,8 +481,8 @@ async def check_month_budget(user_id: UUID, local_today: date, db: AsyncSession)
             )
             return  # un seul message par passage
 
-    if share < 1 and PACE_WINDOW[0] <= time_share <= PACE_WINDOW[1] and share - time_share >= PACE_GAP:
-        if await _claim(db, user_id, f"pace:{period}"):
+    if pace_due:
+        if await _claim(db, user_id, f"pace:{period}", sent):
             per_day = (budget - spent) / days_left
             await _deliver(
                 db,
@@ -409,12 +504,23 @@ async def check_savings_idle(
     """Un rappel par objectif et par mois si rien n'a été versé depuis 30 jours."""
     # Valeurs brutes (pas d'objets ORM) : le rollback de `_claim` expire les objets chargés
     # et un accès paresseux au tour suivant lèverait MissingGreenlet.
+    # Total et dernier versement de chaque objectif : une requête (LEFT JOIN + GROUP BY)
     goals = (
         await db.execute(
             select(
                 SavingsGoal.id, SavingsGoal.name, SavingsGoal.target_amount,
                 SavingsGoal.deadline, SavingsGoal.created_at,
-            ).where(SavingsGoal.user_id == user_id, SavingsGoal.active.is_(True))
+                func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")),
+                func.max(SavingsContribution.created_at),
+            )
+            .outerjoin(
+                SavingsContribution, SavingsContribution.savings_goal_id == SavingsGoal.id
+            )
+            .where(SavingsGoal.user_id == user_id, SavingsGoal.active.is_(True))
+            .group_by(
+                SavingsGoal.id, SavingsGoal.name, SavingsGoal.target_amount,
+                SavingsGoal.deadline, SavingsGoal.created_at,
+            )
         )
     ).all()
     if not goals:
@@ -422,17 +528,10 @@ async def check_savings_idle(
     user = await db.get(User, user_id)
     currency = user.currency if user else ""
     period = period_of(local_today)
-    for goal_id, name, target, deadline, created_at in goals:
+    sent = await _sent_keys(db, user_id, [f"savings-idle:{g[0]}:{period}" for g in goals])
+    for goal_id, name, target, deadline, created_at, total, last in goals:
         if not target or deadline <= local_today:
             continue
-        total, last = (
-            await db.execute(
-                select(
-                    func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")),
-                    func.max(SavingsContribution.created_at),
-                ).where(SavingsContribution.savings_goal_id == goal_id)
-            )
-        ).one()
         if total >= target:
             continue
         last_activity = last or created_at
@@ -444,7 +543,7 @@ async def check_savings_idle(
         if idle_days < SAVINGS_IDLE_DAYS:
             continue
         key = f"savings-idle:{goal_id}:{period}"
-        if not await _claim(db, user_id, key):
+        if not await _claim(db, user_id, key, sent):
             continue
         months_left = max((deadline - local_today).days / 30.4375, 1)
         needed = (target - total) / Decimal(str(months_left))

@@ -61,6 +61,9 @@ async def scan_receipt(
     log.info("data scan received : %s", content_type)
     items, _, _ = await category_service.list_by_user(user_id, db, limit=100)
     known = [c.name for c in items if c.active]
+    # Fin de la transaction de lecture : la connexion retourne au pool pendant l'appel au
+    # modèle de vision (plusieurs secondes), au lieu d'être monopolisée.
+    await db.commit()
 
     if provider is None:
         provider = get_provider()

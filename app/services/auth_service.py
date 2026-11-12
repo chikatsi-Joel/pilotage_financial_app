@@ -327,16 +327,22 @@ async def firebase_resend(identity: FirebaseIdentity, db: AsyncSession) -> None:
 
 async def authenticate(token: str, db: AsyncSession) -> User | None:
     """Utilisateur propriétaire du jeton, ou None s'il est inconnu / révoqué."""
-    session = (
-        await db.execute(select(AuthSession).where(AuthSession.token_hash == _sha256(token)))
-    ).scalar_one_or_none()
-    if session is None:
+    # Session et utilisateur en une seule requête (jointure) au lieu de deux.
+    row = (
+        await db.execute(
+            select(AuthSession, User)
+            .join(User, User.id == AuthSession.user_id)
+            .where(AuthSession.token_hash == _sha256(token))
+        )
+    ).first()
+    if row is None:
         return None
+    session, user = row
     now = datetime.now(timezone.utc)
     if now - _aware(session.last_used_at) > _LAST_USED_REFRESH:
         session.last_used_at = now
         await db.commit()
-    return await db.get(User, session.user_id)
+    return user
 
 
 async def logout(token: str, db: AsyncSession) -> None:

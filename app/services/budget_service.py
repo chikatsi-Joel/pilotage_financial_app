@@ -3,13 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models import (
     Budget, Category, Recommendation,
-    RecommendationStatus, SavingsGoal,
+    RecommendationStatus, SavingsContribution, SavingsGoal,
 )
 from app.schemas.common import (
     BudgetRead, RecommendationRead,
@@ -35,19 +34,30 @@ async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> Budg
     )
     current_savings = projected_income - current_expenses
 
-    goal_result = await db.execute(
-        select(SavingsGoal)
-        .where(
-            SavingsGoal.user_id == user_id,
-            SavingsGoal.active.is_(True),
+    # Objectif le plus proche (LIMIT 1) et total de ses versements calculé par la base,
+    # au lieu de charger tous les objectifs et toutes leurs contributions.
+    goal_row = (
+        await db.execute(
+            select(
+                SavingsGoal,
+                func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")),
+            )
+            .outerjoin(
+                SavingsContribution,
+                SavingsContribution.savings_goal_id == SavingsGoal.id,
+            )
+            .where(
+                SavingsGoal.user_id == user_id,
+                SavingsGoal.active.is_(True),
+            )
+            .group_by(SavingsGoal.id)
+            .order_by(SavingsGoal.deadline)
+            .limit(1)
         )
-        .options(selectinload(SavingsGoal.contributions))
-        .order_by(SavingsGoal.deadline)
-    )
-    goal = goal_result.scalars().first()
+    ).first()
     target_savings = None
-    if goal:
-        current = sum( (c.amount for c in goal.contributions), Decimal("0"), )
+    if goal_row:
+        goal, current = goal_row
 
         months_left = max(
             1,
@@ -92,16 +102,15 @@ async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> Budg
         entity.recommended_savings = budget.recommended_savings
         entity.rationale = budget.rationale
 
-    old_result = await db.execute(
-        select(Recommendation).where(
+    # Propositions précédentes remplacées : un DELETE au lieu de SELECT + DELETE par ligne
+    await db.execute(
+        delete(Recommendation).where(
             Recommendation.user_id == user_id,
             Recommendation.period == period,
             Recommendation.status
             == RecommendationStatus.PROPOSED,
         )
     )
-    for old in old_result.scalars().all():
-        await db.delete(old)
     for line in budget.categories:
         if line.reduction > 0:
             db.add(Recommendation(
