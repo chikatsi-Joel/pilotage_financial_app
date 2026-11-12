@@ -402,3 +402,48 @@ async def test_routes_require_the_owner_and_store_preferences(expo, monkeypatch)
     finally:
         app.dependency_overrides.clear()
         await engine.dispose()
+
+
+async def test_second_pass_of_the_hour_does_not_crash_on_expired_preferences(session, expo, caplog) -> None:
+    """Au 2e passage, la clé déjà réservée provoque un rollback qui expire `prefs` :
+    les préférences doivent avoir été lues avant (sinon MissingGreenlet)."""
+    user = await _user(session, timezone="UTC")
+    cat = await _category(session, user, budget="1000", name="Factures")
+    await _spend(session, user, cat, "4982", date(2026, 3, 2))
+    noon = datetime(2026, 3, 4, 12, 0, tzinfo=timezone.utc)
+    await notification_service.run_scheduled(noon, session)
+
+    goal = SavingsGoal(user_id=user.id, name="Voyage", target_amount=Decimal("1200"), deadline=date(2026, 12, 31))
+    session.add(goal)
+    await session.flush()
+    session.add(SavingsContribution(savings_goal_id=goal.id, amount=Decimal("100"),
+                                    created_at=datetime(2026, 1, 10, tzinfo=timezone.utc)))
+    await session.commit()
+
+    await notification_service.run_scheduled(noon, session)
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+    assert [m["title"] for m in expo.messages] == [
+        "🚨 Factures — budget dépassé",
+        "💤 Voyage — aucun versement depuis 53 jours",
+    ]
+
+
+async def test_idle_reminders_for_two_goals_survive_a_second_pass(session, expo, caplog) -> None:
+    """Le rollback de `_claim` sur le 1er objectif ne doit pas casser la lecture du 2e."""
+    user = await _user(session, timezone="UTC")
+    for name in ("Voyage", "Voiture"):
+        goal = SavingsGoal(user_id=user.id, name=name, target_amount=Decimal("1200"), deadline=date(2026, 12, 31))
+        session.add(goal)
+        await session.flush()
+        session.add(SavingsContribution(savings_goal_id=goal.id, amount=Decimal("100"),
+                                        created_at=datetime(2026, 1, 10, tzinfo=timezone.utc)))
+    await session.commit()
+
+    noon = datetime(2026, 3, 4, 12, 0, tzinfo=timezone.utc)
+    await notification_service.run_scheduled(noon, session)
+    await notification_service.run_scheduled(noon, session)
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+    assert sorted(m["title"] for m in expo.messages) == [
+        "💤 Voiture — aucun versement depuis 53 jours",
+        "💤 Voyage — aucun versement depuis 53 jours",
+    ]

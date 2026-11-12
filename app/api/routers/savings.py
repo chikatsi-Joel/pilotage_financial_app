@@ -10,6 +10,7 @@ from app.schemas.common import (
     SavingsGoalContributeRead,
     SavingsGoalCreate,
     SavingsGoalRead,
+    SavingsGoalUpdate,
 )
 from app.services import notification_service, savings_service
 
@@ -49,6 +50,20 @@ async def list_goals(
     return PaginatedResponse(
         items=items, next_cursor=next_cursor, has_more=has_more,
     )
+
+
+@router.patch(
+    "/{goal_id}",
+    response_model=SavingsGoalRead,
+    responses=_NOT_FOUND,
+)
+async def update_goal(
+    goal_id: UUID,
+    payload: SavingsGoalUpdate,
+    user: UserDep,
+    db: DbSession,
+):
+    return await savings_service.update_goal(user.id, goal_id, payload, db)
 
 
 @router.post(

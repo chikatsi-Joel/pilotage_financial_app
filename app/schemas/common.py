@@ -171,8 +171,17 @@ class ExpenseDailyTotal(BaseModel):
 class SavingsGoalCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=2_000)
-    target_amount: Decimal = Field(gt=0)
+    target_amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
     deadline: date
+
+
+class SavingsGoalUpdate(BaseModel):
+    """Modification partielle : seuls les champs envoyés changent."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    description: str | None = Field(default=None, max_length=2_000)
+    target_amount: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=2)
+    deadline: date | None = None
 
 
 class SavingsContributionRead(ORMModel):

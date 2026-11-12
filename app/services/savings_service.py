@@ -13,6 +13,7 @@ from app.schemas.common import (
     SavingsGoalAnalysis,
     SavingsGoalContributeRead,
     SavingsGoalCreate,
+    SavingsGoalUpdate,
 )
 from app.services.analytics import money
 from app.services.analytics_service import (
@@ -38,6 +39,28 @@ async def create_goal(
         .options(selectinload(SavingsGoal.contributions))
     )
     return result.scalar_one()
+
+
+async def update_goal(
+    user_id: UUID, goal_id: UUID, payload: SavingsGoalUpdate, db: AsyncSession
+) -> SavingsGoal:
+    """Modifie le nom, le libellé, la cible ou l'échéance d'un objectif de l'utilisateur."""
+    goal = (
+        await db.execute(
+            select(SavingsGoal)
+            .where(SavingsGoal.id == goal_id, SavingsGoal.user_id == user_id)
+            .options(selectinload(SavingsGoal.contributions))
+        )
+    ).scalar_one_or_none()
+    if goal is None:
+        raise NotFound("Savings goal not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if value is None and field != "description":
+            continue  # null sur un champ obligatoire : ignoré plutôt qu'une erreur SQL
+        setattr(goal, field, value)
+    await db.commit()
+    await db.refresh(goal, attribute_names=["contributions"])
+    return goal
 
 
 async def list_goals(

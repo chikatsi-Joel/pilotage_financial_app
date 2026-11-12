@@ -519,3 +519,27 @@ test("parseApiUrl accepts an origin or a full base and rejects anything else", (
     assert.equal(parseApiUrl(bad), null, String(bad));
   }
 });
+
+const { addMonthsISO, monthsUntil, matchingPreset, monthlyNeeded, durationLabel } = load("src/shared/utils/goalDeadline.ts");
+
+test("goal deadline: presets, monthly effort and labels", () => {
+  const today = new Date(2026, 0, 31); // 31 janvier 2026
+  assert.equal(addMonthsISO(today, 1), "2026-02-28");
+  assert.equal(addMonthsISO(today, 12), "2027-01-31");
+  assert.equal(matchingPreset("2027-01-31", today), 12);
+  assert.equal(matchingPreset("2027-02-02", today), 12);
+  assert.equal(matchingPreset("2027-03-15", today), null);
+  assert.ok(Math.abs(monthsUntil("2027-01-31", today) - 12) < 0.05);
+
+  assert.equal(Math.round(monthlyNeeded(12000, 0, "2027-01-31", today)), 1000);
+  assert.equal(Math.round(monthlyNeeded(12000, 6000, "2027-01-31", today)), 500);
+  assert.equal(monthlyNeeded(1000, 1200, "2027-01-31", today), 0);
+  assert.equal(monthlyNeeded(1000, 0, "2026-01-30", today), null);
+  // Moins d'un mois restant : on ne divise pas par une fraction (effort = tout le reste).
+  assert.equal(monthlyNeeded(900, 0, "2026-02-10", today), 900);
+
+  assert.equal(durationLabel("2027-01-31", today), "Dans 1 an");
+  assert.equal(durationLabel(addMonthsISO(today, 15), today), "Dans 1 an et 3 mois");
+  assert.equal(durationLabel("2026-07-31", today), "Dans 6 mois");
+  assert.equal(durationLabel("2026-01-20", today), "Échéance dépassée");
+});

@@ -407,18 +407,22 @@ async def check_savings_idle(
     user_id: UUID, now_utc: datetime, local_today: date, db: AsyncSession
 ) -> None:
     """Un rappel par objectif et par mois si rien n'a été versé depuis 30 jours."""
+    # Valeurs brutes (pas d'objets ORM) : le rollback de `_claim` expire les objets chargés
+    # et un accès paresseux au tour suivant lèverait MissingGreenlet.
     goals = (
         await db.execute(
-            select(SavingsGoal).where(SavingsGoal.user_id == user_id, SavingsGoal.active.is_(True))
+            select(
+                SavingsGoal.id, SavingsGoal.name, SavingsGoal.target_amount,
+                SavingsGoal.deadline, SavingsGoal.created_at,
+            ).where(SavingsGoal.user_id == user_id, SavingsGoal.active.is_(True))
         )
-    ).scalars().all()
+    ).all()
     if not goals:
         return
     user = await db.get(User, user_id)
     currency = user.currency if user else ""
     period = period_of(local_today)
-    for goal in goals:
-        goal_id, name, target, deadline = goal.id, goal.name, goal.target_amount, goal.deadline
+    for goal_id, name, target, deadline, created_at in goals:
         if not target or deadline <= local_today:
             continue
         total, last = (
@@ -431,7 +435,7 @@ async def check_savings_idle(
         ).one()
         if total >= target:
             continue
-        last_activity = last or goal.created_at
+        last_activity = last or created_at
         if last_activity is None:
             continue
         if last_activity.tzinfo is None:
@@ -465,17 +469,20 @@ async def run_scheduled(now_utc: datetime, db: AsyncSession, provider: Any = Non
         try:
             prefs = await push_service.get_preferences(user_id, db)
             await db.commit()
+            # Tout lire maintenant : chaque envoi fait un commit qui expire `prefs`,
+            # et un accès paresseux ensuite lève MissingGreenlet en asynchrone.
             tz, daily, daily_hour = prefs.timezone, prefs.daily_reminder, prefs.daily_reminder_hour
             weekly, ai = prefs.weekly_summary, prefs.ai_insights
+            budget_alerts, savings_milestones = prefs.budget_alerts, prefs.savings_milestones
             local = _local_now(now_utc, tz)
             today = local.date()
             if daily and local.hour == daily_hour:
                 await send_daily_reminder(user_id, today, db)
             if local.hour in DAY_HOURS:
-                if prefs.budget_alerts:
+                if budget_alerts:
                     await check_budget_catchup(user_id, today, db)
                     await check_month_budget(user_id, today, db)
-                if prefs.savings_milestones:
+                if savings_milestones:
                     await check_savings_idle(user_id, now_utc, today, db)
             if local.weekday() == SUNDAY and local.hour >= WEEKLY_HOUR:
                 if weekly:

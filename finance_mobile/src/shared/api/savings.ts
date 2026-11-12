@@ -4,6 +4,7 @@ import type {
   SavingsGoal,
   SavingsGoalContributeRead,
   SavingsGoalCreate,
+  SavingsGoalUpdate,
 } from "../types";
 
 function path(userId: string, extra?: Record<string, string>) {
@@ -22,6 +23,13 @@ export const savings = {
       .then((r) => r.data),
   create: (userId: string, data: SavingsGoalCreate) =>
     api.post<SavingsGoal>(path(userId), data).then((r) => r.data),
+  update: (userId: string, goalId: string, data: SavingsGoalUpdate) =>
+    api
+      .patch<SavingsGoal>(
+        buildPath("/users/{user_id}/savings-goals/{goal_id}", { user_id: userId, goal_id: goalId }),
+        data,
+      )
+      .then((r) => r.data),
   contribute: (userId: string, goalId: string, amount: number) =>
     api
       .post<SavingsGoalContributeRead>(

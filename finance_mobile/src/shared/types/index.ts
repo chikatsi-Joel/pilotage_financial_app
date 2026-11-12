@@ -156,6 +156,13 @@ export interface SavingsGoalCreate {
   deadline: string;
 }
 
+export interface SavingsGoalUpdate {
+  name?: string;
+  description?: string | null;
+  target_amount?: number;
+  deadline?: string;
+}
+
 export interface SavingsGoalContribute {
   amount: number;
 }

@@ -23,6 +23,8 @@ import { useAppStore } from "../../src/shared/store";
 import { formatMoney } from "../../src/shared/utils/money";
 import { buildSavingsTrajectory } from "../../src/shared/utils/savingsTrajectory";
 import { goalChance, type ChanceTone } from "../../src/shared/utils/goalChance";
+import { addMonthsISO } from "../../src/shared/utils/goalDeadline";
+import { DeadlinePicker } from "../../src/ui/DeadlinePicker";
 
 type Contribution = { id: string; amount: number; created_at: string };
 
@@ -63,15 +65,6 @@ type Goal = {
   target: number;
   deadline: string;
   contributions: Contribution[];
-};
-
-const dateInMonths = (months: number) => {
-  const d = new Date();
-  d.setMonth(d.getMonth() + months);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 };
 
 const GOAL_ICONS = [
@@ -222,13 +215,17 @@ export default function Savings() {
   const period = useAppStore((s) => s.currentPeriod);
 
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [createVisible, setCreateVisible] = useState(false);
   const [newName, setNewName] = useState("");
   const [newSub, setNewSub] = useState("");
   const [newTarget, setNewTarget] = useState("");
   const [newIcon, setNewIcon] = useState<string>(GOAL_ICONS[0]);
+  const [newDeadline, setNewDeadline] = useState(() => addMonthsISO(new Date(), 12));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -278,7 +275,7 @@ export default function Savings() {
   }, 0);
   const insightGoal = goals.length ? goals[0].name : "votre prochain objectif";
 
-  const editing = editIndex !== null ? goals[editIndex] : null;
+  const editing = editId !== null ? goals.find((g) => g.id === editId) ?? null : null;
   const editAmount = parseFloat(editTarget.replace(",", "."));
   const canSaveEdit =
     Number.isFinite(editAmount) && editAmount > 0;
@@ -290,20 +287,41 @@ export default function Savings() {
     createAmount > 0;
 
   function openEdit(index: number) {
-    setEditIndex(index);
+    setEditId(goals[index].id);
     setEditTarget(goals[index].target.toString());
+    setEditDeadline(goals[index].deadline.slice(0, 10));
+    setEditError(null);
   }
 
-  function saveEdit() {
-    if (editIndex === null || !canSaveEdit) return;
-    setGoals((prev) =>
-      prev.map((g, i) =>
-        i === editIndex
-          ? { ...g, target: Math.round(editAmount * 100) / 100 }
-          : g
-      )
-    );
-    setEditIndex(null);
+  async function saveEdit() {
+    const goal = editing;
+    if (!goal || !canSaveEdit || savingEdit || !userId) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const updated = await savingsApi.update(userId, goal.id, {
+        target_amount: Math.round(editAmount * 100) / 100,
+        deadline: editDeadline,
+      });
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goal.id
+            ? { ...g, target: Number(updated.target_amount), deadline: updated.deadline }
+            : g
+        )
+      );
+      setEditId(null);
+    } catch {
+      setEditError("Impossible d'enregistrer. Vérifiez la connexion au serveur.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  function openCreate() {
+    setNewDeadline(addMonthsISO(new Date(), 12));
+    setCreateError(null);
+    setCreateVisible(true);
   }
 
   async function createGoal() {
@@ -319,7 +337,7 @@ export default function Savings() {
         name: newName.trim(),
         description: newSub.trim() || undefined,
         target_amount: Math.round(createAmount * 100) / 100,
-        deadline: dateInMonths(12),
+        deadline: newDeadline,
       });
       setGoals((prev) => [
         {
@@ -384,7 +402,7 @@ export default function Savings() {
         <View style={styles.sectionHeader}>
           <Text style={styles.goalsTitle}>Vos objectifs</Text>
           <Pressable
-            onPress={() => setCreateVisible(true)}
+            onPress={openCreate}
             hitSlop={6}
             style={styles.addGoalBtn}
             accessibilityLabel="Créer un nouvel objectif"
@@ -467,7 +485,7 @@ export default function Savings() {
                         <Pressable
                           onPress={() => openEdit(i)}
                           hitSlop={8}
-                          accessibilityLabel={`Augmenter l'objectif ${g.name}`}
+                          accessibilityLabel={`Modifier l'objectif ${g.name}`}
                           accessibilityRole="button"
                         >
                           <MaterialCommunityIcons
@@ -532,29 +550,29 @@ export default function Savings() {
         <View style={{ height: 96 }} />
       </ScrollView>
 
-      {/* ── Modal: augmenter l'objectif ── */}
+      {/* ── Modal: modifier l'objectif ── */}
       <Modal
-        visible={editIndex !== null}
+        visible={editId !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setEditIndex(null)}
+        onRequestClose={() => setEditId(null)}
       >
         <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalDismiss} onPress={() => setEditIndex(null)} />
+          <Pressable style={styles.modalDismiss} onPress={() => setEditId(null)} />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.modalKeyboard}
           >
             <View style={styles.modalCard}>
               <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>Augmenter l'objectif</Text>
+              <Text style={styles.modalTitle}>Modifier l'objectif</Text>
               {editing && <Text style={styles.modalGoal}>{editing.name}</Text>}
               <Text style={styles.modalCurrent}>
                 Objectif actuel : {formatEur(editing ? editing.target : 0)} ·{" "}
                 {formatEur(editing ? editing.current : 0)} épargnés
               </Text>
 
-              <Text style={styles.fieldLabel}>Nouvel objectif (€)</Text>
+              <Text style={styles.fieldLabel}>Montant cible (€)</Text>
               <TextInput
                 style={styles.fieldInput}
                 value={editTarget}
@@ -564,19 +582,37 @@ export default function Savings() {
                 keyboardType="numeric"
               />
 
+              <Text style={styles.fieldLabel}>Échéance</Text>
+              {editing && editDeadline !== "" && (
+                <DeadlinePicker
+                  value={editDeadline}
+                  onChange={setEditDeadline}
+                  target={editAmount}
+                  current={editing.current}
+                  format={formatEur}
+                />
+              )}
+
+              {editError && <Text style={styles.createErrorText}>{editError}</Text>}
+
               <View style={styles.modalActions}>
                 <Pressable
                   style={styles.modalCancel}
-                  onPress={() => setEditIndex(null)}
+                  onPress={() => setEditId(null)}
+                  disabled={savingEdit}
                 >
                   <Text style={styles.modalCancelText}>Annuler</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.modalSave, { opacity: canSaveEdit ? 1 : 0.5 }]}
+                  style={[styles.modalSave, { opacity: canSaveEdit && !savingEdit ? 1 : 0.5 }]}
                   onPress={saveEdit}
-                  disabled={!canSaveEdit}
+                  disabled={!canSaveEdit || savingEdit}
                 >
-                  <Text style={styles.modalSaveText}>Enregistrer</Text>
+                  {savingEdit ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>Enregistrer</Text>
+                  )}
                 </Pressable>
               </View>
             </View>
@@ -633,6 +669,14 @@ export default function Savings() {
                 placeholder="Ex : 12 000"
                 placeholderTextColor={`${colors.textMuted}80`}
                 keyboardType="numeric"
+              />
+
+              <Text style={styles.fieldLabel}>Échéance</Text>
+              <DeadlinePicker
+                value={newDeadline}
+                onChange={setNewDeadline}
+                target={canSaveCreate ? createAmount : undefined}
+                format={formatEur}
               />
 
               <Text style={styles.fieldLabel}>Icône</Text>
