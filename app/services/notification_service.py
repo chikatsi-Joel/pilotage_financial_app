@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import get_session_factory
 from app.models import (
+    Budget,
     Category,
     Expense,
     NotificationLog,
@@ -40,6 +41,14 @@ SAVINGS_THRESHOLDS = (50, 100)
 AI_BODY_MAX = 160
 WEEKLY_HOUR = 18  # dimanche, heure locale de l'utilisateur
 SUNDAY = 6
+MONTH_THRESHOLDS = (80, 100)
+# Alerte de rythme : seulement entre 25 % et 85 % du mois, si la part du budget dépensée
+# devance la part du mois écoulée d'au moins 20 points.
+PACE_WINDOW = (0.25, 0.85)
+PACE_GAP = 0.20
+SAVINGS_IDLE_DAYS = 30
+# Les vérifications planifiées (hors alerte immédiate après une dépense) ne partent qu'en journée.
+DAY_HOURS = range(9, 21)
 
 
 def _money(amount: Decimal | float | int, currency: str) -> str:
@@ -258,6 +267,135 @@ async def send_ai_insight(
     )
 
 
+# ── Budget du mois (décision validée) et rythme de dépense ──────────────
+
+
+async def check_budget_catchup(user_id: UUID, local_today: date, db: AsyncSession) -> None:
+    """Rattrapage : alerte aussi les dépassements déjà présents (sans nouvelle dépense)."""
+    period = period_of(local_today)
+    ids = (
+        await db.execute(
+            select(Category.id).where(
+                Category.user_id == user_id, Category.monthly_budget.is_not(None)
+            )
+        )
+    ).scalars().all()
+    if ids:
+        await check_budget_alerts(user_id, {(cid, period) for cid in ids}, db)
+
+
+async def check_month_budget(user_id: UUID, local_today: date, db: AsyncSession) -> None:
+    """Budget du mois validé : paliers 80 % / 100 %, et alerte de rythme une fois par mois."""
+    period = period_of(local_today)
+    budget_row = (
+        await db.execute(select(Budget).where(Budget.user_id == user_id, Budget.period == period))
+    ).scalar_one_or_none()
+    if budget_row is None or not budget_row.accepted_total or budget_row.accepted_total <= 0:
+        return
+    budget = budget_row.accepted_total
+    start, end = month_bounds(period)
+    spent = (
+        await db.execute(
+            select(func.coalesce(func.sum(Expense.amount), Decimal("0"))).where(
+                Expense.user_id == user_id, Expense.expense_date.between(start, end)
+            )
+        )
+    ).scalar_one()
+    user = await db.get(User, user_id)
+    currency = user.currency if user else ""
+    share = float(spent / budget)
+    time_share = local_today.day / end.day
+    days_left = end.day - local_today.day + 1
+
+    crossed = [t for t in MONTH_THRESHOLDS if share * 100 >= t]
+    if crossed:
+        claimed = [await _claim(db, user_id, f"month:{period}:{t}") for t in crossed]
+        if claimed[-1]:
+            top = crossed[-1]
+            if top >= 100:
+                title = "Budget du mois dépassé"
+                body = (
+                    f"{_money(spent, currency)} dépensés pour un budget de "
+                    f"{_money(budget, currency)} (+{_money(spent - budget, currency)})."
+                )
+            else:
+                title = f"Budget du mois à {top} %"
+                body = (
+                    f"Il reste {_money(budget - spent, currency)} pour {days_left} jour"
+                    f"{'s' if days_left > 1 else ''}."
+                )
+            await push_service.send_to_user(
+                user_id, title, body, db, {"route": "/dashboard", "kind": "month_budget"}
+            )
+            return  # un seul message par passage
+
+    if share < 1 and PACE_WINDOW[0] <= time_share <= PACE_WINDOW[1] and share - time_share >= PACE_GAP:
+        if await _claim(db, user_id, f"pace:{period}"):
+            per_day = (budget - spent) / days_left
+            await push_service.send_to_user(
+                user_id,
+                "Vous dépensez plus vite que prévu",
+                f"{round(share * 100)} % du budget dépensé alors que {round(time_share * 100)} % "
+                f"du mois est écoulé. Pour tenir, visez ≈ {_money(per_day, currency)} par jour.",
+                db,
+                {"route": "/dashboard", "kind": "pace"},
+            )
+
+
+# ── Objectifs d'épargne sans versement ───────────────────────────────────
+
+
+async def check_savings_idle(
+    user_id: UUID, now_utc: datetime, local_today: date, db: AsyncSession
+) -> None:
+    """Un rappel par objectif et par mois si rien n'a été versé depuis 30 jours."""
+    goals = (
+        await db.execute(
+            select(SavingsGoal).where(SavingsGoal.user_id == user_id, SavingsGoal.active.is_(True))
+        )
+    ).scalars().all()
+    if not goals:
+        return
+    user = await db.get(User, user_id)
+    currency = user.currency if user else ""
+    period = period_of(local_today)
+    for goal in goals:
+        goal_id, name, target, deadline = goal.id, goal.name, goal.target_amount, goal.deadline
+        if not target or deadline <= local_today:
+            continue
+        total, last = (
+            await db.execute(
+                select(
+                    func.coalesce(func.sum(SavingsContribution.amount), Decimal("0")),
+                    func.max(SavingsContribution.created_at),
+                ).where(SavingsContribution.savings_goal_id == goal_id)
+            )
+        ).one()
+        if total >= target:
+            continue
+        last_activity = last or goal.created_at
+        if last_activity is None:
+            continue
+        if last_activity.tzinfo is None:
+            last_activity = last_activity.replace(tzinfo=timezone.utc)
+        idle_days = (now_utc - last_activity).days
+        if idle_days < SAVINGS_IDLE_DAYS:
+            continue
+        if not await _claim(db, user_id, f"savings-idle:{goal_id}:{period}"):
+            continue
+        months_left = max((deadline - local_today).days / 30.4375, 1)
+        needed = (target - total) / Decimal(str(months_left))
+        await push_service.send_to_user(
+            user_id,
+            f"Objectif « {name} » en pause",
+            f"Aucun versement depuis {idle_days} jours. Pour atteindre "
+            f"{_money(target, currency)} d'ici {deadline.strftime('%m/%Y')}, "
+            f"prévoyez ≈ {_money(needed, currency)} par mois.",
+            db,
+            {"route": "/savings", "kind": "savings_idle"},
+        )
+
+
 # ── Tâche planifiée ──────────────────────────────────────────────────────
 
 
@@ -274,6 +412,12 @@ async def run_scheduled(now_utc: datetime, db: AsyncSession, provider: Any = Non
             today = local.date()
             if daily and local.hour == daily_hour:
                 await send_daily_reminder(user_id, today, db)
+            if local.hour in DAY_HOURS:
+                if prefs.budget_alerts:
+                    await check_budget_catchup(user_id, today, db)
+                    await check_month_budget(user_id, today, db)
+                if prefs.savings_milestones:
+                    await check_savings_idle(user_id, now_utc, today, db)
             if local.weekday() == SUNDAY and local.hour >= WEEKLY_HOUR:
                 if weekly:
                     await send_weekly_summary(user_id, today, db)

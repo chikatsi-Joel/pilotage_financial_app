@@ -14,6 +14,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import (
+    Budget,
     Category,
     Essentiality,
     Expense,
@@ -254,6 +255,72 @@ async def test_ai_fallback_is_not_pushed_and_off_day_sends_nothing(session, expo
         datetime(2026, 3, 8, 19, 0, tzinfo=timezone.utc), session, FakeProvider(fallback=True)
     )
     assert [m["title"] for m in expo.messages] == ["Votre résumé de la semaine"]
+
+
+# ── Rattrapage, budget du mois, rythme, épargne en pause ─────────────────
+
+
+async def test_existing_overrun_is_caught_up_by_the_scheduler(session, expo) -> None:
+    user = await _user(session, timezone="UTC")
+    cat = await _category(session, user, budget="1000", name="Factures")
+    await _spend(session, user, cat, "4982", date(2026, 3, 2))  # avant tout passage planifié
+    noon = datetime(2026, 3, 4, 12, 0, tzinfo=timezone.utc)
+    await notification_service.run_scheduled(noon, session)
+    await notification_service.run_scheduled(noon, session)
+    assert [m["title"] for m in expo.messages] == ["Budget « Factures » dépassé"]
+
+
+async def test_scheduled_checks_stay_quiet_at_night(session, expo) -> None:
+    user = await _user(session, timezone="UTC")
+    cat = await _category(session, user, budget="1000")
+    await _spend(session, user, cat, "4982", date(2026, 3, 2))
+    await notification_service.run_scheduled(datetime(2026, 3, 4, 2, 0, tzinfo=timezone.utc), session)
+    assert expo.messages == []
+
+
+async def _accepted_budget(db: AsyncSession, user, period: str, total: str) -> None:
+    db.add(Budget(user_id=user.id, period=period, recommended_total=Decimal(total),
+                  recommended_savings=Decimal("0"), accepted_total=Decimal(total),
+                  accepted_savings=Decimal("0"), rationale="test"))
+    await db.commit()
+
+
+async def test_month_budget_thresholds_and_pace_alert(session, expo) -> None:
+    user = await _user(session, timezone="UTC")
+    cat = await _category(session, user, budget=None)
+    await _accepted_budget(session, user, "2026-04", "1000")
+
+    # 12 avril (40 % du mois) : 650 dépensés = 65 % -> alerte de rythme, une seule fois
+    await _spend(session, user, cat, "650", date(2026, 4, 2))
+    day12 = datetime(2026, 4, 12, 10, 0, tzinfo=timezone.utc)
+    await notification_service.run_scheduled(day12, session)
+    await notification_service.run_scheduled(day12, session)
+    assert [m["title"] for m in expo.messages] == ["Vous dépensez plus vite que prévu"]
+
+    # 85 % puis 110 % : paliers du budget du mois
+    await _spend(session, user, cat, "200", date(2026, 4, 12))
+    await notification_service.run_scheduled(day12, session)
+    await _spend(session, user, cat, "250", date(2026, 4, 12))
+    await notification_service.run_scheduled(day12, session)
+    titles = [m["title"] for m in expo.messages]
+    assert titles[1:] == ["Budget du mois à 80 %", "Budget du mois dépassé"]
+
+
+async def test_savings_goal_without_contribution_for_a_month_gets_one_reminder(session, expo) -> None:
+    user = await _user(session, timezone="UTC")
+    goal = SavingsGoal(user_id=user.id, name="Voyage", target_amount=Decimal("1200"), deadline=date(2026, 12, 31))
+    session.add(goal)
+    await session.flush()
+    session.add(SavingsContribution(savings_goal_id=goal.id, amount=Decimal("100"),
+                                    created_at=datetime(2026, 1, 10, tzinfo=timezone.utc)))
+    await session.commit()
+
+    now = datetime(2026, 3, 4, 12, 0, tzinfo=timezone.utc)
+    await notification_service.run_scheduled(now, session)
+    await notification_service.run_scheduled(now, session)
+    assert len(expo.messages) == 1
+    assert expo.messages[0]["title"] == "Objectif « Voyage » en pause"
+    assert "par mois" in expo.messages[0]["body"]
 
 
 # ── Routes ───────────────────────────────────────────────────────────────
