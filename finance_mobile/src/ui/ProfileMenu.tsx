@@ -16,8 +16,6 @@ import { initialsOf } from "../shared/utils/profile";
 import { colors } from "./theme";
 import { interFonts } from "./theme";
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-
 interface Props {
   visible: boolean;
   name: string | null;
@@ -116,43 +114,33 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onSignOut
             { paddingBottom: Math.max(insets.bottom, 12) + 12, transform: [{ translateY }] },
           ]}
         >
+          <View pointerEvents="none" style={styles.orbTop} />
+          <View pointerEvents="none" style={styles.orbBottom} />
           <View style={styles.handle} />
 
           <View style={styles.profile}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initialsOf(name)}</Text>
-            </View>
-            <View style={styles.profileCopy}>
-              <Text numberOfLines={1} style={styles.name}>
-                {displayName}
-              </Text>
-              <View style={styles.statusRow}>
-                <View style={styles.statusDot} />
-                <Text style={styles.status}>Session active sur cet appareil</Text>
+            <View style={styles.avatarRing}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initialsOf(name)}</Text>
               </View>
             </View>
+            <Text numberOfLines={1} style={styles.name}>
+              {displayName}
+            </Text>
           </View>
 
           {confirming ? (
             <View style={styles.confirm}>
-              <View style={styles.confirmIcon}>
-                <MaterialCommunityIcons color={colors.danger} name="logout" size={24} />
-              </View>
-              <Text style={styles.confirmTitle}>Se déconnecter de Lucia ?</Text>
+              <Text style={styles.confirmTitle}>Se déconnecter ?</Text>
               <Text style={styles.confirmText}>
-                Vous devrez saisir à nouveau votre e-mail et votre mot de passe pour
-                retrouver votre compte.
+                Il faudra vous reconnecter pour retrouver votre compte.
               </Text>
               <View style={styles.confirmActions}>
                 <Pressable
                   accessibilityRole="button"
                   disabled={busy}
                   onPress={() => setConfirming(false)}
-                  style={({ pressed }) => [
-                    styles.btn,
-                    styles.btnGhost,
-                    pressed && styles.pressed,
-                  ]}
+                  style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && styles.pressed]}
                 >
                   <Text style={styles.btnGhostText}>Annuler</Text>
                 </Pressable>
@@ -160,11 +148,7 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onSignOut
                   accessibilityRole="button"
                   disabled={busy}
                   onPress={() => void confirmSignOut()}
-                  style={({ pressed }) => [
-                    styles.btn,
-                    styles.btnDanger,
-                    pressed && styles.pressed,
-                  ]}
+                  style={({ pressed }) => [styles.btn, styles.btnDanger, pressed && styles.pressed]}
                 >
                   {busy ? (
                     <ActivityIndicator color="#FFFFFF" />
@@ -175,20 +159,28 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onSignOut
               </View>
             </View>
           ) : (
-            <View style={styles.list}>
-              <Row
-                icon="bell-outline"
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
                 onPress={() => closeThen(onNotifications)}
-                subtitle="Alertes, rappels et résumés"
-                title="Notifications"
-              />
-              <View style={styles.separator} />
-              <Row
-                danger
-                icon="logout"
+                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              >
+                <View style={styles.cardIcon}>
+                  <MaterialCommunityIcons color={colors.primary} name="bell-outline" size={20} />
+                </View>
+                <Text style={styles.cardTitle}>Notifications</Text>
+                <MaterialCommunityIcons color={colors.primary} name="chevron-right" size={22} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
                 onPress={() => setConfirming(true)}
-                title="Se déconnecter"
-              />
+                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              >
+                <View style={[styles.cardIcon, styles.cardIconDanger]}>
+                  <MaterialCommunityIcons color={colors.danger} name="logout" size={20} />
+                </View>
+                <Text style={[styles.cardTitle, { color: colors.danger }]}>Se déconnecter</Text>
+              </Pressable>
             </View>
           )}
         </Animated.View>
@@ -197,51 +189,18 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onSignOut
   );
 }
 
-function Row({
-  icon,
-  title,
-  subtitle,
-  danger = false,
-  onPress,
-}: {
-  icon: IconName;
-  title: string;
-  subtitle?: string;
-  danger?: boolean;
-  onPress: () => void;
-}) {
-  const tint = danger ? colors.danger : colors.primary;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-    >
-      <View style={[styles.rowIcon, { backgroundColor: danger ? "#FBE9E7" : colors.primarySoft }]}>
-        <MaterialCommunityIcons color={tint} name={icon} size={22} />
-      </View>
-      <View style={styles.rowCopy}>
-        <Text style={[styles.rowTitle, danger && { color: colors.danger }]}>{title}</Text>
-        {subtitle ? <Text style={styles.rowSub}>{subtitle}</Text> : null}
-      </View>
-      {danger ? null : (
-        <MaterialCommunityIcons color={colors.textMuted} name="chevron-right" size={22} />
-      )}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(11, 28, 48, 0.45)" },
   sheet: {
     alignSelf: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "#EEF1FF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     elevation: 16,
-    gap: 16,
+    gap: 18,
     maxWidth: 520,
+    overflow: "hidden",
     paddingHorizontal: 20,
     paddingTop: 10,
     shadowColor: "#000",
@@ -250,67 +209,85 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     width: "100%",
   },
+  orbTop: {
+    backgroundColor: `${colors.primary}14`,
+    borderRadius: 999,
+    height: 200,
+    position: "absolute",
+    right: -70,
+    top: -80,
+    width: 200,
+  },
+  orbBottom: {
+    backgroundColor: "#865DD210",
+    borderRadius: 999,
+    bottom: -50,
+    height: 150,
+    left: -50,
+    position: "absolute",
+    width: 150,
+  },
   handle: {
     alignSelf: "center",
-    backgroundColor: colors.border,
+    backgroundColor: `${colors.primary}33`,
     borderRadius: 99,
     height: 4,
     width: 40,
   },
-  profile: { alignItems: "center", flexDirection: "row", gap: 14 },
+  profile: { alignItems: "center", gap: 10 },
+  avatarRing: {
+    borderColor: `${colors.primary}40`,
+    borderRadius: 999,
+    borderWidth: 2,
+    padding: 4,
+  },
   avatar: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 28,
-    height: 56,
+    borderRadius: 999,
+    height: 68,
     justifyContent: "center",
-    width: 56,
+    width: 68,
   },
-  avatarText: { color: "#FFFFFF", fontSize: 18, fontFamily: interFonts.bold, letterSpacing: 0.5 },
-  profileCopy: { flex: 1, gap: 4 },
-  name: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
-  statusRow: { alignItems: "center", flexDirection: "row", gap: 6 },
-  statusDot: { backgroundColor: colors.success, borderRadius: 4, height: 8, width: 8 },
-  status: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular },
+  avatarText: { color: "#FFFFFF", fontSize: 22, fontFamily: interFonts.bold, letterSpacing: 0.5 },
+  name: { color: colors.text, fontSize: 18, fontFamily: interFonts.bold },
 
-  list: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
+  actions: { gap: 10 },
+  card: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
     borderRadius: 18,
-    borderWidth: 1,
-    overflow: "hidden",
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 1,
   },
-  separator: { backgroundColor: colors.border, height: 1, marginLeft: 68 },
-  row: { alignItems: "center", flexDirection: "row", gap: 14, padding: 14 },
-  rowPressed: { backgroundColor: colors.surfaceMuted },
-  rowIcon: {
+  cardIcon: {
     alignItems: "center",
-    borderRadius: 12,
-    height: 40,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    height: 36,
     justifyContent: "center",
-    width: 40,
+    width: 36,
   },
-  rowCopy: { flex: 1, gap: 2 },
-  rowTitle: { color: colors.text, fontSize: 15, fontFamily: interFonts.semibold },
-  rowSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
+  cardIconDanger: { backgroundColor: "#FBE9E7" },
+  cardTitle: { color: colors.text, flex: 1, fontSize: 15, fontFamily: interFonts.semibold },
 
-  confirm: { alignItems: "center", gap: 10, paddingVertical: 4 },
-  confirmIcon: {
-    alignItems: "center",
-    backgroundColor: "#FBE9E7",
-    borderRadius: 28,
-    height: 56,
-    justifyContent: "center",
-    width: 56,
+  confirm: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    gap: 6,
+    padding: 16,
   },
-  confirmTitle: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
-  confirmText: {
-    color: colors.textMuted,
-    fontSize: 13, fontFamily: interFonts.regular,
-    lineHeight: 18,
-    textAlign: "center",
-  },
-  confirmActions: { alignSelf: "stretch", flexDirection: "row", gap: 12, marginTop: 8 },
+  confirmTitle: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
+  confirmText: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.regular, lineHeight: 18 },
+  confirmActions: { flexDirection: "row", gap: 12, marginTop: 10 },
   btn: {
     alignItems: "center",
     borderRadius: 14,
