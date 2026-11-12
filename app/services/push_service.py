@@ -98,6 +98,26 @@ async def _post_expo(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return response.json().get("data", [])
 
 
+# Catégorie Android (canal) de chaque type de notification ; créées par l'app mobile.
+CHANNEL_BY_KIND = {
+    "budget": "budget",
+    "month_budget": "budget",
+    "pace": "budget",
+    "savings": "savings",
+    "savings_idle": "savings",
+    "daily": "reminders",
+    "weekly": "summaries",
+    "ai": "summaries",
+}
+
+
+def _sticker_url(data: dict[str, Any]) -> str | None:
+    """Adresse du sticker affiché à droite de la notification (`data["sticker"]`)."""
+    name = data.get("sticker")
+    base = settings.push_sticker_base_url.rstrip("/")
+    return f"{base}/{name}.png" if name and base else None
+
+
 async def send_to_user(
     user_id: UUID,
     title: str,
@@ -119,14 +139,17 @@ async def send_to_user(
         dead: list[str] = []
         for start in range(0, len(devices), EXPO_BATCH_SIZE):
             batch = devices[start : start + EXPO_BATCH_SIZE]
+            payload = data or {}
+            sticker = _sticker_url(payload)
             messages = [
                 {
                     "to": d.token,
                     "title": title,
                     "body": body,
-                    "data": data or {},
+                    "data": payload,
                     "sound": "default",
-                    "channelId": "default",
+                    "channelId": CHANNEL_BY_KIND.get(payload.get("kind", ""), "default"),
+                    **({"richContent": {"image": sticker}} if sticker else {}),
                 }
                 for d in batch
             ]

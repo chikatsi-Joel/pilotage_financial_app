@@ -37,10 +37,22 @@ export async function registerForPush(userId: string): Promise<PushStatus> {
     if (!Device.isDevice) return "unsupported"; // simulateur : pas de push
 
     if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "Lucia",
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
+      // Une catégorie par type : visible dans l'en-tête et réglable séparément dans Android.
+      const channels: Array<[string, string, string, number]> = [
+        ["budget", "Alertes budget", "Dépassements et rythme de dépense", Notifications.AndroidImportance.HIGH],
+        ["savings", "Épargne", "Objectifs atteints et rappels de versement", Notifications.AndroidImportance.DEFAULT],
+        ["reminders", "Rappels", "Rappel quotidien de saisie", Notifications.AndroidImportance.DEFAULT],
+        ["summaries", "Résumés", "Résumé et conseil de la semaine", Notifications.AndroidImportance.LOW],
+        ["default", "Général", "Autres notifications Lucia", Notifications.AndroidImportance.DEFAULT],
+      ];
+      for (const [id, name, description, importance] of channels) {
+        await Notifications.setNotificationChannelAsync(id, {
+          name,
+          description,
+          importance,
+          lightColor: "#584CB9",
+        });
+      }
     }
 
     let { status } = await Notifications.getPermissionsAsync();

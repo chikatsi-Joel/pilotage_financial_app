@@ -15,7 +15,7 @@ from typing import Any, Awaitable, Callable
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import delete, distinct, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,7 +52,12 @@ DAY_HOURS = range(9, 21)
 
 
 def _money(amount: Decimal | float | int, currency: str) -> str:
-    return f"{Decimal(str(amount)):,.0f}".replace(",", " ") + f" {currency}"
+    return f"{_amount(amount)} {currency}".rstrip()
+
+
+def _amount(amount: Decimal | float) -> str:
+    """Montant sans devise, espaces pour les milliers : « 49 825 »."""
+    return f"{Decimal(str(amount)):,.0f}".replace(",", " ")
 
 
 def _local_now(now_utc: datetime, tz_name: str) -> datetime:
@@ -71,6 +76,28 @@ async def _claim(db: AsyncSession, user_id: UUID, key: str) -> bool:
         await db.rollback()
         return False
     return True
+
+
+async def _deliver(
+    db: AsyncSession,
+    user_id: UUID,
+    keys: list[str],
+    title: str,
+    body: str,
+    data: dict[str, str],
+) -> None:
+    """Envoie la notification ; si l'envoi échoue (réseau, service Expo), libère les clés
+    réservées pour qu'elle reparte au passage suivant au lieu d'être perdue."""
+    if await push_service.send_to_user(user_id, title, body, db, data):
+        return
+    if not keys or not await _has_devices(db, user_id):
+        return  # aucun appareil : rien à rattraper
+    await db.execute(
+        delete(NotificationLog).where(
+            NotificationLog.user_id == user_id, NotificationLog.key.in_(keys)
+        )
+    )
+    await db.commit()
 
 
 async def _has_devices(db: AsyncSession, user_id: UUID) -> bool:
@@ -120,19 +147,25 @@ async def check_budget_alerts(
         if not crossed:
             continue
         # Tous les paliers franchis sont réservés ; seul le plus haut est annoncé.
-        claimed = [
-            await _claim(db, user_id, f"budget:{category_id}:{period}:{t}") for t in crossed
-        ]
+        keys = [f"budget:{category_id}:{period}:{t}" for t in crossed]
+        claimed = [await _claim(db, user_id, k) for k in keys]
         if not claimed[-1]:
             continue
         top = crossed[-1]
+        used = f"Dépensé {_amount(spent)} / {_money(budget, currency)}"
         if top >= 100:
-            title = f"Budget « {category_name} » dépassé"
+            title = f"🚨 {category_name} — budget dépassé"
+            body = f"+{_money(spent - budget, currency)} au-delà du budget\n{used}"
         else:
-            title = f"Budget « {category_name} » à {top} %"
-        body = f"{_money(spent, currency)} dépensés sur {_money(budget, currency)} ce mois-ci."
-        await push_service.send_to_user(
-            user_id, title, body, db, {"route": "/budget", "kind": "budget"}
+            title = f"⚠️ {category_name} — {round(ratio)} % du budget"
+            body = f"Reste {_money(budget - spent, currency)} jusqu'à la fin du mois\n{used}"
+        await _deliver(
+            db,
+            user_id,
+            [k for k, c in zip(keys, claimed) if c],
+            title,
+            body,
+            {"route": "/budget", "kind": "budget", "sticker": "alert" if top >= 100 else "warning"},
         )
 
 
@@ -160,20 +193,27 @@ async def check_savings_milestone(user_id: UUID, goal_id: UUID, db: AsyncSession
     crossed = [t for t in SAVINGS_THRESHOLDS if ratio >= t]
     if not crossed:
         return
-    claimed = [await _claim(db, user_id, f"savings:{goal_id}:{t}") for t in crossed]
+    keys = [f"savings:{goal_id}:{t}" for t in crossed]
+    claimed = [await _claim(db, user_id, k) for k in keys]
     if not claimed[-1]:
         return
     top = crossed[-1]
-    title = (
-        f"Objectif « {goal_name} » atteint !"
-        if top >= 100
-        else f"Objectif « {goal_name} » : {top} % atteint"
-    )
     user = await db.get(User, user_id)
     currency = user.currency if user else ""
-    body = f"{_money(total, currency)} épargnés sur {_money(target, currency)}."
-    await push_service.send_to_user(
-        user_id, title, body, db, {"route": "/savings", "kind": "savings"}
+    saved = f"Épargné {_amount(total)} / {_money(target, currency)}"
+    if top >= 100:
+        title = f"🎉 {goal_name} — objectif atteint !"
+        body = f"Cible de {_money(target, currency)} atteinte, bravo\n{saved}"
+    else:
+        title = f"🎯 {goal_name} — {top} % de l'objectif"
+        body = f"Reste {_money(target - total, currency)} à épargner\n{saved}"
+    await _deliver(
+        db,
+        user_id,
+        [k for k, c in zip(keys, claimed) if c],
+        title,
+        body,
+        {"route": "/savings", "kind": "savings", "sticker": "reached" if top >= 100 else "milestone"},
     )
 
 
@@ -181,7 +221,8 @@ async def check_savings_milestone(user_id: UUID, goal_id: UUID, db: AsyncSession
 
 
 async def send_daily_reminder(user_id: UUID, local_today: date, db: AsyncSession) -> None:
-    if not await _claim(db, user_id, f"daily:{local_today.isoformat()}"):
+    key = f"daily:{local_today.isoformat()}"
+    if not await _claim(db, user_id, key):
         return
     logged_today = (
         await db.execute(
@@ -192,12 +233,13 @@ async def send_daily_reminder(user_id: UUID, local_today: date, db: AsyncSession
     ).scalar_one()
     if logged_today:
         return  # déjà à jour : inutile de déranger
-    await push_service.send_to_user(
-        user_id,
-        "Vos dépenses du jour",
-        "Pensez à noter vos dépenses d'aujourd'hui pour garder un suivi précis.",
+    await _deliver(
         db,
-        {"route": "/add-expense", "kind": "daily"},
+        user_id,
+        [key],
+        "📝 Dépenses du jour — rien de noté",
+        "Aucune dépense enregistrée aujourd'hui\n30 secondes pour garder un suivi exact",
+        {"route": "/add-expense", "kind": "daily", "sticker": "daily"},
     )
 
 
@@ -206,7 +248,8 @@ async def send_daily_reminder(user_id: UUID, local_today: date, db: AsyncSession
 
 async def send_weekly_summary(user_id: UUID, local_today: date, db: AsyncSession) -> None:
     iso = local_today.isocalendar()
-    if not await _claim(db, user_id, f"weekly:{iso.year}-W{iso.week:02d}"):
+    key = f"weekly:{iso.year}-W{iso.week:02d}"
+    if not await _claim(db, user_id, key):
         return
     user = await db.get(User, user_id)
     currency = user.currency if user else ""
@@ -237,16 +280,18 @@ async def send_weekly_summary(user_id: UUID, local_today: date, db: AsyncSession
         user_id, period_of(local_today), db
     )
 
-    parts = [f"Dépensé cette semaine : {_money(week_total, currency)}."]
+    parts = [f"Dépensé {_money(week_total, currency)} cette semaine"]
     if top:
-        parts.append(f"Plus gros poste : {top[0]}.")
-    parts.append(f"Solde du mois : {_money(income - expenses, currency)}.")
-    await push_service.send_to_user(
-        user_id,
-        "Votre résumé de la semaine",
-        " ".join(parts),
+        parts.append(f"Plus gros poste : {top[0]}")
+    balance = income - expenses
+    parts.append(f"Solde du mois : {_money(balance, currency)}")
+    await _deliver(
         db,
-        {"route": "/dashboard", "kind": "weekly"},
+        user_id,
+        [key],
+        "📅 Résumé de la semaine",
+        "\n".join(parts),
+        {"route": "/dashboard", "kind": "weekly", "sticker": "weekly"},
     )
 
 
@@ -262,8 +307,9 @@ async def send_ai_insight(
     if result.get("fallback") or not summary:
         return
     body = summary if len(summary) <= AI_BODY_MAX else summary[: AI_BODY_MAX - 1].rstrip() + "…"
-    await push_service.send_to_user(
-        user_id, "Le conseil de l'IA", body, db, {"route": "/analyse-insights", "kind": "ai"}
+    # Pas de nouvel essai : chaque essai relancerait l'analyse IA, qui est payante.
+    await _deliver(
+        db, user_id, [], "💡 Conseil de la semaine", body, {"route": "/analyse-insights", "kind": "ai", "sticker": "ai"}
     )
 
 
@@ -309,36 +355,48 @@ async def check_month_budget(user_id: UUID, local_today: date, db: AsyncSession)
 
     crossed = [t for t in MONTH_THRESHOLDS if share * 100 >= t]
     if crossed:
-        claimed = [await _claim(db, user_id, f"month:{period}:{t}") for t in crossed]
+        keys = [f"month:{period}:{t}" for t in crossed]
+        claimed = [await _claim(db, user_id, k) for k in keys]
         if claimed[-1]:
             top = crossed[-1]
             if top >= 100:
-                title = "Budget du mois dépassé"
+                title = "🚨 Budget du mois — dépassé"
                 body = (
-                    f"{_money(spent, currency)} dépensés pour un budget de "
-                    f"{_money(budget, currency)} (+{_money(spent - budget, currency)})."
+                    f"+{_money(spent - budget, currency)} au-delà du budget\n"
+                    f"Dépensé {_amount(spent)} / {_money(budget, currency)}"
                 )
             else:
-                title = f"Budget du mois à {top} %"
+                title = f"⚠️ Budget du mois — {round(share * 100)} % utilisé"
                 body = (
-                    f"Il reste {_money(budget - spent, currency)} pour {days_left} jour"
-                    f"{'s' if days_left > 1 else ''}."
+                    f"Reste {_money(budget - spent, currency)} pour {days_left} jour"
+                    f"{'s' if days_left > 1 else ''}\n"
+                    f"Soit ≈ {_money((budget - spent) / days_left, currency)} par jour"
                 )
-            await push_service.send_to_user(
-                user_id, title, body, db, {"route": "/dashboard", "kind": "month_budget"}
+            await _deliver(
+                db,
+                user_id,
+                [k for k, c in zip(keys, claimed) if c],
+                title,
+                body,
+                {
+                    "route": "/dashboard",
+                    "kind": "month_budget",
+                    "sticker": "alert" if top >= 100 else "warning",
+                },
             )
             return  # un seul message par passage
 
     if share < 1 and PACE_WINDOW[0] <= time_share <= PACE_WINDOW[1] and share - time_share >= PACE_GAP:
         if await _claim(db, user_id, f"pace:{period}"):
             per_day = (budget - spent) / days_left
-            await push_service.send_to_user(
-                user_id,
-                "Vous dépensez plus vite que prévu",
-                f"{round(share * 100)} % du budget dépensé alors que {round(time_share * 100)} % "
-                f"du mois est écoulé. Pour tenir, visez ≈ {_money(per_day, currency)} par jour.",
+            await _deliver(
                 db,
-                {"route": "/dashboard", "kind": "pace"},
+                user_id,
+                [f"pace:{period}"],
+                "🏃 Rythme de dépense — trop rapide",
+                f"{round(share * 100)} % du budget utilisé, {round(time_share * 100)} % du mois écoulé\n"
+                f"Visez ≈ {_money(per_day, currency)} par jour pour tenir",
+                {"route": "/dashboard", "kind": "pace", "sticker": "pace"},
             )
 
 
@@ -381,18 +439,19 @@ async def check_savings_idle(
         idle_days = (now_utc - last_activity).days
         if idle_days < SAVINGS_IDLE_DAYS:
             continue
-        if not await _claim(db, user_id, f"savings-idle:{goal_id}:{period}"):
+        key = f"savings-idle:{goal_id}:{period}"
+        if not await _claim(db, user_id, key):
             continue
         months_left = max((deadline - local_today).days / 30.4375, 1)
         needed = (target - total) / Decimal(str(months_left))
-        await push_service.send_to_user(
-            user_id,
-            f"Objectif « {name} » en pause",
-            f"Aucun versement depuis {idle_days} jours. Pour atteindre "
-            f"{_money(target, currency)} d'ici {deadline.strftime('%m/%Y')}, "
-            f"prévoyez ≈ {_money(needed, currency)} par mois.",
+        await _deliver(
             db,
-            {"route": "/savings", "kind": "savings_idle"},
+            user_id,
+            [key],
+            f"💤 {name} — aucun versement depuis {idle_days} jours",
+            f"Épargné {_amount(total)} / {_money(target, currency)}\n"
+            f"Prévoyez ≈ {_money(needed, currency)} par mois d'ici {deadline.strftime('%m/%Y')}",
+            {"route": "/savings", "kind": "savings_idle", "sticker": "idle"},
         )
 
 

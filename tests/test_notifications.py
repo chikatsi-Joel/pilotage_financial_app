@@ -143,7 +143,7 @@ async def test_budget_alert_fires_once_per_threshold(session, expo) -> None:
 
     await _spend(session, user, cat, "350", date(2026, 3, 8))  # 85 %
     await notification_service.check_budget_alerts(user.id, pairs, session)
-    assert len(expo.messages) == 1 and "à 80 %" in expo.messages[0]["title"]
+    assert len(expo.messages) == 1 and "— 85 % du budget" in expo.messages[0]["title"]
 
     await notification_service.check_budget_alerts(user.id, pairs, session)
     assert len(expo.messages) == 1  # pas de doublon
@@ -158,7 +158,10 @@ async def test_budget_alert_jumping_straight_to_100_skips_the_80_message(session
     cat = await _category(session, user, "1000")
     await _spend(session, user, cat, "1200", date(2026, 3, 5))
     await notification_service.check_budget_alerts(user.id, {(cat.id, "2026-03")}, session)
-    assert [m["title"] for m in expo.messages] == ["Budget « Transport » dépassé"]
+    assert [m["title"] for m in expo.messages] == ["🚨 Transport — budget dépassé"]
+    assert expo.messages[0]["channelId"] == "budget"
+    assert "richContent" not in expo.messages[0]  # sans sticker
+    assert expo.messages[0]["body"].split("\n")[1].startswith("Dépensé ")
     keys = (await session.execute(select(NotificationLog.key))).scalars().all()
     assert len(keys) == 2  # 80 et 100 réservés : pas de message 80 % tardif
 
@@ -198,7 +201,7 @@ async def test_savings_milestones_50_then_100(session, expo) -> None:
     session.add(SavingsContribution(savings_goal_id=goal.id, amount=Decimal("400")))
     await session.commit()
     await notification_service.check_savings_milestone(user.id, goal.id, session)
-    assert len(expo.messages) == 2 and "atteint !" in expo.messages[1]["title"]
+    assert len(expo.messages) == 2 and "objectif atteint" in expo.messages[1]["title"]
 
 
 # ── Tâche planifiée ──────────────────────────────────────────────────────
@@ -218,7 +221,7 @@ async def test_daily_reminder_sent_once_and_only_if_nothing_logged(session, expo
 
     await notification_service.run_scheduled(now, session)
     await notification_service.run_scheduled(now, session)
-    assert len(expo.messages) == 1 and expo.messages[0]["title"] == "Vos dépenses du jour"
+    assert len(expo.messages) == 1 and expo.messages[0]["title"] == "📝 Dépenses du jour — rien de noté"
 
     expo.messages.clear()
     other = await _user(session, daily_reminder=True, daily_reminder_hour=20, timezone="UTC")
@@ -237,8 +240,8 @@ async def test_weekly_summary_and_ai_insight_on_sunday_evening(session, expo) ->
 
     await notification_service.run_scheduled(sunday, session, FakeProvider())
     titles = [m["title"] for m in expo.messages]
-    assert "Votre résumé de la semaine" in titles
-    assert "Le conseil de l'IA" in titles
+    assert "📅 Résumé de la semaine" in titles
+    assert "💡 Conseil de la semaine" in titles
 
     await notification_service.run_scheduled(sunday, session, FakeProvider())
     assert len(expo.messages) == len(titles)  # une seule fois par semaine
@@ -254,7 +257,7 @@ async def test_ai_fallback_is_not_pushed_and_off_day_sends_nothing(session, expo
     await notification_service.run_scheduled(
         datetime(2026, 3, 8, 19, 0, tzinfo=timezone.utc), session, FakeProvider(fallback=True)
     )
-    assert [m["title"] for m in expo.messages] == ["Votre résumé de la semaine"]
+    assert [m["title"] for m in expo.messages] == ["📅 Résumé de la semaine"]
 
 
 # ── Rattrapage, budget du mois, rythme, épargne en pause ─────────────────
@@ -267,7 +270,7 @@ async def test_existing_overrun_is_caught_up_by_the_scheduler(session, expo) -> 
     noon = datetime(2026, 3, 4, 12, 0, tzinfo=timezone.utc)
     await notification_service.run_scheduled(noon, session)
     await notification_service.run_scheduled(noon, session)
-    assert [m["title"] for m in expo.messages] == ["Budget « Factures » dépassé"]
+    assert [m["title"] for m in expo.messages] == ["🚨 Factures — budget dépassé"]
 
 
 async def test_scheduled_checks_stay_quiet_at_night(session, expo) -> None:
@@ -295,7 +298,7 @@ async def test_month_budget_thresholds_and_pace_alert(session, expo) -> None:
     day12 = datetime(2026, 4, 12, 10, 0, tzinfo=timezone.utc)
     await notification_service.run_scheduled(day12, session)
     await notification_service.run_scheduled(day12, session)
-    assert [m["title"] for m in expo.messages] == ["Vous dépensez plus vite que prévu"]
+    assert [m["title"] for m in expo.messages] == ["🏃 Rythme de dépense — trop rapide"]
 
     # 85 % puis 110 % : paliers du budget du mois
     await _spend(session, user, cat, "200", date(2026, 4, 12))
@@ -303,7 +306,7 @@ async def test_month_budget_thresholds_and_pace_alert(session, expo) -> None:
     await _spend(session, user, cat, "250", date(2026, 4, 12))
     await notification_service.run_scheduled(day12, session)
     titles = [m["title"] for m in expo.messages]
-    assert titles[1:] == ["Budget du mois à 80 %", "Budget du mois dépassé"]
+    assert titles[1:] == ["⚠️ Budget du mois — 85 % utilisé", "🚨 Budget du mois — dépassé"]
 
 
 async def test_savings_goal_without_contribution_for_a_month_gets_one_reminder(session, expo) -> None:
@@ -319,8 +322,29 @@ async def test_savings_goal_without_contribution_for_a_month_gets_one_reminder(s
     await notification_service.run_scheduled(now, session)
     await notification_service.run_scheduled(now, session)
     assert len(expo.messages) == 1
-    assert expo.messages[0]["title"] == "Objectif « Voyage » en pause"
+    assert expo.messages[0]["title"] == "💤 Voyage — aucun versement depuis 53 jours"
+    assert expo.messages[0]["channelId"] == "savings"
     assert "par mois" in expo.messages[0]["body"]
+
+
+async def test_alert_lost_to_a_network_failure_is_retried_next_pass(session, expo, monkeypatch) -> None:
+    user = await _user(session, timezone="UTC")
+    cat = await _category(session, user, budget="1000", name="Factures")
+    await _spend(session, user, cat, "4982", date(2026, 3, 2))
+    noon = datetime(2026, 3, 4, 12, 0, tzinfo=timezone.utc)
+
+    async def offline(messages):
+        raise httpx.ConnectError("Name or service not known")
+
+    working = push_service._post_expo
+    monkeypatch.setattr(push_service, "_post_expo", offline)
+    await notification_service.run_scheduled(noon, session)
+    assert expo.messages == []
+
+    monkeypatch.setattr(push_service, "_post_expo", working)
+    await notification_service.run_scheduled(noon, session)
+    await notification_service.run_scheduled(noon, session)
+    assert [m["title"] for m in expo.messages] == ["🚨 Factures — budget dépassé"]
 
 
 # ── Routes ───────────────────────────────────────────────────────────────
