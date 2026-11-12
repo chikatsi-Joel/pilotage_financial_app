@@ -498,6 +498,8 @@ export default function Budget() {
 
   const [data, setData] = useState<Budget | null>(null);
   const [decision, setDecision] = useState<BudgetSummary | null>(null);
+  /** Budget déjà validé que l'utilisateur veut remplacer par la recommandation du jour. */
+  const [reviewing, setReviewing] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -611,6 +613,7 @@ export default function Budget() {
         accepted_savings: data.recommended_savings,
       });
       setDecision(res);
+      setReviewing(false);
     } catch {
       Alert.alert(
         "Décision non enregistrée",
@@ -766,12 +769,22 @@ export default function Budget() {
                   <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb3]} />
                   <View style={styles.decisionHeader}>
                     <Text style={styles.decisionTitle}>
-                      {decision?.accepted_total != null
+                      {decision?.accepted_total != null && !reviewing
                         ? "Décision enregistrée"
                         : "Recommandation budgétaire"}
                     </Text>
+                    {decision?.accepted_total != null ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        onPress={() => setReviewing((v) => !v)}
+                        style={styles.reviewLink}
+                      >
+                        <Text style={styles.reviewLinkText}>{reviewing ? "Annuler" : "Revoir"}</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
-                  {decision?.accepted_total != null ? (
+                  {decision?.accepted_total != null && !reviewing ? (
                     <Text style={styles.decisionText}>
                       {formatCurrency(decision.accepted_total)} de dépenses
                       validées, soit {formatCurrency(decision.accepted_savings ?? 0)}{" "}
@@ -779,6 +792,12 @@ export default function Budget() {
                     </Text>
                   ) : (
                     <>
+                      {reviewing && decision?.accepted_total != null ? (
+                        <Text style={styles.decisionText}>
+                          Budget actuel : {formatCurrency(decision.accepted_total)} de dépenses. Il sera
+                          remplacé par la recommandation du jour.
+                        </Text>
+                      ) : null}
                       <Text style={styles.decisionText}>
                         Validez la répartition recommandée :{" "}
                         {formatCurrency(data.recommended_expenses)} de dépenses
@@ -1359,6 +1378,8 @@ const styles = StyleSheet.create({
     padding: 16,
     position: "relative",
   },
+  reviewLink: { marginLeft: "auto" },
+  reviewLinkText: { color: colors.primary, fontFamily: interFonts.semibold, fontSize: 13 },
   decisionOrb1: {
     backgroundColor: `${colors.primary}10`,
     height: 120,

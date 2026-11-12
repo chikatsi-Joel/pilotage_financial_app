@@ -33,9 +33,11 @@ def generate_budget(
                 factor = Decimal("0.10")
             else:
                 factor = Decimal("0.05")
-            basis = Decimal(str(baseline))
+            # Base = niveau habituel de la catégorie (le mois en cours s'il n'y a pas
+            # d'historique). On ne plafonne plus au déjà-dépensé : en début de mois, ce
+            # plafond donnait un budget minuscule, figé ensuite à la validation.
+            basis = Decimal(str(baseline)) if baseline > 0 else current
             proposed = money(basis * (Decimal("1") - factor))
-            proposed = min(proposed, current) if current > 0 else proposed
             reason = (
                 f"Réduction de {factor * 100:.0f}% "
                 f"fondée sur la variation de {variation:.1f}%."
