@@ -27,6 +27,7 @@ import { formatMoney } from "../../src/shared/utils/money";
 import { formatPct } from "../../src/shared/utils/format";
 import { MONTHS_FR } from "../../src/shared/utils/date";
 import { dailyAllowance } from "../../src/shared/utils/dailyAllowance";
+import { budgetPace, compactAmount, type PaceTone } from "../../src/shared/utils/budgetPace";
 import { previousRange, relativeChange } from "../../src/shared/utils/monthCompare";
 import { expenses as expensesApi } from "../../src/shared/api/expenses";
 
@@ -268,143 +269,228 @@ const alertStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-function BudgetBarChart({ weekly }: { weekly: WeeklyExpense[] }) {
-  const maxVal = Math.max(
-    1,
-    ...weekly.map((w) => Math.max(w.prevu, w.reel))
-  );
-  const heightOf = (value: number) =>
-    Math.max((value / maxVal) * 100, 2);
+/** Tout reste dans la gamme violette du thème : plus c'est soutenu, plus il faut y prêter attention. */
+/** Couleur indicatrice : rouge = à surveiller, vert = très bien. Le reste de la carte reste violet. */
+const BAD = "#C0453B";
+const GOOD = "#2F8A5F";
+const PACE_TONE: Record<PaceTone, { fg: string; bg: string; icon: string }> = {
+  none: { fg: colors.textMuted, bg: "#FFFFFF99", icon: "•" },
+  over: { fg: BAD, bg: "#FBE4E1", icon: "▲" },
+  fast: { fg: BAD, bg: "#FBE4E1", icon: "▲" },
+  ok: { fg: GOOD, bg: "#DDF2E6", icon: "✓" },
+  slow: { fg: GOOD, bg: "#DDF2E6", icon: "✓" },
+};
+const OVER_VIOLET = BAD;
+
+/** Budget du mois : jauge dépensé / prévu avec repère « aujourd'hui », puis le détail par semaine. */
+function BudgetGauge({
+  weekly,
+  spent,
+  period,
+  currency,
+}: {
+  weekly: WeeklyExpense[];
+  spent: number;
+  period: string;
+  currency: string;
+}) {
+  const pace = budgetPace(weekly, spent, period, new Date());
+  const tone = PACE_TONE[pace.tone];
+  const fill = Math.min(pace.spentShare, 1);
+  const weekMax = Math.max(...weekly.map((w) => Math.max(w.reel, w.prevu)), 1);
 
   return (
-    <View style={chartStyles.card}>
-      <View style={chartStyles.area}>
-        <View style={[chartStyles.yLine, { top: 0 }]} />
-        <View style={[chartStyles.yLine, { top: "33%" }]} />
-        <View style={[chartStyles.yLine, { top: "66%" }]} />
-        <View style={[chartStyles.yLineSolid, { bottom: 0 }]} />
+    <View style={gaugeStyles.card}>
+      <View pointerEvents="none" style={gaugeStyles.orb} />
+      <View pointerEvents="none" style={gaugeStyles.orbSmall} />
 
-        <View style={chartStyles.barsRow}>
-          {weekly.map((w) => (
-            <View key={w.label} style={chartStyles.barGroup}>
-              <View style={chartStyles.barPair}>
-                <View
-                  style={[
-                    chartStyles.bar,
-                    {
-                      height: `${heightOf(w.prevu)}%`,
-                      backgroundColor: "#C7C5D1",
-                    },
-                  ]}
-                />
-                <View
-                  style={[
-                    chartStyles.bar,
-                    {
-                      height: `${heightOf(w.reel)}%`,
-                      backgroundColor: colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={chartStyles.barLabel}>{w.label}</Text>
+      {pace.budget > 0 ? (
+        <>
+          <View style={gaugeStyles.amountRow}>
+            <Text style={gaugeStyles.spent}>{formatMoney(pace.spent, currency)}</Text>
+            <Text style={gaugeStyles.budget}> dépensés ce mois</Text>
+          </View>
+          <Text style={gaugeStyles.budgetLine}>
+            sur un budget de dépenses de {formatMoney(pace.budget, currency)}
+          </Text>
+
+          <View style={gaugeStyles.barRow}>
+            <View style={gaugeStyles.track}>
+              <View
+                style={[
+                  gaugeStyles.fill,
+                  {
+                    backgroundColor: pace.tone === "over" ? OVER_VIOLET : colors.primary,
+                    width: `${fill * 100}%`,
+                  },
+                ]}
+              />
+              {pace.timeShare > 0 && pace.timeShare < 1 ? (
+                <View style={[gaugeStyles.todayTick, { left: `${pace.timeShare * 100}%` }]} />
+              ) : null}
             </View>
-          ))}
-        </View>
+            <Text style={[gaugeStyles.pct, { color: tone.fg }]}>{Math.round(pace.spentShare * 100)} %</Text>
+          </View>
+          {pace.timeShare > 0 && pace.timeShare < 1 ? (
+            <View style={gaugeStyles.todayRow}>
+              <Text
+                style={[
+                  gaugeStyles.todayLabel,
+                  { left: `${Math.min(Math.max(pace.timeShare * 100, 12), 88)}%` },
+                ]}
+              >
+                ▲ aujourd'hui ({Math.round(pace.timeShare * 100)} % du mois)
+              </Text>
+            </View>
+          ) : null}
+        </>
+      ) : null}
+
+      <View style={[gaugeStyles.messagePill, { backgroundColor: tone.bg }]}>
+        <Text style={[gaugeStyles.message, { color: tone.fg }]}>
+          {tone.icon} {pace.message}
+          {pace.tone === "over"
+            ? ` (+${formatMoney(pace.spent - pace.budget, currency)})`
+            : ""}
+        </Text>
       </View>
 
-      <View style={chartStyles.legend}>
-        <LegendItem color="#C7C5D1" label="Prévu" />
-        <LegendItem color={colors.primary} label="Réel" />
-      </View>
+      {weekly.length > 0 ? (
+        <>
+          <Text style={gaugeStyles.weekTitle}>Par semaine</Text>
+          <View style={gaugeStyles.weeks}>
+            {weekly.map((w, i) => {
+              const upcoming = pace.upcoming[i];
+              const over = w.prevu > 0 && w.reel > w.prevu;
+              return (
+                <View key={w.label} style={gaugeStyles.week}>
+                  <Text style={[gaugeStyles.weekValue, over && { color: OVER_VIOLET }]}>
+                    {upcoming ? "—" : compactAmount(w.reel)}
+                  </Text>
+                  <View style={gaugeStyles.weekTrack}>
+                    {w.prevu > 0 ? (
+                      <View style={[gaugeStyles.weekBudget, { bottom: `${(w.prevu / weekMax) * 100}%` }]} />
+                    ) : null}
+                    <View
+                      style={[
+                        gaugeStyles.weekBar,
+                        {
+                          backgroundColor: upcoming ? `${colors.primary}1A` : over ? OVER_VIOLET : `${colors.primary}B3`,
+                          height: upcoming ? "6%" : `${Math.max((w.reel / weekMax) * 100, w.reel > 0 ? 4 : 0)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={gaugeStyles.weekLabel}>{w.label}</Text>
+                </View>
+              );
+            })}
+          </View>
+          {pace.budget > 0 ? (
+            <Text style={gaugeStyles.weekHint}>
+              Trait : budget de la semaine ≈ {formatMoney(pace.budget / weekly.length, currency)}
+            </Text>
+          ) : null}
+        </>
+      ) : null}
     </View>
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <View style={legendStyles.item}>
-      <View style={[legendStyles.dot, { backgroundColor: color }]} />
-      <Text style={legendStyles.text}>{label}</Text>
-    </View>
-  );
-}
-
-const legendStyles = StyleSheet.create({
-  item: { alignItems: "center", flexDirection: "row", gap: 6 },
-  dot: { borderRadius: 99, height: 12, width: 12 },
-  text: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
-});
-
-const chartStyles = StyleSheet.create({
+const gaugeStyles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#DCE9FF",
+    backgroundColor: "#EEF1FF",
     borderRadius: 24,
-    borderWidth: 1,
+    gap: 8,
     overflow: "hidden",
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-  },
-  area: {
-    height: 192,
-    paddingBottom: 24,
-    paddingTop: 32,
     position: "relative",
   },
-  yLine: {
-    borderColor: "#C8C4D550",
-    borderStyle: "dashed",
-    borderWidth: 1,
-    left: 0,
+  orb: {
+    backgroundColor: `${colors.primary}10`,
+    borderRadius: 999,
+    height: 170,
     position: "absolute",
-    right: 0,
+    right: -56,
+    top: -64,
+    width: 170,
   },
-  yLineSolid: {
-    borderColor: "#C8C4D580",
-    borderWidth: 1,
-    left: 0,
+  orbSmall: {
+    backgroundColor: `${colors.primary}08`,
+    borderRadius: 999,
+    bottom: -40,
+    height: 110,
+    left: -36,
     position: "absolute",
-    right: 0,
+    width: 110,
   },
-  barsRow: {
-    alignItems: "flex-end",
-    bottom: 24,
-    flexDirection: "row",
+  amountRow: { alignItems: "baseline", flexDirection: "row", flexWrap: "wrap" },
+  spent: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 22 },
+  budget: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 14 },
+  barRow: { alignItems: "center", flexDirection: "row", gap: 10 },
+  track: {
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 99,
     flex: 1,
-    justifyContent: "space-around",
-    left: 8,
-    position: "absolute",
-    right: 8,
-    top: 32,
+    height: 12,
+    position: "relative",
   },
-  barGroup: {
-    alignItems: "center",
+  fill: { borderRadius: 99, height: 12 },
+  todayTick: {
+    backgroundColor: OVER_VIOLET,
+    borderRadius: 1,
+    height: 18,
+    marginLeft: -1,
+    position: "absolute",
+    top: -3,
+    width: 2,
+  },
+  pct: { color: colors.primary, fontFamily: interFonts.semibold, fontSize: 13, minWidth: 40, textAlign: "right" },
+  todayRow: { height: 16, marginRight: 50, position: "relative" },
+  todayLabel: {
+    color: colors.textMuted,
+    fontFamily: interFonts.medium,
+    fontSize: 10,
+    marginLeft: -80,
+    position: "absolute",
+    textAlign: "center",
+    width: 160,
+  },
+  budgetLine: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 12, marginTop: -6 },
+  messagePill: { alignSelf: "flex-start", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  message: { fontFamily: interFonts.semibold, fontSize: 12 },
+  weekTitle: {
+    color: colors.textMuted,
+    fontFamily: interFonts.semibold,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    marginTop: 8,
+    textTransform: "uppercase",
+  },
+  weeks: { flexDirection: "row", gap: 12, height: 104 },
+  week: { alignItems: "center", flex: 1, gap: 4 },
+  weekValue: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 11 },
+  weekTrack: {
+    backgroundColor: "#FFFFFF80",
+    borderRadius: 6,
     flex: 1,
-    gap: 8,
-    height: "100%",
     justifyContent: "flex-end",
+    overflow: "hidden",
+    position: "relative",
+    width: "70%",
   },
-  barPair: {
-    alignItems: "flex-end",
-    flexDirection: "row",
-    gap: 4,
-    height: "100%",
+  weekBar: { borderRadius: 6, width: "100%" },
+  weekBudget: {
+    backgroundColor: colors.primary,
+    height: 1.5,
+    left: 0,
+    opacity: 0.45,
+    position: "absolute",
+    right: 0,
+    zIndex: 1,
   },
-  bar: { borderRadius: 4, width: 12 },
-  barLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold },
-  legend: {
-    borderTopColor: "#DCE9FF",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 24,
-    justifyContent: "center",
-    marginTop: 12,
-    paddingTop: 12,
-  },
+  weekLabel: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 11 },
+  weekHint: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10 },
 });
 
 interface TileTrend {
@@ -860,16 +946,21 @@ export default function Dashboard() {
           </>
         )}
 
-        {/* ── Réel vs Prévu ── */}
+        {/* ── Budget du mois : jauge + semaines ── */}
         <View style={styles.chartHeader}>
-          <Text style={styles.sectionTitle}>Réel vs Prévu</Text>
-          <Link href="/analyse" asChild>
+          <Text style={styles.sectionTitle}>Budget du mois</Text>
+          <Link href="/budget" asChild>
             <Pressable style={styles.chartFilter}>
-              <Text style={styles.chartFilterText}>Ce mois</Text>
+              <Text style={styles.chartFilterText}>Détails</Text>
             </Pressable>
           </Link>
         </View>
-        <BudgetBarChart weekly={data?.weekly ?? []} />
+        <BudgetGauge
+          currency={currency}
+          period={period}
+          spent={data?.expenses ?? 0}
+          weekly={data?.weekly ?? []}
+        />
 
         {/* ── Épargne Projetée ── */}
         <View style={styles.projectedCard}>

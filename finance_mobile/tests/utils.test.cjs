@@ -382,3 +382,26 @@ test("previousRange compares the current month at the same date, a past month in
   assert.equal(relativeChange(112, 100).toFixed(2), "0.12");
   assert.equal(relativeChange(50, 0), null);
 });
+
+test("budgetPace compares the share spent with the share of the month elapsed", () => {
+  const { budgetPace, compactAmount } = load("src/shared/utils/budgetPace.ts");
+  const weeks = [
+    { label: "S1", prevu: 100, reel: 85 },
+    { label: "S2", prevu: 100, reel: 120 },
+    { label: "S3", prevu: 100, reel: 0 },
+    { label: "S4", prevu: 100, reel: 0 },
+  ];
+  // 205 / 400 = 51 % dépensés au 11/30 (37 %) -> trop vite
+  const fast = budgetPace(weeks, 205, "2026-11", new Date(2026, 10, 11));
+  assert.equal(fast.budget, 400);
+  assert.equal(fast.tone, "fast");
+  assert.deepEqual(fast.upcoming, [false, false, true, true]); // S3 commence vers le 15
+  assert.equal(budgetPace(weeks, 450, "2026-11", new Date(2026, 10, 11)).tone, "over");
+  assert.equal(budgetPace(weeks, 100, "2026-11", new Date(2026, 10, 11)).tone, "slow");
+  assert.equal(budgetPace(weeks, 148, "2026-11", new Date(2026, 10, 11)).tone, "ok");
+  assert.equal(budgetPace(weeks.map((w) => ({ ...w, prevu: 0 })), 10, "2026-11", new Date(2026, 10, 11)).tone, "none");
+  assert.equal(compactAmount(85000), "85k");
+  assert.equal(compactAmount(1200000), "1,2M");
+  assert.equal(compactAmount(2000000), "2M");
+  assert.equal(compactAmount(950), "950");
+});
