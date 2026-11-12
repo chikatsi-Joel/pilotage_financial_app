@@ -24,7 +24,7 @@ api.interceptors.request.use((config) => {
 });
 
 /** Les erreurs de connexion/inscription renvoient 401 sans que la session soit perdue. */
-const PUBLIC_PATHS = ["/auth/login", "/auth/register"];
+const PUBLIC_PATHS = ["/auth/login", "/auth/register", "/auth/verify", "/auth/firebase"];
 
 api.interceptors.response.use(
   (response) => response,

@@ -17,20 +17,35 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth } from "../src/shared/api/auth";
+import {
+  FirebaseAuthError,
+  currentIdToken,
+  firebaseAvailable,
+  firebaseRegister,
+  firebaseSignIn,
+  googleAvailable,
+  googleSignIn,
+} from "../src/shared/auth/firebase";
 import { saveToken } from "../src/shared/auth/session";
 import { registerForPush } from "../src/shared/notifications/push";
 import {
   CODE_LENGTH,
   MIN_PASSWORD_LENGTH,
   authErrorMessage,
+  firebaseErrorMessage,
   isCodeComplete,
+  isFirebaseUnconfigured,
+  isUnknownFirebaseAccount,
   sanitizeCode,
   validateAuthForm,
 } from "../src/shared/utils/authForm";
 import { useAppStore } from "../src/shared/store";
+import type { AuthResponse, FirebaseSignInPayload, PendingVerification } from "../src/shared/types";
 import { colors, interFonts } from "../src/ui/theme";
 
 type Mode = "login" | "register" | "verify";
+/** Le code email confirme soit un compte Firebase, soit un compte de l'ancienne connexion. */
+type Flow = "firebase" | "legacy";
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 type InputHandle = React.ComponentRef<typeof TextInput>;
 
@@ -50,6 +65,8 @@ export default function Onboarding() {
   const [info, setInfo] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
+  const [flow, setFlow] = useState<Flow>("firebase");
+  const withGoogle = googleAvailable();
 
   const emailRef = useRef<InputHandle>(null);
   const passwordRef = useRef<InputHandle>(null);
@@ -72,7 +89,7 @@ export default function Onboarding() {
     setCooldown(RESEND_SECONDS);
   }
 
-  async function finish(res: { token: string; user: { id: string; name: string; currency: string } }) {
+  async function finish(res: AuthResponse) {
     await saveToken(res.token);
     setAuth(res.user.id, res.user.name, res.user.currency);
     void registerForPush(res.user.id);
@@ -84,8 +101,19 @@ export default function Onboarding() {
     setBusy(true);
     setError(null);
     try {
-      await finish(await auth.verify({ email: email.trim(), code }));
+      if (flow === "firebase") {
+        const idToken = await currentIdToken();
+        if (!idToken) throw new FirebaseAuthError("auth/no-current-user", "");
+        await finish(await auth.firebaseVerify(idToken, code));
+      } else {
+        await finish(await auth.verify({ email: email.trim(), code }));
+      }
     } catch (e) {
+      if (e instanceof FirebaseAuthError) {
+        setError("Session expirée : reconnectez-vous.");
+        setBusy(false);
+        return;
+      }
       setError(authErrorMessage(e));
       setBusy(false);
     }
@@ -95,12 +123,51 @@ export default function Onboarding() {
     if (cooldown > 0 || busy) return;
     setError(null);
     try {
-      await auth.resend(email.trim());
+      const idToken = flow === "firebase" ? await currentIdToken() : null;
+      if (idToken) await auth.firebaseResend(idToken);
+      else await auth.resend(email.trim());
       setInfo("Un nouveau code a été envoyé.");
       setCooldown(RESEND_SECONDS);
     } catch (e) {
       setError(authErrorMessage(e));
     }
+  }
+
+  /** Échange l'ID token Firebase contre la session Lucia (ou demande le code email). */
+  async function exchange(idToken: string, extra: Omit<FirebaseSignInPayload, "id_token"> = {}, legacyToken?: string) {
+    const res = await auth.firebase({ id_token: idToken, ...extra }, legacyToken);
+    if (isPending(res)) {
+      setFlow("firebase");
+      goVerify("Saisissez le code à 6 chiffres reçu par email.");
+      setBusy(false);
+      return;
+    }
+    await finish(res);
+  }
+
+  /** Ancienne connexion (avant Firebase) : on crée le compte Firebase puis on rattache. */
+  async function migrate(mail: string) {
+    let legacy: AuthResponse;
+    try {
+      legacy = await auth.login({ email: mail, password });
+    } catch (e) {
+      if ((e as { response?: { status?: number } })?.response?.status === 403) {
+        setFlow("legacy");
+        goVerify("Votre email n'est pas encore vérifié. Saisissez le code reçu par email.");
+        setBusy(false);
+        return;
+      }
+      throw e;
+    }
+    let idToken: string;
+    try {
+      idToken = await firebaseRegister(mail, password);
+    } catch {
+      await finish(legacy); // migration reportée à la prochaine connexion
+      return;
+    }
+    await exchange(idToken, {}, legacy.token);
+    void auth.logoutToken(legacy.token).catch(() => undefined);
   }
 
   async function submit() {
@@ -112,21 +179,63 @@ export default function Onboarding() {
     }
     setBusy(true);
     setError(null);
+    const mail = email.trim();
     try {
-      if (isRegister) {
-        await auth.register({ name: name.trim(), email: email.trim(), password, currency: "XAF" });
-        goVerify("Saisissez le code à 6 chiffres reçu par email.");
-        setBusy(false);
+      /** Ancienne connexion : build sans Firebase, ou Firebase pas encore configuré côté console. */
+      const legacy = async () => {
+        if (isRegister) {
+          await auth.register({ name: name.trim(), email: mail, password, currency: "XAF" });
+          setFlow("legacy");
+          goVerify("Saisissez le code à 6 chiffres reçu par email.");
+          setBusy(false);
+          return;
+        }
+        await finish(await auth.login({ email: mail, password }));
+      };
+      if (!firebaseAvailable()) {
+        await legacy();
         return;
       }
-      await finish(await auth.login({ email: email.trim(), password }));
+      let idToken: string;
+      try {
+        idToken = isRegister ? await firebaseRegister(mail, password) : await firebaseSignIn(mail, password);
+      } catch (e) {
+        if (e instanceof FirebaseAuthError && isFirebaseUnconfigured(e.code)) {
+          await legacy();
+          return;
+        }
+        if (!isRegister && e instanceof FirebaseAuthError && isUnknownFirebaseAccount(e.code)) {
+          await migrate(mail);
+          return;
+        }
+        throw e;
+      }
+      await exchange(idToken, isRegister ? { name: name.trim(), currency: "XAF" } : {});
     } catch (e) {
       const status = (e as { response?: { status?: number } })?.response?.status;
       if (!isRegister && status === 403) {
+        setFlow("legacy");
         goVerify("Votre email n'est pas encore vérifié. Saisissez le code reçu par email.");
       } else {
-        setError(authErrorMessage(e));
+        setError(e instanceof FirebaseAuthError ? firebaseErrorMessage(e.code) : authErrorMessage(e));
       }
+      setBusy(false);
+    }
+  }
+
+  async function signInWithGoogle() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const idToken = await googleSignIn();
+      if (!idToken) {
+        setBusy(false);
+        return;
+      }
+      await exchange(idToken);
+    } catch (e) {
+      setError(e instanceof FirebaseAuthError ? firebaseErrorMessage(e.code) : authErrorMessage(e));
       setBusy(false);
     }
   }
@@ -346,6 +455,25 @@ export default function Onboarding() {
                   label={isRegister ? "Créer mon compte" : "Se connecter"}
                   onPress={submit}
                 />
+
+                {withGoogle ? (
+                  <>
+                    <View style={styles.dividerRow}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>ou</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={busy}
+                      onPress={signInWithGoogle}
+                      style={({ pressed }) => [styles.googleButton, pressed && styles.buttonPressed]}
+                    >
+                      <MaterialCommunityIcons color="#4285F4" name="google" size={18} />
+                      <Text style={styles.googleText}>Continuer avec Google</Text>
+                    </Pressable>
+                  </>
+                ) : null}
               </View>
             )}
           </View>
@@ -360,6 +488,10 @@ export default function Onboarding() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+function isPending(res: AuthResponse | PendingVerification): res is PendingVerification {
+  return (res as PendingVerification).verification_required === true;
 }
 
 /* ------------------------------------------------------------------ */
@@ -474,6 +606,21 @@ const styles = StyleSheet.create({
 
   hero: { alignItems: "center", gap: 6 },
   logo: { height: 112, width: 120 },
+  dividerRow: { alignItems: "center", flexDirection: "row", gap: 10 },
+  dividerLine: { backgroundColor: colors.border, flex: 1, height: 1 },
+  dividerText: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 12 },
+  googleButton: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 52,
+    justifyContent: "center",
+  },
+  googleText: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 14 },
   tagline: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.regular },
 
   card: {

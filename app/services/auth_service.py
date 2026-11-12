@@ -20,8 +20,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AuthSession, User
-from app.schemas.common import LoginRequest, RegisterRequest, ResendRequest, VerifyRequest
+from app.schemas.common import (
+    FirebaseSignInRequest,
+    LoginRequest,
+    RegisterRequest,
+    ResendRequest,
+    VerifyRequest,
+)
 from app.services import mailer
+from app.services.firebase_auth import FirebaseIdentity
 from app.services.errors import Conflict, EmailDeliveryError, EmailNotVerified, TooManyRequests, Unauthorized
 
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
@@ -156,10 +163,8 @@ def _wait_cooldown(user: User) -> None:
         raise TooManyRequests("Un code vient d'être envoyé, patientez une minute avant d'en redemander un")
 
 
-async def verify_email(
-    payload: VerifyRequest, device: str | None, db: AsyncSession
-) -> tuple[User, str]:
-    user = await _find_by_email(payload.email, db)
+async def _consume_code(user: User | None, code: str, db: AsyncSession) -> User:
+    """Valide le code reçu par email (5 essais, 10 minutes) et marque l'email vérifié."""
     if (
         user is None
         or not user.email_code_hash
@@ -168,7 +173,7 @@ async def verify_email(
         or _aware(user.email_code_expires_at) < datetime.now(timezone.utc)
     ):
         raise Unauthorized(_INVALID_CODE)
-    if not hmac.compare_digest(user.email_code_hash, _code_hash(user, payload.code)):
+    if not hmac.compare_digest(user.email_code_hash, _code_hash(user, code)):
         user.email_code_attempts += 1
         await db.commit()
         raise Unauthorized(_INVALID_CODE)
@@ -177,6 +182,13 @@ async def verify_email(
     user.email_code_hash = None
     user.email_code_expires_at = None
     user.email_code_attempts = 0
+    return user
+
+
+async def verify_email(
+    payload: VerifyRequest, device: str | None, db: AsyncSession
+) -> tuple[User, str]:
+    user = await _consume_code(await _find_by_email(payload.email, db), payload.code, db)
     return user, await _open_session(user, device, db)
 
 
@@ -205,6 +217,112 @@ async def login(
             pass  # un code récent est déjà dans sa boîte
         raise EmailNotVerified("Email non vérifié : un code vous a été envoyé")
     return user, await _open_session(user, device, db)
+
+
+# ── Firebase Authentication ──────────────────────────────────────────────
+#
+# L'app se connecte via Firebase puis échange l'ID token contre une session Lucia.
+# Rattachement par email : un compte Lucia existant n'est relié au compte Firebase
+# que si l'email est prouvé, soit par Firebase (Google : email_verified), soit par
+# une session Lucia déjà ouverte sur ce compte (migration depuis l'ancienne
+# connexion), soit par le code à 6 chiffres envoyé par email.
+
+
+async def _find_by_firebase_uid(uid: str, db: AsyncSession) -> User | None:
+    return (await db.execute(select(User).where(User.firebase_uid == uid))).scalar_one_or_none()
+
+
+async def _send_code_unless_recent(user: User, db: AsyncSession) -> None:
+    try:
+        _wait_cooldown(user)
+    except TooManyRequests:
+        return  # un code récent est déjà dans sa boîte
+    await _send_code(user, db)
+
+
+def _require_email(identity: FirebaseIdentity) -> str:
+    if not identity.email:
+        raise Unauthorized("Ce compte Firebase n'a pas d'adresse email")
+    return identity.email
+
+
+async def firebase_sign_in(
+    identity: FirebaseIdentity,
+    profile: FirebaseSignInRequest,
+    device: str | None,
+    current: User | None,
+    db: AsyncSession,
+) -> tuple[User, str | None]:
+    """Session Lucia pour cette identité Firebase, ou None si le code email est requis."""
+    email = _require_email(identity)
+    now = datetime.now(timezone.utc)
+
+    linked = await _find_by_firebase_uid(identity.uid, db)
+    if linked is not None:
+        if linked.email_verified_at is None:
+            if not identity.email_verified:
+                await _send_code_unless_recent(linked, db)
+                return linked, None
+            linked.email_verified_at = now
+        return linked, await _open_session(linked, device, db)
+
+    existing = await _find_by_email(email, db)
+    if existing is not None:
+        if existing.firebase_uid and existing.email_verified_at is not None:
+            raise Conflict("Cet email est déjà rattaché à un autre compte")
+        proven = identity.email_verified or (current is not None and current.id == existing.id)
+        if not proven:
+            # Le compte n'est relié qu'après le code (voir firebase_verify).
+            await _send_code_unless_recent(existing, db)
+            return existing, None
+        existing.firebase_uid = identity.uid
+        existing.email_verified_at = existing.email_verified_at or now
+        return existing, await _open_session(existing, device, db)
+
+    user = User(
+        name=(profile.name or identity.name or email.split("@")[0]).strip()[:160],
+        currency=(profile.currency or "XAF").upper(),
+        email=email,
+        firebase_uid=identity.uid,
+        email_verified_at=now if identity.email_verified else None,
+    )
+    db.add(user)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise Conflict("Un compte existe déjà avec cet email") from None
+    if user.email_verified_at is None:
+        await _send_code(user, db)
+        return user, None
+    return user, await _open_session(user, device, db)
+
+
+async def _pending_firebase_user(identity: FirebaseIdentity, db: AsyncSession) -> User | None:
+    return await _find_by_firebase_uid(identity.uid, db) or await _find_by_email(
+        _require_email(identity), db
+    )
+
+
+async def firebase_verify(
+    identity: FirebaseIdentity, code: str, device: str | None, db: AsyncSession
+) -> tuple[User, str]:
+    """Code email confirmé : relie le compte Firebase puis ouvre la session."""
+    user = await _pending_firebase_user(identity, db)
+    if user is not None and user.firebase_uid not in (None, identity.uid):
+        raise Unauthorized(_INVALID_CODE)
+    user = await _consume_code(user, code, db)
+    user.firebase_uid = identity.uid
+    return user, await _open_session(user, device, db)
+
+
+async def firebase_resend(identity: FirebaseIdentity, db: AsyncSession) -> None:
+    """Renvoie le code d'un compte en attente ; rien si le compte est déjà relié et vérifié."""
+    user = await _pending_firebase_user(identity, db)
+    if user is None or (user.firebase_uid == identity.uid and user.email_verified_at is not None):
+        return
+    _wait_cooldown(user)
+    await _send_code(user, db)
 
 
 async def authenticate(token: str, db: AsyncSession) -> User | None:

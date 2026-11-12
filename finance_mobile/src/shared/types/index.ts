@@ -33,6 +33,12 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface FirebaseSignInPayload {
+  id_token: string;
+  name?: string;
+  currency?: string;
+}
+
 export interface AuthResponse {
   token: string;
   user: User;

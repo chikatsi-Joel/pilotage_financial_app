@@ -58,6 +58,21 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class FirebaseTokenRequest(BaseModel):
+    id_token: str = Field(min_length=20, max_length=4096)
+
+
+class FirebaseSignInRequest(FirebaseTokenRequest):
+    """Profil facultatif, utilisé seulement à la création du compte Lucia."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+
+
+class FirebaseVerifyRequest(FirebaseTokenRequest):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 class AuthResponse(BaseModel):
     token: str
     user: UserRead

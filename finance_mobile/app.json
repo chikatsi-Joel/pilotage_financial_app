@@ -55,9 +55,13 @@
           "icon": "./assets/notification-icon.png"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
+      "googleWebClientId": "",
       "router": {
         "asyncRoutes": {
           "web": true

@@ -58,6 +58,8 @@ class User(Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="XAF")
     email: Mapped[str | None] = mapped_column(String(254), unique=True, index=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Compte Firebase rattaché (uid), renseigné à la première connexion via Firebase.
+    firebase_uid: Mapped[str | None] = mapped_column(String(128), unique=True, index=True, nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     email_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

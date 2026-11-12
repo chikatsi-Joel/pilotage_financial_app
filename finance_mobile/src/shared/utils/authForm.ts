@@ -33,6 +33,48 @@ export function authErrorMessage(error: unknown): string {
   return "Une erreur est survenue. Réessayez.";
 }
 
+/** Message lisible pour une erreur Firebase Auth (`code` du type « auth/… »). */
+export function firebaseErrorMessage(code: string): string {
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Email ou mot de passe incorrect";
+    case "auth/email-already-in-use":
+      return "Un compte existe déjà avec cet email. Connectez-vous.";
+    case "auth/invalid-email":
+      return "Adresse email invalide.";
+    case "auth/weak-password":
+      return "Mot de passe trop faible.";
+    case "auth/too-many-requests":
+      return "Trop de tentatives. Patientez quelques minutes puis réessayez.";
+    case "auth/network-request-failed":
+      return "Serveur injoignable. Vérifiez votre connexion puis réessayez.";
+    case "auth/user-disabled":
+      return "Ce compte a été désactivé.";
+    case "auth/account-exists-with-different-credential":
+      return "Cet email est déjà utilisé avec un mot de passe. Connectez-vous avec celui-ci.";
+    default:
+      return "Connexion impossible. Réessayez.";
+  }
+}
+
+/** L'échec Firebase peut venir d'un compte créé avant Firebase (à migrer). */
+export function isUnknownFirebaseAccount(code: string): boolean {
+  return ["auth/invalid-credential", "auth/user-not-found", "auth/wrong-password"].includes(code);
+}
+
+/** Firebase présent mais pas prêt (fournisseur désactivé dans la console…) : on garde l'ancienne connexion. */
+export function isFirebaseUnconfigured(code: string): boolean {
+  return [
+    "auth/operation-not-allowed",
+    "auth/configuration-not-found",
+    "auth/app-not-authorized",
+    "auth/internal-error",
+    "auth/unavailable",
+  ].includes(code);
+}
+
 export const CODE_LENGTH = 6;
 
 /** Garde uniquement les chiffres, au plus CODE_LENGTH. */

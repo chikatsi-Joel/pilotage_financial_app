@@ -42,11 +42,22 @@ class Settings(BaseSettings):
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
     smtp_timeout: float = 15.0
 
+    # Firebase Authentication : seul l'identifiant du projet est nécessaire pour vérifier
+    # les jetons (clés publiques de Google), aucune clé de compte de service.
+    firebase_project_id: str = "lucia-f3d45"
+    firebase_certs_url: str = (
+        "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    )
+
     # Notifications push (service gratuit d'Expo).
     push_enabled: bool = True
     expo_push_url: str = "https://exp.host/--/api/v2/push/send"
     expo_access_token: str = ""
     push_timeout: float = 10.0
+    # Stickers des notifications (static/push/*.png). Vide = sans image (choix actuel : Android
+    # affiche l'image en grand quand on déplie la notification). Pour les réactiver :
+    # https://raw.githubusercontent.com/chikatsi-Joel/pilotage_financial_app/main/static/push
+    push_sticker_base_url: str = ""
     # Tâche planifiée (rappel quotidien, résumé hebdomadaire) dans le processus de l'API.
     scheduler_enabled: bool = True
     scheduler_interval_seconds: int = 900
