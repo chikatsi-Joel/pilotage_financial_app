@@ -35,6 +35,7 @@ import {
   type SavingsTrajectory,
 } from "../src/shared/utils/savingsTrajectory";
 import { groupByDate } from "../src/shared/utils/paging";
+import { goalChance, type ChanceTone } from "../src/shared/utils/goalChance";
 
 /* ------------------------------------------------------------------ */
 //  Helpers
@@ -107,12 +108,21 @@ const FadeIn = ({
 const shortMonth = (t: number) =>
   new Date(t).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
 
+const CHANCE_COLOR: Record<ChanceTone, string> = {
+  good: colors.success,
+  mid: colors.warning,
+  low: colors.danger,
+  none: colors.textMuted,
+};
+
 const TrajectoryChart = ({
   traj,
   currency,
+  contributions,
 }: {
   traj: SavingsTrajectory;
   currency: string;
+  contributions: SavingsGoal["contributions"];
 }) => {
   const pathOpacity = useRef(new Animated.Value(0)).current;
 
@@ -154,6 +164,14 @@ const TrajectoryChart = ({
   const areaPath = `${realPath} V ${y(0).toFixed(1)} H ${x(first[0]).toFixed(1)} Z`;
 
   const projected = traj.projectedAtDeadline;
+  const chance = goalChance({
+    contributions,
+    monthlyPace: traj.monthlyPace,
+    current: traj.current,
+    target: traj.target,
+    deadline: traj.deadline,
+    today: traj.today,
+  });
   const showNeeded = traj.neededPace !== null && traj.deadline > traj.today;
   const neededPath = showNeeded
     ? `M ${x(traj.today).toFixed(1)} ${y(traj.current).toFixed(1)} L ${x(traj.deadline).toFixed(1)} ${y(traj.target).toFixed(1)}`
@@ -385,7 +403,16 @@ const TrajectoryChart = ({
           name={status.tone === colors.success ? "check-circle-outline" : "alert-circle-outline"}
           size={16}
         />
-        <Text style={[styles.chartStatusText, { color: status.tone }]}>{status.text}</Text>
+        <Text style={[styles.chartStatusText, { color: status.tone }]}>
+          {status.text}
+          {chance.probability !== null && !traj.reached && traj.deadline > traj.today ? (
+            <Text style={styles.chanceNote}>
+              {" "}Chances d'y arriver à temps :{" "}
+              <Text style={{ color: CHANCE_COLOR[chance.tone] }}>{chance.label}</Text>
+              {chance.fragile ? " (peu d'historique)" : ""}.
+            </Text>
+          ) : null}
+        </Text>
       </View>
     </View>
   );
@@ -588,7 +615,7 @@ export default function SavingsDetail() {
 
         {/* ── Graphique ── */}
         <FadeIn delay={300}>
-          {traj ? <TrajectoryChart currency={currency} traj={traj} /> : null}
+          {traj ? <TrajectoryChart contributions={contributions} currency={currency} traj={traj} /> : null}
         </FadeIn>
 
         {/* ── Perspectives ── */}
@@ -829,6 +856,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 10,
   },
+  chanceNote: { color: colors.textMuted, fontFamily: interFonts.medium },
   chartStatusText: { flex: 1, fontSize: 11, fontFamily: interFonts.semibold, lineHeight: 16 },
 
   /* Perspectives */

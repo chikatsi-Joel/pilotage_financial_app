@@ -21,8 +21,38 @@ import { EmptyState } from "../../src/ui/components";
 import { savings as savingsApi } from "../../src/shared/api/savings";
 import { useAppStore } from "../../src/shared/store";
 import { formatMoney } from "../../src/shared/utils/money";
+import { buildSavingsTrajectory } from "../../src/shared/utils/savingsTrajectory";
+import { goalChance, type ChanceTone } from "../../src/shared/utils/goalChance";
 
 type Contribution = { id: string; amount: number; created_at: string };
+
+const CHANCE_COLOR: Record<ChanceTone, string> = {
+  good: colors.success,
+  mid: colors.warning,
+  low: colors.danger,
+  none: colors.textMuted,
+};
+
+/** Chance d'atteindre la cible à l'échéance, au rythme et à la régularité actuels. */
+function chanceOf(g: { contributions: Contribution[]; current: number; target: number; deadline: string }) {
+  const traj = buildSavingsTrajectory({
+    contributions: g.contributions,
+    current: g.current,
+    target: g.target,
+    deadline: g.deadline,
+    today: new Date(),
+  });
+  if (traj.reached || traj.deadline <= traj.today) return null;
+  const chance = goalChance({
+    contributions: g.contributions,
+    monthlyPace: traj.monthlyPace,
+    current: traj.current,
+    target: traj.target,
+    deadline: traj.deadline,
+    today: traj.today,
+  });
+  return chance.probability === null ? null : chance;
+}
 
 type Goal = {
   id: string;
@@ -455,6 +485,14 @@ export default function Savings() {
                       />
                       <View style={styles.goalAmounts}>
                         <Text style={styles.goalCurrent}>{formatEur(g.current)}</Text>
+                        {(() => {
+                          const chance = chanceOf(g);
+                          return chance ? (
+                            <Text style={styles.goalChance}>
+                              <Text style={{ color: CHANCE_COLOR[chance.tone] }}>{chance.label}</Text> de chances
+                            </Text>
+                          ) : null;
+                        })()}
                         <Text style={styles.goalTarget}>{formatEur(g.target)}</Text>
                       </View>
                     </View>
@@ -847,6 +885,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: interFonts.medium,
   },
+  goalChance: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 10.5 },
   goalTarget: {
     color: colors.textMuted,
     fontSize: 11,
