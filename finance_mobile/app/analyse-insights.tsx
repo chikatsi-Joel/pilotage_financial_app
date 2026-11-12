@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ActivityIndicator } from "react-native";
+import Slider from "@react-native-community/slider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -210,12 +211,14 @@ const driftStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-const SIM_PERCENTS = [10, 20, 30, 50] as const;
+const SIM_MIN = 5;
+const SIM_MAX = 60;
 
 interface WhatIfCardProps {
   candidates: CategoryAnalytics[];
   categoryId: string | null;
   percent: number;
+  /** Dernière simulation pour la catégorie choisie (l'effort peut différer du curseur). */
   result: WhatIfResult | null;
   loading: boolean;
   currency: string;
@@ -223,7 +226,11 @@ interface WhatIfCardProps {
   onPercent: (percent: number) => void;
 }
 
-/** Simulateur rapide : une catégorie, un effort de réduction, l'effet avant / après. */
+/**
+ * Simulateur rapide : une catégorie, un effort au curseur, l'effet avant → après.
+ * Les montants suivent le curseur en direct (calculés sur le montant de référence) ;
+ * le serveur est interrogé au relâchement pour le taux d'épargne projeté.
+ */
 function WhatIfCard({
   candidates,
   categoryId,
@@ -234,6 +241,9 @@ function WhatIfCard({
   onCategory,
   onPercent,
 }: WhatIfCardProps) {
+  const [draft, setDraft] = useState(percent);
+  useEffect(() => setDraft(percent), [percent]);
+
   if (candidates.length === 0) {
     return (
       <Card style={whatIfStyles.card}>
@@ -244,8 +254,9 @@ function WhatIfCard({
   }
 
   const before = result?.reference_amount ?? 0;
-  const after = result?.new_target ?? 0;
-  const scale = Math.max(before, 1);
+  const saving = (before * draft) / 100;
+  const after = before - saving;
+  const rate = result && result.reduction_percent === draft ? result.projected_savings_rate : null;
 
   return (
     <View style={whatIfStyles.card}>
@@ -277,72 +288,76 @@ function WhatIfCard({
         })}
       </View>
 
-      <View style={whatIfStyles.segment}>
-        {SIM_PERCENTS.map((pct) => {
-          const active = pct === percent;
-          return (
-            <Pressable
-              key={pct}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => onPercent(pct)}
-              style={[whatIfStyles.segmentBtn, active && whatIfStyles.segmentBtnActive]}
-            >
-              <Text style={[whatIfStyles.segmentText, active && whatIfStyles.segmentTextActive]}>
-                −{pct} %
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View>
+        <View style={whatIfStyles.effortRow}>
+          <Text style={whatIfStyles.effortLabel}>Effort</Text>
+          <Text style={whatIfStyles.effortValue}>−{draft} %</Text>
+        </View>
+        <Slider
+          accessibilityLabel="Effort de réduction"
+          maximumTrackTintColor={`${colors.primary}33`}
+          maximumValue={SIM_MAX}
+          minimumTrackTintColor={colors.primary}
+          minimumValue={SIM_MIN}
+          onSlidingComplete={(v) => onPercent(Math.round(v))}
+          onValueChange={(v) => setDraft(Math.round(v))}
+          step={5}
+          style={whatIfStyles.slider}
+          thumbTintColor={colors.primary}
+          value={percent}
+        />
+        <View style={whatIfStyles.rangeRow}>
+          <Text style={whatIfStyles.rangeText}>{SIM_MIN} %</Text>
+          <Text style={whatIfStyles.rangeText}>{SIM_MAX} %</Text>
+        </View>
       </View>
 
-      <View style={whatIfStyles.compare}>
-        <View style={whatIfStyles.compareRow}>
-          <Text style={whatIfStyles.compareLabel}>Aujourd'hui</Text>
-          <View style={whatIfStyles.track}>
-            <View style={[whatIfStyles.fillBefore, { width: result ? "100%" : "0%" }]} />
+      {result ? (
+        <>
+          <View style={whatIfStyles.flow}>
+            <View style={whatIfStyles.flowCol}>
+              <Text style={whatIfStyles.flowBefore}>{formatMoney(before, currency)}</Text>
+              <Text style={whatIfStyles.flowLabel}>aujourd'hui</Text>
+            </View>
+            <View style={whatIfStyles.flowArrow}>
+              <MaterialCommunityIcons color={colors.primary} name="arrow-right" size={16} />
+            </View>
+            <View style={[whatIfStyles.flowCol, { alignItems: "flex-end" }]}>
+              <Text style={whatIfStyles.flowAfter}>{formatMoney(after, currency)}</Text>
+              <Text style={whatIfStyles.flowLabel}>objectif /mois</Text>
+            </View>
           </View>
-          <Text style={whatIfStyles.compareValue}>{result ? formatMoney(before, currency) : "…"}</Text>
-        </View>
-        <View style={whatIfStyles.compareRow}>
-          <Text style={whatIfStyles.compareLabel}>Avec −{percent} %</Text>
-          <View style={whatIfStyles.track}>
-            <View style={[whatIfStyles.fillAfter, { width: `${(after / scale) * 100}%` }]} />
-          </View>
-          <Text style={[whatIfStyles.compareValue, { color: colors.primary }]}>
-            {result ? formatMoney(after, currency) : "…"}
-          </Text>
-        </View>
-        {result ? (
-          <Text style={whatIfStyles.basis}>
-            Base : {result.reference_basis === "habituel" ? "votre dépense habituelle" : "vos dépenses de ce mois"}
-          </Text>
-        ) : null}
-      </View>
 
-      <View style={whatIfStyles.gainBox}>
-        {loading && !result ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <>
+          <View style={whatIfStyles.gainBox}>
+            <View pointerEvents="none" style={whatIfStyles.gainOrb} />
             <Text style={whatIfStyles.gainLabel}>Vous gagneriez</Text>
             <Text style={whatIfStyles.gain}>
-              {formatMoney(result?.monthly_saving ?? 0, currency)}
+              + {formatMoney(saving, currency)}
               <Text style={whatIfStyles.gainPer}> /mois</Text>
             </Text>
             <Text style={whatIfStyles.gainSub}>
-              soit {formatMoney(result?.annual_saving ?? 0, currency)} sur un an
-              {result?.projected_savings_rate != null
-                ? ` · taux d'épargne ${Math.round(result.projected_savings_rate * 100)} %`
-                : ""}
+              soit {formatMoney(saving * 12, currency)} sur un an
+              {rate != null ? ` · taux d'épargne ${Math.round(rate * 100)} %` : ""}
             </Text>
-          </>
-        )}
-      </View>
+          </View>
+
+          <Text style={whatIfStyles.basis}>
+            Base : {result.reference_basis === "habituel" ? "votre dépense habituelle" : "vos dépenses de ce mois"}
+          </Text>
+        </>
+      ) : (
+        <View style={whatIfStyles.gainBox}>
+          {loading ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={whatIfStyles.gainSub}>Simulation indisponible pour le moment.</Text>
+          )}
+        </View>
+      )}
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push("/simulation")}
+        onPress={() => router.push({ pathname: "/simulation", params: categoryId ? { category: categoryId, percent: String(draft) } : {} })}
         style={({ pressed }) => [whatIfStyles.button, pressed && { opacity: 0.85 }]}
       >
         <Text style={whatIfStyles.buttonText}>Ouvrir le simulateur complet</Text>
@@ -396,40 +411,66 @@ const whatIfStyles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: 11, fontFamily: interFonts.semibold },
   chipTextActive: { color: "#FFFFFF" },
-  segment: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    flexDirection: "row",
-    padding: 3,
+  effortRow: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between" },
+  effortLabel: {
+    color: colors.textMuted,
+    fontFamily: interFonts.semibold,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
-  segmentBtn: { alignItems: "center", borderRadius: 9, flex: 1, paddingVertical: 8 },
-  segmentBtnActive: { backgroundColor: colors.primarySoft },
-  segmentText: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.bold },
-  segmentTextActive: { color: colors.primary },
-  compare: { gap: 8 },
-  compareRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  compareLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.semibold, width: 78 },
-  track: {
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 99,
-    flex: 1,
-    height: 8,
-    overflow: "hidden",
-  },
-  fillBefore: { backgroundColor: "#B9B3DE", borderRadius: 99, height: 8 },
-  fillAfter: { backgroundColor: colors.primary, borderRadius: 99, height: 8 },
-  compareValue: { color: colors.text, fontSize: 11, fontFamily: interFonts.bold, minWidth: 76, textAlign: "right" },
-  basis: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular },
-  gainBox: {
-    backgroundColor: colors.surface,
+  effortValue: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 22 },
+  slider: { height: 36, marginHorizontal: -8 },
+  rangeRow: { flexDirection: "row", justifyContent: "space-between", marginTop: -4 },
+  rangeText: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 10 },
+  flow: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFFB3",
     borderRadius: 14,
-    minHeight: 76,
-    justifyContent: "center",
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  gainLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.semibold },
-  gain: { color: colors.success, fontSize: 22, fontFamily: interFonts.bold },
+  flowCol: { flex: 1 },
+  flowArrow: {
+    alignItems: "center",
+    backgroundColor: colors.primarySoft,
+    borderRadius: 99,
+    height: 28,
+    justifyContent: "center",
+    marginHorizontal: 8,
+    width: 28,
+  },
+  flowBefore: {
+    color: colors.textMuted,
+    fontFamily: interFonts.semibold,
+    fontSize: 14,
+    textDecorationLine: "line-through",
+  },
+  flowAfter: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 16 },
+  flowLabel: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10, marginTop: 1 },
+  basis: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular, marginTop: -4 },
+  gainBox: {
+    backgroundColor: colors.successSoft,
+    borderRadius: 16,
+    justifyContent: "center",
+    minHeight: 84,
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    position: "relative",
+  },
+  gainOrb: {
+    backgroundColor: `${colors.success}14`,
+    borderRadius: 999,
+    height: 110,
+    position: "absolute",
+    right: -34,
+    top: -46,
+    width: 110,
+  },
+  gainLabel: { color: colors.success, fontSize: 10, fontFamily: interFonts.semibold },
+  gain: { color: colors.success, fontSize: 26, fontFamily: interFonts.bold },
   gainPer: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
   gainSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   button: {
@@ -1087,7 +1128,6 @@ export default function Insights() {
           percent={simPercent}
           result={
             whatIfResult &&
-            whatIfResult.reduction_percent === simPercent &&
             whatIfResult.category_name ===
               allCats.find((c) => c.category_id === simCatId)?.name
               ? whatIfResult

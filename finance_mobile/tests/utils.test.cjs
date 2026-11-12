@@ -471,3 +471,16 @@ test("buildMonthCurve accumulates daily spending up to today", () => {
   assert.equal(buildMonthCurve(daily, "2026-11", new Date(2026, 11, 3)).cumulative.length, 30);
   assert.deepEqual(buildMonthCurve(daily, "2026-12", new Date(2026, 10, 6)).cumulative, []);
 });
+
+test("scenarioTotals combines efforts and goalImpact measures the months gained", () => {
+  const { scenarioTotals, goalImpact } = load("src/shared/utils/scenario.ts");
+  const t = scenarioTotals([{ reference: 100000, percent: 20 }, { reference: 60000, percent: 30 }, { reference: 50000, percent: 0 }], 500000, 400000);
+  assert.equal(t.monthly, 38000);
+  assert.equal(t.annual, 456000);
+  assert.equal(t.efforts, 2);
+  assert.ok(Math.abs(t.rate - 0.276) < 1e-9);
+  assert.equal(scenarioTotals([], 0, 0).rate, null);
+  assert.deepEqual(goalImpact({ current: 100, target: 1300, monthlyPace: 100, extra: 50 }), { kind: "sooner", months: 8, gained: 4 });
+  assert.deepEqual(goalImpact({ current: 0, target: 1000, monthlyPace: 0, extra: 300 }), { kind: "possible", months: 4 });
+  assert.deepEqual(goalImpact({ current: 1000, target: 1000, monthlyPace: 0, extra: 300 }), { kind: "reached" });
+});
