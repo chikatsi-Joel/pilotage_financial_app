@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, gap: 24, justifyContent: "center", padding: 20 },
 
   hero: { alignItems: "center", gap: 6 },
-  logo: { height: 120, width: 100 },
+  logo: { height: 112, width: 120 },
   tagline: { color: colors.textMuted, fontSize: 13, fontFamily: interFonts.regular },
 
   card: {

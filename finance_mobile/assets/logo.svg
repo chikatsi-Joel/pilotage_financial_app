@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Logo Lucia « Élan » : source vectorielle des PNG de ce dossier. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6F60D8"/><stop offset="1" stop-color="#4A3CA6"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="512" height="512" rx="116"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <g clip-path="url(#tile)"><circle cx="430" cy="96" r="130" fill="#FFFFFF" opacity="0.08"/></g>
+  <path d="M182 122 V304 Q182 378 256 378 H300 Q350 378 374 334" fill="none" stroke="#FFFFFF" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="388" cy="214" r="38" fill="#CFC6FF"/>
+</svg>
