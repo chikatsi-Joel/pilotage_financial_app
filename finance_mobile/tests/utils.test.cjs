@@ -509,3 +509,13 @@ test("chartPath smooths without overshoot, averages and rounds the scale", () =>
   assert.equal(niceCeil(180), 200);
   assert.equal(niceCeil(0), 1);
 });
+
+test("parseApiUrl accepts an origin or a full base and rejects anything else", () => {
+  const { parseApiUrl } = load("src/shared/utils/apiUrl.ts");
+  assert.deepEqual(parseApiUrl(" https://api.lucia.app/ "), { api: "https://api.lucia.app/api/v1", origin: "https://api.lucia.app" });
+  assert.deepEqual(parseApiUrl("http://172.21.253.63:8000/api/v1"), { api: "http://172.21.253.63:8000/api/v1", origin: "http://172.21.253.63:8000" });
+  assert.deepEqual(parseApiUrl("https://srv.example.com/lucia/api/v1/"), { api: "https://srv.example.com/lucia/api/v1", origin: "https://srv.example.com/lucia" });
+  for (const bad of ["", null, "api.lucia.app", "ftp://x.y", "https://", "javascript:alert(1)", "https://a b.com"]) {
+    assert.equal(parseApiUrl(bad), null, String(bad));
+  }
+});

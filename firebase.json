@@ -1,0 +1,17 @@
+{
+  "remoteconfig": {
+    "template": "remote_config.json"
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Lucia",
+        "supportEmail": "kappachikatsi@gmail.com",
+        "authorizedRedirectUris": [
+          "https://lucia-f3d45.firebaseapp.com/__/auth/handler"
+        ]
+      }
+    }
+  }
+}

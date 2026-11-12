@@ -1,5 +1,7 @@
 import Constants from "expo-constants";
 
+import { hasFirebaseNative, hasGoogleSignInNative } from "../config/firebaseNative";
+
 type AuthModule = typeof import("@react-native-firebase/auth");
 type GoogleModule = typeof import("@react-native-google-signin/google-signin");
 
@@ -13,6 +15,10 @@ let googleMod: GoogleModule | null | undefined;
  */
 function loadAuth(): AuthModule | null {
   if (authMod !== undefined) return authMod;
+  if (!hasFirebaseNative("Auth")) {
+    authMod = null;
+    return authMod;
+  }
   try {
     authMod = require("@react-native-firebase/auth") as AuthModule;
     authMod.getAuth(); // échoue si le module natif est absent du binaire
@@ -31,6 +37,10 @@ function googleWebClientId(): string {
 
 function loadGoogle(): GoogleModule | null {
   if (googleMod !== undefined) return googleMod;
+  if (!hasGoogleSignInNative()) {
+    googleMod = null;
+    return googleMod;
+  }
   try {
     const mod = require("@react-native-google-signin/google-signin") as GoogleModule;
     mod.GoogleSignin.configure({ webClientId: googleWebClientId() });

@@ -1,23 +1,17 @@
 import axios from "axios";
-import Constants from "expo-constants";
 
 import { getToken, notifyUnauthorized } from "../auth/session";
-
-const envUrl = process.env.EXPO_PUBLIC_API_URL;
-
-const devHost = Constants.expoConfig?.hostUri?.split(":")[0];
-
-const baseURL = devHost
-  ? `http://${devHost}:8000/api/v1`
-  : envUrl || "http://localhost:8000/api/v1";
+import { apiBaseUrl } from "./baseUrl";
 
 const api = axios.create({
-  baseURL,
+  baseURL: apiBaseUrl(),
   headers: { "Content-Type": "application/json" },
   timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
+  // Adresse lue à chaque requête : elle peut changer via Firebase Remote Config.
+  config.baseURL = apiBaseUrl();
   const token = getToken();
   if (token) config.headers.set("Authorization", `Bearer ${token}`);
   return config;

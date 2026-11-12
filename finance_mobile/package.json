@@ -12,9 +12,11 @@
     "@react-native-community/slider": "5.2.1",
     "@react-native-firebase/app": "^27.1.1",
     "@react-native-firebase/auth": "^27.1.1",
+    "@react-native-firebase/remote-config": "^27.1.1",
     "@react-native-google-signin/google-signin": "^17.0.0",
     "axios": "^1.19.0",
     "expo": "^58.0.0",
+    "expo-build-properties": "~58.0.12",
     "expo-camera": "~58.0.14",
     "expo-constants": "~58.0.15",
     "expo-dev-client": "~58.0.18",
@@ -44,8 +46,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/api-client.test.cjs tests/utils.test.cjs"

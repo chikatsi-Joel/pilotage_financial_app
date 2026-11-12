@@ -1,5 +1,5 @@
 import { DefaultTheme, Stack, ThemeProvider, usePathname } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useFonts } from "expo-font";
 // Import par graisse : seules ces 4 polices sont embarquées dans l'app.
 import { Poppins_400Regular } from "@expo-google-fonts/poppins/400Regular";
@@ -13,6 +13,7 @@ import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
 import { PaperProvider } from "react-native-paper";
 
 import { setUnauthorizedHandler } from "../src/shared/auth/session";
+import { initRemoteConfig } from "../src/shared/config/remoteConfig";
 import { endLocalSession } from "../src/shared/auth/signOut";
 import { useNotificationRouting } from "../src/shared/notifications/useNotificationRouting";
 import { useAppStore } from "../src/shared/store";
@@ -49,13 +50,29 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  // Adresse du serveur venue de Firebase Remote Config, appliquée avant les premières requêtes.
+  // Plafonné à 1,5 s : sans réponse, l'app démarre avec l'adresse actuelle.
+  const [configReady, setConfigReady] = useState(false);
+  useEffect(() => {
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        setConfigReady(true);
+      }
+    };
+    const timer = setTimeout(finish, 1500);
+    void initRemoteConfig().finally(finish);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     // Session révoquée côté serveur : retour à l'écran de connexion.
     setUnauthorizedHandler(() => void endLocalSession());
     return () => setUnauthorizedHandler(null);
   }, []);
 
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !configReady) return null;
 
   return (
     <PaperProvider theme={paperTheme}>

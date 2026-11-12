@@ -1,0 +1,11 @@
+{
+  "parameters": {
+    "api_base_url": {
+      "defaultValue": {
+        "value": "http://172.21.253.63:8000/api/v1"
+      },
+      "description": "Adresse du serveur Lucia (origine ou base /api/v1). Vide = adresse intégrée au build.",
+      "valueType": "STRING"
+    }
+  }
+}
