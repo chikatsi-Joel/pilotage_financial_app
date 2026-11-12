@@ -1,10 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Slider from "@react-native-community/slider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 
 import { analytics as analyticsApi } from "../src/shared/api/analytics";
 import { budget as budgetApi } from "../src/shared/api/budget";
@@ -13,10 +11,10 @@ import { whatIf as whatIfApi } from "../src/shared/api/whatIf";
 import { useAppStore } from "../src/shared/store";
 import type { Recommendation } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
-import { compactAmount } from "../src/shared/utils/budgetPace";
 import { buildSavingsTrajectory } from "../src/shared/utils/savingsTrajectory";
 import { goalImpact, lineSaving, scenarioTotals, type GoalImpact } from "../src/shared/utils/scenario";
 import { EmptyState, ScreenHeader } from "../src/ui/components";
+import { EffortSlider, YearBars } from "../src/ui/scenarioCharts";
 import { colors, interFonts } from "../src/ui/theme";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
@@ -276,23 +274,14 @@ export default function Simulation() {
                         {formatMoney(l.reference, currency)}/mois · {l.basis === "habituel" ? "habituel" : "ce mois"}
                       </Text>
                     </View>
-                    <View style={styles.effortRight}>
-                      <Text style={[styles.effortPct, pct === 0 && styles.effortPctIdle]}>
-                        {pct > 0 ? `−${pct} %` : "0 %"}
-                      </Text>
-                      <Text style={styles.effortGain}>{pct > 0 ? `+${formatMoney(saving, currency)}` : "—"}</Text>
-                    </View>
+                    <Text style={[styles.effortGain, pct === 0 && styles.effortGainIdle]}>
+                      {pct > 0 ? `+${formatMoney(saving, currency)}` : "—"}
+                    </Text>
                   </View>
-                  <Slider
-                    accessibilityLabel={`Effort sur ${l.name}`}
-                    maximumTrackTintColor={`${colors.primary}2E`}
-                    maximumValue={MAX_EFFORT}
-                    minimumTrackTintColor={colors.primary}
-                    minimumValue={0}
-                    onValueChange={(v) => setEfforts((prev) => ({ ...prev, [l.id]: Math.round(v) }))}
-                    step={5}
-                    style={styles.slider}
-                    thumbTintColor={pct > 0 ? colors.primary : "#B9B3DE"}
+                  <EffortSlider
+                    label={`Effort sur ${l.name}`}
+                    max={MAX_EFFORT}
+                    onChange={(v) => setEfforts((prev) => ({ ...prev, [l.id]: v }))}
                     value={pct}
                   />
                 </View>
@@ -306,7 +295,7 @@ export default function Simulation() {
           <>
             <Text style={[styles.sectionTitle, styles.sectionAlone]}>Sur 12 mois</Text>
             <View style={styles.card}>
-              <YearCurve monthly={scenario.monthly} />
+              <YearBars monthly={scenario.monthly} />
               <Text style={styles.curveNote}>
                 Économie cumulée si vous tenez ce scénario chaque mois.
               </Text>
@@ -411,82 +400,6 @@ function GoalRow({ name, impact, first }: { name: string; impact: GoalImpact; fi
   );
 }
 
-const CURVE = { height: 150, padL: 8, padR: 12, padT: 22, padB: 22 };
-const MARKS = [3, 6, 12];
-
-/** Économie cumulée mois après mois : droite pleine, aire dégradée, repères à 3, 6 et 12 mois. */
-function YearCurve({ monthly }: { monthly: number }) {
-  const [width, setWidth] = useState(0);
-  const { height, padL, padR, padT, padB } = CURVE;
-  const plotW = Math.max(width - padL - padR, 1);
-  const plotH = height - padT - padB;
-  const max = Math.max(monthly * 12, 1);
-  const x = (m: number) => padL + (m / 12) * plotW;
-  const y = (v: number) => padT + plotH - (v / max) * plotH;
-  const line = `M${x(0)},${y(0)} L${x(12).toFixed(1)},${y(max).toFixed(1)}`;
-  const area = `${line} L${x(12).toFixed(1)},${y(0)} Z`;
-
-  return (
-    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height }}>
-      {width > 0 ? (
-        <Svg height={height} width={width}>
-          <Defs>
-            <LinearGradient id="yearFill" x1="0" x2="0" y1="0" y2="1">
-              <Stop offset="0" stopColor={colors.primary} stopOpacity={0.26} />
-              <Stop offset="1" stopColor={colors.primary} stopOpacity={0.02} />
-            </LinearGradient>
-          </Defs>
-          <Line stroke={`${colors.primary}33`} strokeWidth={1} x1={padL} x2={width - padR} y1={y(0)} y2={y(0)} />
-          <Path d={area} fill="url(#yearFill)" />
-          <Path d={line} fill="none" stroke={colors.primary} strokeLinecap="round" strokeWidth={2.5} />
-          {MARKS.map((m) => {
-            const v = monthly * m;
-            const last = m === 12;
-            return (
-              <G key={m}>
-                <Line
-                  stroke={colors.primary}
-                  strokeDasharray="2 3"
-                  strokeOpacity={0.35}
-                  strokeWidth={1}
-                  x1={x(m)}
-                  x2={x(m)}
-                  y1={y(v)}
-                  y2={y(0)}
-                />
-                <Circle cx={x(m)} cy={y(v)} fill="#FFFFFF" r={last ? 5.5 : 4} stroke={colors.primary} strokeWidth={2.5} />
-                <SvgText
-                  fill={last ? colors.primary : colors.text}
-                  fontFamily={interFonts.bold}
-                  fontSize={last ? 12 : 10.5}
-                  textAnchor={last ? "end" : "middle"}
-                  x={x(m) + (last ? -2 : 0)}
-                  y={y(v) - 9}
-                >
-                  {`+${compactAmount(v)}`}
-                </SvgText>
-                <SvgText
-                  fill={colors.textMuted}
-                  fontFamily={interFonts.medium}
-                  fontSize={10}
-                  textAnchor={last ? "end" : "middle"}
-                  x={x(m)}
-                  y={height - 5}
-                >
-                  {last ? "1 an" : `${m} mois`}
-                </SvgText>
-              </G>
-            );
-          })}
-          <SvgText fill={colors.textMuted} fontFamily={interFonts.medium} fontSize={10} x={padL} y={height - 5}>
-            Auj.
-          </SvgText>
-        </Svg>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scroll: { paddingBottom: 32 },
@@ -581,7 +494,7 @@ const styles = StyleSheet.create({
     width: 140,
   },
   effortsCard: { paddingVertical: 8 },
-  effort: { paddingVertical: 8 },
+  effort: { gap: 4, paddingVertical: 10 },
   effortSep: { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
   effortHead: { alignItems: "center", flexDirection: "row", gap: 10 },
   effortIcon: {
@@ -596,11 +509,8 @@ const styles = StyleSheet.create({
   effortCopy: { flex: 1 },
   effortName: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 13 },
   effortRef: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10.5 },
-  effortRight: { alignItems: "flex-end" },
-  effortPct: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 15 },
-  effortPctIdle: { color: colors.textMuted },
-  effortGain: { color: colors.success, fontFamily: interFonts.semibold, fontSize: 11 },
-  slider: { height: 32, marginHorizontal: -8, marginTop: 2 },
+  effortGain: { color: colors.success, fontFamily: interFonts.bold, fontSize: 13 },
+  effortGainIdle: { color: colors.textMuted, fontFamily: interFonts.medium },
 
   curveNote: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10.5, marginTop: 6 },
 

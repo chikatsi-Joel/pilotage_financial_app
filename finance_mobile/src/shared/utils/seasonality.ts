@@ -71,3 +71,41 @@ export function summarizeSeason(months: MonthTotal[], period: string, today: Dat
     enough: past.length >= MIN_SEASON_MONTHS - 1 && historyMonths >= MIN_SEASON_MONTHS,
   };
 }
+
+const MONTH_NAMES = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+];
+/** Saison de chaque mois (index 0 = janvier). */
+const SEASON_OF = [
+  "hiver", "hiver", "printemps", "printemps", "printemps", "été",
+  "été", "été", "automne", "automne", "automne", "hiver",
+];
+
+function joinFr(items: string[]): string {
+  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
+}
+
+/**
+ * Une phrase sur les mois chargés : les mois passés au moins 10 % au-dessus de la moyenne
+ * (3 au plus). S'ils tombent tous dans la même saison, on nomme la saison.
+ */
+export function seasonPhrase(summary: SeasonalitySummary, period: string): string {
+  if (!summary.enough || !summary.average) {
+    return `Encore trop peu d'historique (${summary.historyMonths} mois avec des dépenses). La carte se remplira au fil des mois.`;
+  }
+  const avg = summary.average;
+  const highs = summary.months
+    .filter((m) => m.period < period && m.total > avg * 1.1)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
+  if (highs.length === 0) return "Vos dépenses sont régulières d'un mois à l'autre.";
+  const idx = highs.map((m) => Number(m.period.slice(5, 7)) - 1);
+  const seasons = new Set(idx.map((i) => SEASON_OF[i]));
+  if (highs.length > 1 && seasons.size === 1) return `Vous dépensez plus en ${[...seasons][0]}.`;
+  const names = idx.sort((a, b) => a - b).map((i) => MONTH_NAMES[i]);
+  return highs.length === 1
+    ? `Votre mois le plus chargé : ${names[0]}.`
+    : `Vos mois les plus chargés : ${joinFr(names)}.`;
+}
+

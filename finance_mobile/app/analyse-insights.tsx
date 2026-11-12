@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ActivityIndicator } from "react-native";
-import Slider from "@react-native-community/slider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -15,8 +14,10 @@ import { useAppStore } from "../src/shared/store";
 import type { AIAnalysisStored, CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors, interFonts } from "../src/ui/theme";
+import { EffortSlider } from "../src/ui/scenarioCharts";
 import { capitalize } from "../src/shared/utils/format";
-import { summarizeSeason, type SeasonalitySummary } from "../src/shared/utils/seasonality";
+import { seasonPhrase, summarizeSeason, type SeasonalitySummary } from "../src/shared/utils/seasonality";
+import { SeasonChart } from "../src/ui/SeasonChart";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -211,7 +212,6 @@ const driftStyles = StyleSheet.create({
 
 // ─────────────────────────────────────────────────────────
 
-const SIM_MIN = 5;
 const SIM_MAX = 60;
 
 interface WhatIfCardProps {
@@ -227,9 +227,9 @@ interface WhatIfCardProps {
 }
 
 /**
- * Simulateur rapide : une catégorie, un effort au curseur, l'effet avant → après.
- * Les montants suivent le curseur en direct (calculés sur le montant de référence) ;
- * le serveur est interrogé au relâchement pour le taux d'épargne projeté.
+ * Simulateur rapide écrit comme une phrase : « Si je dépense 20 % de moins en Alimentation,
+ * je garde 30 000 XAF chaque mois. » La catégorie se change en touchant son nom, l'effort au
+ * curseur. Les montants sont calculés en direct sur la dépense de référence du serveur.
  */
 function WhatIfCard({
   candidates,
@@ -241,128 +241,110 @@ function WhatIfCard({
   onCategory,
   onPercent,
 }: WhatIfCardProps) {
-  const [draft, setDraft] = useState(percent);
-  useEffect(() => setDraft(percent), [percent]);
+  const [picking, setPicking] = useState(false);
 
   if (candidates.length === 0) {
     return (
       <Card style={whatIfStyles.card}>
-        <Text style={whatIfStyles.title}>Simulateur indisponible</Text>
-        <Text style={whatIfStyles.subtitle}>Ajoutez des dépenses pour activer la simulation.</Text>
+        <Text style={whatIfStyles.sentence}>Ajoutez des dépenses pour essayer le simulateur.</Text>
       </Card>
     );
   }
 
+  const category = candidates.find((c) => c.category_id === categoryId) ?? candidates[0];
   const before = result?.reference_amount ?? 0;
-  const saving = (before * draft) / 100;
-  const after = before - saving;
-  const rate = result && result.reduction_percent === draft ? result.projected_savings_rate : null;
+  const saving = (before * percent) / 100;
+  const rate = result && result.reduction_percent === percent ? result.projected_savings_rate : null;
 
   return (
     <View style={whatIfStyles.card}>
       <View pointerEvents="none" style={[whatIfStyles.orb, whatIfStyles.orbLarge]} />
       <View pointerEvents="none" style={[whatIfStyles.orb, whatIfStyles.orbSmall]} />
 
-      <Text style={whatIfStyles.title}>Et si vous réduisiez ?</Text>
-      <Text style={whatIfStyles.subtitle}>Choisissez une catégorie et l'effort à fournir.</Text>
+      <Text style={whatIfStyles.sentence}>
+        Si je dépense <Text style={whatIfStyles.token}>{percent} %</Text> de moins en{" "}
+        <Text
+          accessibilityRole="button"
+          onPress={() => setPicking((v) => !v)}
+          style={[whatIfStyles.token, whatIfStyles.tokenTap]}
+        >
+          {category.name} {picking ? "▴" : "▾"}
+        </Text>
+        , je garde
+      </Text>
 
-      <View style={whatIfStyles.chips}>
-        {candidates.map((c) => {
-          const active = c.category_id === categoryId;
-          return (
-            <Pressable
-              key={c.category_id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => onCategory(c.category_id)}
-              style={[whatIfStyles.chip, active && whatIfStyles.chipActive]}
-            >
-              <MaterialCommunityIcons
-                color={active ? "#FFFFFF" : colors.primary}
-                name={categoryIcon(c.name)}
-                size={14}
-              />
-              <Text style={[whatIfStyles.chipText, active && whatIfStyles.chipTextActive]}>{c.name}</Text>
-            </Pressable>
-          );
-        })}
+      {picking ? (
+        <View style={whatIfStyles.chips}>
+          {candidates.map((c) => {
+            const active = c.category_id === category.category_id;
+            return (
+              <Pressable
+                key={c.category_id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => {
+                  onCategory(c.category_id);
+                  setPicking(false);
+                }}
+                style={[whatIfStyles.chip, active && whatIfStyles.chipActive]}
+              >
+                <MaterialCommunityIcons
+                  color={active ? "#FFFFFF" : colors.primary}
+                  name={categoryIcon(c.name)}
+                  size={13}
+                />
+                <Text style={[whatIfStyles.chipText, active && whatIfStyles.chipTextActive]}>{c.name}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      <View style={whatIfStyles.gainBlock}>
+        {loading && !result ? (
+          <ActivityIndicator color={colors.primary} style={{ alignSelf: "flex-start" }} />
+        ) : (
+          <>
+            <Text adjustsFontSizeToFit numberOfLines={1} style={whatIfStyles.gain}>
+              {formatMoney(saving, currency)}
+            </Text>
+            <Text style={whatIfStyles.gainPer}>chaque mois</Text>
+          </>
+        )}
       </View>
 
-      <View>
-        <View style={whatIfStyles.effortRow}>
-          <Text style={whatIfStyles.effortLabel}>Effort</Text>
-          <Text style={whatIfStyles.effortValue}>−{draft} %</Text>
-        </View>
-        <Slider
-          accessibilityLabel="Effort de réduction"
-          maximumTrackTintColor={`${colors.primary}33`}
-          maximumValue={SIM_MAX}
-          minimumTrackTintColor={colors.primary}
-          minimumValue={SIM_MIN}
-          onSlidingComplete={(v) => onPercent(Math.round(v))}
-          onValueChange={(v) => setDraft(Math.round(v))}
-          step={5}
-          style={whatIfStyles.slider}
-          thumbTintColor={colors.primary}
-          value={percent}
-        />
-        <View style={whatIfStyles.rangeRow}>
-          <Text style={whatIfStyles.rangeText}>{SIM_MIN} %</Text>
-          <Text style={whatIfStyles.rangeText}>{SIM_MAX} %</Text>
-        </View>
-      </View>
+      <EffortSlider
+        label={`Effort sur ${category.name}`}
+        max={SIM_MAX}
+        onChange={onPercent}
+        value={percent}
+      />
 
-      {result ? (
-        <>
-          <View style={whatIfStyles.flow}>
-            <View style={whatIfStyles.flowCol}>
-              <Text style={whatIfStyles.flowBefore}>{formatMoney(before, currency)}</Text>
-              <Text style={whatIfStyles.flowLabel}>aujourd'hui</Text>
-            </View>
-            <View style={whatIfStyles.flowArrow}>
-              <MaterialCommunityIcons color={colors.primary} name="arrow-right" size={16} />
-            </View>
-            <View style={[whatIfStyles.flowCol, { alignItems: "flex-end" }]}>
-              <Text style={whatIfStyles.flowAfter}>{formatMoney(after, currency)}</Text>
-              <Text style={whatIfStyles.flowLabel}>objectif /mois</Text>
-            </View>
-          </View>
-
-          <View style={whatIfStyles.gainBox}>
-            <View pointerEvents="none" style={whatIfStyles.gainOrb} />
-            <Text style={whatIfStyles.gainLabel}>Vous gagneriez</Text>
-            <Text style={whatIfStyles.gain}>
-              + {formatMoney(saving, currency)}
-              <Text style={whatIfStyles.gainPer}> /mois</Text>
-            </Text>
-            <Text style={whatIfStyles.gainSub}>
-              soit {formatMoney(saving * 12, currency)} sur un an
-              {rate != null ? ` · taux d'épargne ${Math.round(rate * 100)} %` : ""}
-            </Text>
-          </View>
-
+      <View style={whatIfStyles.footer}>
+        <Text style={whatIfStyles.facts}>
+          {result
+            ? `${formatMoney(before, currency)} → ${formatMoney(before - saving, currency)} /mois · ${formatMoney(saving * 12, currency)} sur un an${
+                rate != null ? ` · épargne ${Math.round(rate * 100)} %` : ""
+              }`
+            : "…"}
+        </Text>
+        {result ? (
           <Text style={whatIfStyles.basis}>
-            Base : {result.reference_basis === "habituel" ? "votre dépense habituelle" : "vos dépenses de ce mois"}
+            Calculé sur {result.reference_basis === "habituel" ? "votre dépense habituelle" : "vos dépenses de ce mois"}
           </Text>
-        </>
-      ) : (
-        <View style={whatIfStyles.gainBox}>
-          {loading ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Text style={whatIfStyles.gainSub}>Simulation indisponible pour le moment.</Text>
-          )}
-        </View>
-      )}
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push({ pathname: "/simulation", params: categoryId ? { category: categoryId, percent: String(draft) } : {} })}
-        style={({ pressed }) => [whatIfStyles.button, pressed && { opacity: 0.85 }]}
-      >
-        <Text style={whatIfStyles.buttonText}>Ouvrir le simulateur complet</Text>
-        <MaterialCommunityIcons color={colors.primary} name="arrow-right" size={16} />
-      </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() =>
+            router.push({ pathname: "/simulation", params: { category: category.category_id, percent: String(percent) } })
+          }
+          style={({ pressed }) => [whatIfStyles.link, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={whatIfStyles.linkText}>Tout simuler</Text>
+          <MaterialCommunityIcons color={colors.primary} name="arrow-right" size={15} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -373,10 +355,10 @@ const whatIfStyles = StyleSheet.create({
     borderColor: `${colors.primary}22`,
     borderRadius: 20,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
     marginTop: 12,
     overflow: "hidden",
-    padding: 16,
+    padding: 18,
     position: "relative",
   },
   orb: { borderRadius: 999, position: "absolute" },
@@ -394,9 +376,15 @@ const whatIfStyles = StyleSheet.create({
     left: -26,
     width: 80,
   },
-  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
-  subtitle: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular, marginTop: -8 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  sentence: { color: colors.text, fontFamily: interFonts.medium, fontSize: 17, lineHeight: 27 },
+  token: {
+    color: colors.primary,
+    fontFamily: interFonts.bold,
+    textDecorationColor: `${colors.primary}66`,
+    textDecorationLine: "underline",
+  },
+  tokenTap: { backgroundColor: `${colors.primary}12` },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: {
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -411,76 +399,14 @@ const whatIfStyles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: 11, fontFamily: interFonts.semibold },
   chipTextActive: { color: "#FFFFFF" },
-  effortRow: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between" },
-  effortLabel: {
-    color: colors.textMuted,
-    fontFamily: interFonts.semibold,
-    fontSize: 11,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-  effortValue: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 22 },
-  slider: { height: 36, marginHorizontal: -8 },
-  rangeRow: { flexDirection: "row", justifyContent: "space-between", marginTop: -4 },
-  rangeText: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 10 },
-  flow: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFFB3",
-    borderRadius: 14,
-    flexDirection: "row",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  flowCol: { flex: 1 },
-  flowArrow: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderRadius: 99,
-    height: 28,
-    justifyContent: "center",
-    marginHorizontal: 8,
-    width: 28,
-  },
-  flowBefore: {
-    color: colors.textMuted,
-    fontFamily: interFonts.semibold,
-    fontSize: 14,
-    textDecorationLine: "line-through",
-  },
-  flowAfter: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 16 },
-  flowLabel: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10, marginTop: 1 },
-  basis: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular, marginTop: -4 },
-  gainBox: {
-    backgroundColor: colors.successSoft,
-    borderRadius: 16,
-    justifyContent: "center",
-    minHeight: 84,
-    overflow: "hidden",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    position: "relative",
-  },
-  gainOrb: {
-    backgroundColor: `${colors.success}14`,
-    borderRadius: 999,
-    height: 110,
-    position: "absolute",
-    right: -34,
-    top: -46,
-    width: 110,
-  },
-  gainLabel: { color: colors.success, fontSize: 10, fontFamily: interFonts.semibold },
-  gain: { color: colors.success, fontSize: 26, fontFamily: interFonts.bold },
-  gainPer: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
-  gainSub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
-  button: {
-    alignItems: "center",
-    alignSelf: "center",
-    flexDirection: "row",
-    gap: 6,
-    paddingVertical: 4,
-  },
-  buttonText: { color: colors.primary, fontSize: 12, fontFamily: interFonts.bold },
+  gainBlock: { minHeight: 58, justifyContent: "center", marginTop: -2 },
+  gain: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 40 },
+  gainPer: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 12, marginTop: -2 },
+  footer: { gap: 2 },
+  facts: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 11.5 },
+  basis: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10 },
+  link: { alignItems: "center", alignSelf: "flex-end", flexDirection: "row", gap: 4, marginTop: 6 },
+  linkText: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 12.5 },
 });
 
 // ─────────────────────────────────────────────────────────
@@ -728,13 +654,12 @@ const histStyles = StyleSheet.create({
 //  TENDANCE SAISONNIÈRE (12 derniers mois)
 // ═══════════════════════════════════════════════════════════
 
-const MONTH_INITIALS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
-
 const signedPct = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))} %`;
 
-const shortMonthLabel = (p: string) =>
-  new Date(`${p}-01T12:00:00`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
-
+/**
+ * Tendance saisonnière : une phrase de synthèse, puis la série mensuelle des dépenses
+ * en courbe (tendance, projection du mois en cours, lecture au doigt).
+ */
 function SeasonalityCard({
   summary,
   period,
@@ -747,108 +672,35 @@ function SeasonalityCard({
   if (!summary) {
     return (
       <Card style={seasonStyles.card}>
-        <Text style={seasonStyles.subtitle}>Historique mensuel indisponible pour le moment.</Text>
+        <Text style={seasonStyles.note}>Historique mensuel indisponible pour le moment.</Text>
       </Card>
     );
   }
 
-  const { months, average, projectedCurrent, partial } = summary;
-  const max = Math.max(...months.map((m) => m.total), projectedCurrent, average ?? 0, 1);
-  const monthName = monthLabel(period).split(" ")[0].toLowerCase();
+  const { average, projectedCurrent, partial } = summary;
 
-  let message: string;
-  if (!summary.enough) {
-    message = `Encore trop peu d'historique (${summary.historyMonths} mois avec des dépenses). La tendance apparaîtra après 3 mois.`;
-  } else if (summary.lastYear && summary.vsLastYear !== null) {
-    message = `En ${monthName} l'an dernier, vous aviez dépensé ${formatMoney(summary.lastYear.total, currency)}. Ce mois-ci, vous êtes ${partial ? "parti pour" : "à"} ${formatMoney(projectedCurrent, currency)} (${signedPct(summary.vsLastYear)}).`;
-  } else if (summary.vsAverage !== null) {
-    const above = summary.vsAverage >= 0;
-    message = `Ce mois-ci, vos dépenses ${partial ? "projetées " : ""}sont ${Math.abs(Math.round(summary.vsAverage * 100))} % ${above ? "au-dessus" : "en dessous"} de votre moyenne mensuelle.`;
-  } else {
-    message = "Pas encore de comparaison possible.";
+  let detail: string | null = null;
+  if (summary.enough && summary.lastYear && summary.vsLastYear !== null) {
+    detail = `Il y a un an : ${formatMoney(summary.lastYear.total, currency)}. Ce mois-ci, ${partial ? "vous êtes parti pour" : "vous êtes à"} ${formatMoney(projectedCurrent, currency)} (${signedPct(summary.vsLastYear)}).`;
+  } else if (summary.enough && summary.vsAverage !== null) {
+    detail = `Ce mois-ci, ${partial ? "vous êtes parti pour" : "vous êtes à"} ${formatMoney(projectedCurrent, currency)}, soit ${signedPct(summary.vsAverage)} par rapport à votre moyenne.`;
   }
 
   return (
-    <Card style={seasonStyles.card}>
-      <Text style={seasonStyles.subtitle}>{message}</Text>
+    <View style={seasonStyles.card}>
+      <View pointerEvents="none" style={seasonStyles.orb} />
+      <Text style={seasonStyles.headline}>{seasonPhrase(summary, period)}</Text>
+      {detail ? <Text style={seasonStyles.note}>{detail}</Text> : null}
 
-      <View style={seasonStyles.chart}>
-        {average ? (
-          <View
-            pointerEvents="none"
-            style={[seasonStyles.avgLine, { bottom: `${(average / max) * 100}%` }]}
-          />
-        ) : null}
-        {months.map((m) => {
-          const isCurrent = m.period === period;
-          const value = isCurrent ? projectedCurrent : m.total;
-          const realPart = isCurrent && value > 0 ? m.total / value : 1;
-          return (
-            <View key={m.period} style={seasonStyles.col}>
-              <View
-                style={[
-                  seasonStyles.bar,
-                  { height: `${Math.max((value / max) * 100, value > 0 ? 3 : 0)}%` },
-                  isCurrent && seasonStyles.barProjected,
-                ]}
-              >
-                {isCurrent ? (
-                  <View style={[seasonStyles.barReal, { height: `${realPart * 100}%` }]} />
-                ) : null}
-              </View>
-              <Text style={[seasonStyles.colLabel, isCurrent && seasonStyles.colLabelActive]}>
-                {MONTH_INITIALS[Number(m.period.slice(5, 7)) - 1]}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-
-      <View style={seasonStyles.legend}>
-        <View style={seasonStyles.legendItem}>
-          <View style={[seasonStyles.legendSwatch, { backgroundColor: colors.primary }]} />
-          <Text style={seasonStyles.legendText}>Ce mois</Text>
-        </View>
-        {partial ? (
-          <View style={seasonStyles.legendItem}>
-            <View style={[seasonStyles.legendSwatch, { backgroundColor: `${colors.primary}40` }]} />
-            <Text style={seasonStyles.legendText}>Projection fin de mois</Text>
-          </View>
-        ) : null}
-        {average ? (
-          <View style={seasonStyles.legendItem}>
-            <View style={seasonStyles.legendDash} />
-            <Text style={seasonStyles.legendText}>Moyenne</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={seasonStyles.metrics}>
-        <View style={seasonStyles.metric}>
-          <Text style={seasonStyles.metricValue}>{average ? formatMoney(average, currency) : "—"}</Text>
-          <Text style={seasonStyles.metricLabel}>Moyenne / mois</Text>
-        </View>
-        <View style={seasonStyles.metric}>
-          <Text
-            style={[
-              seasonStyles.metricValue,
-              summary.vsAverage !== null && {
-                color: summary.vsAverage > 0.05 ? colors.danger : colors.success,
-              },
-            ]}
-          >
-            {summary.vsAverage !== null ? signedPct(summary.vsAverage) : "—"}
-          </Text>
-          <Text style={seasonStyles.metricLabel}>Ce mois vs moyenne</Text>
-        </View>
-        <View style={seasonStyles.metric}>
-          <Text style={seasonStyles.metricValue}>
-            {summary.peak ? shortMonthLabel(summary.peak.period) : "—"}
-          </Text>
-          <Text style={seasonStyles.metricLabel}>Mois le plus élevé</Text>
-        </View>
-      </View>
-    </Card>
+      <SeasonChart
+        average={average}
+        currency={currency}
+        months={summary.months}
+        partial={partial}
+        period={period}
+        projectedCurrent={projectedCurrent}
+      />
+    </View>
   );
 }
 
@@ -858,61 +710,23 @@ const seasonStyles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1,
-    gap: 14,
+    gap: 10,
     marginTop: 12,
-    padding: 18,
-  },
-  subtitle: { color: colors.text, fontSize: 12, fontFamily: interFonts.regular, lineHeight: 18 },
-  chart: {
-    alignItems: "flex-end",
-    flexDirection: "row",
-    gap: 4,
-    height: 110,
-    paddingBottom: 16,
+    overflow: "hidden",
+    padding: 16,
     position: "relative",
   },
-  avgLine: {
-    borderColor: colors.textMuted,
-    borderStyle: "dashed",
-    borderTopWidth: 1,
-    left: 0,
-    marginBottom: 16,
-    opacity: 0.6,
+  orb: {
+    backgroundColor: `${colors.primary}0D`,
+    borderRadius: 999,
+    height: 130,
     position: "absolute",
-    right: 0,
+    right: -46,
+    top: -56,
+    width: 130,
   },
-  col: { alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end" },
-  bar: {
-    backgroundColor: "#DCDDF0",
-    borderRadius: 4,
-    justifyContent: "flex-end",
-    overflow: "hidden",
-    width: "100%",
-  },
-  barProjected: { backgroundColor: `${colors.primary}40` },
-  barReal: { backgroundColor: colors.primary, width: "100%" },
-  colLabel: { bottom: -16, color: colors.textMuted, fontSize: 9, fontFamily: interFonts.regular, position: "absolute" },
-  colLabelActive: { color: colors.primary, fontFamily: interFonts.bold },
-  legend: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  legendItem: { alignItems: "center", flexDirection: "row", gap: 5 },
-  legendSwatch: { borderRadius: 3, height: 10, width: 10 },
-  legendDash: {
-    borderColor: colors.textMuted,
-    borderStyle: "dashed",
-    borderTopWidth: 1,
-    width: 14,
-  },
-  legendText: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.semibold },
-  metrics: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: 14,
-  },
-  metric: { alignItems: "center", flex: 1, gap: 4 },
-  metricValue: { color: colors.text, fontSize: 13, fontFamily: interFonts.bold },
-  metricLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.regular, textAlign: "center" },
+  headline: { color: colors.text, fontFamily: interFonts.bold, fontSize: 15, lineHeight: 21 },
+  note: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 11.5, lineHeight: 17, marginTop: -4 },
 });
 
 // ═══════════════════════════════════════════════════════════

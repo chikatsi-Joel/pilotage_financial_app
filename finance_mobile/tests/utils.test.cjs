@@ -484,3 +484,28 @@ test("scenarioTotals combines efforts and goalImpact measures the months gained"
   assert.deepEqual(goalImpact({ current: 0, target: 1000, monthlyPace: 0, extra: 300 }), { kind: "possible", months: 4 });
   assert.deepEqual(goalImpact({ current: 1000, target: 1000, monthlyPace: 0, extra: 300 }), { kind: "reached" });
 });
+
+test("seasonPhrase names the busy season", () => {
+  const { summarizeSeason, seasonPhrase } = load("src/shared/utils/seasonality.ts");
+  const months = [
+    { period: "2026-05", total: 100 }, { period: "2026-06", total: 200 }, { period: "2026-07", total: 220 },
+    { period: "2026-08", total: 210 }, { period: "2026-09", total: 0 }, { period: "2026-10", total: 100 },
+    { period: "2026-11", total: 50 },
+  ];
+  const s = summarizeSeason(months, "2026-11", new Date(2026, 10, 30));
+  assert.equal(seasonPhrase(s, "2026-11"), "Vous dépensez plus en été.");
+  const flat = summarizeSeason([{ period: "2026-09", total: 100 }, { period: "2026-10", total: 100 }, { period: "2026-11", total: 100 }], "2026-11", new Date(2026, 10, 30));
+  assert.equal(seasonPhrase(flat, "2026-11"), "Vos dépenses sont régulières d'un mois à l'autre.");
+});
+
+test("chartPath smooths without overshoot, averages and rounds the scale", () => {
+  const { monotonePath, movingAverage, niceCeil } = load("src/shared/utils/chartPath.ts");
+  const d = monotonePath([[0, 10], [10, 10], [20, 30]]);
+  assert.ok(d.startsWith("M0.0,10.0 C"));
+  // Segment plat : les points de contrôle restent à y = 10 (pas de bosse).
+  assert.ok(d.includes("C3.3,10.0 6.7,10.0 10.0,10.0"));
+  assert.deepEqual(movingAverage([3, 6, 9, 12], 3), [null, null, 6, 9]);
+  assert.equal(niceCeil(412000), 500000);
+  assert.equal(niceCeil(180), 200);
+  assert.equal(niceCeil(0), 1);
+});
