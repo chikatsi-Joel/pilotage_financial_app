@@ -11,7 +11,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router, useFocusEffect } from "expo-router";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 
 import { colors, interFonts } from "../../src/ui/theme";
 import { ProfileMenu } from "../../src/ui/ProfileMenu";
@@ -30,6 +30,7 @@ import { dailyAllowance } from "../../src/shared/utils/dailyAllowance";
 import { budgetPace, compactAmount, type PaceTone } from "../../src/shared/utils/budgetPace";
 import { previousRange, relativeChange } from "../../src/shared/utils/monthCompare";
 import { expenses as expensesApi } from "../../src/shared/api/expenses";
+import { buildMonthCurve, type DayTotal, type MonthCurve } from "../../src/shared/utils/monthCurve";
 
 // ═══════════════════════════════════════════════════════════
 //  TYPES & AIDES
@@ -282,21 +283,150 @@ const PACE_TONE: Record<PaceTone, { fg: string; bg: string; icon: string }> = {
 };
 const OVER_VIOLET = BAD;
 
-/** Budget du mois : jauge dépensé / prévu avec repère « aujourd'hui », puis le détail par semaine. */
+const CURVE = { height: 150, padL: 34, padR: 12, padT: 14, padB: 20 };
+
+/**
+ * Courbe du mois : dépensé cumulé jour après jour (trait plein, aire dégradée)
+ * face au rythme prévu (pointillés de 0 au budget en fin de mois).
+ */
+function MonthCurveChart({ curve, budget, over }: { curve: MonthCurve; budget: number; over: boolean }) {
+  const [width, setWidth] = useState(0);
+  const { height, padL, padR, padT, padB } = CURVE;
+  const last = curve.cumulative[curve.cumulative.length - 1] ?? 0;
+  const yMax = Math.max(budget, last, 1) * 1.08;
+  const plotW = Math.max(width - padL - padR, 1);
+  const plotH = height - padT - padB;
+  const x = (day: number) => padL + (day / curve.days) * plotW;
+  const y = (v: number) => padT + plotH - (v / yMax) * plotH;
+
+  const points = [[0, 0], ...curve.cumulative.map((v, i) => [i + 1, v])];
+  const line = points.map(([d, v], i) => `${i ? "L" : "M"}${x(d).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const endDay = curve.cumulative.length;
+  const area = `${line} L${x(endDay).toFixed(1)},${y(0)} L${x(0)},${y(0)} Z`;
+  const dotColor = over ? OVER_VIOLET : colors.primary;
+  const ongoing = endDay < curve.days;
+  const mid = Math.round(curve.days / 2);
+  // Étiquette « aujourd'hui » à gauche du point, sauf en début de mois.
+  const labelLeft = x(endDay) > padL + 70;
+
+  return (
+    <View>
+      <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height }}>
+      {width > 0 ? (
+        <Svg height={height} width={width}>
+          <Defs>
+            <LinearGradient id="curveFill" x1="0" x2="0" y1="0" y2="1">
+              <Stop offset="0" stopColor={colors.primary} stopOpacity={0.28} />
+              <Stop offset="1" stopColor={colors.primary} stopOpacity={0.02} />
+            </LinearGradient>
+          </Defs>
+
+          {/* Axe des montants : 0 et budget */}
+          <SvgText fill={colors.textMuted} fontFamily={interFonts.medium} fontSize={10} textAnchor="end" x={padL - 6} y={y(0) + 3}>
+            0
+          </SvgText>
+          {budget > 0 ? (
+            <SvgText fill={colors.textMuted} fontFamily={interFonts.medium} fontSize={10} textAnchor="end" x={padL - 6} y={y(budget) + 3}>
+              {compactAmount(budget)}
+            </SvgText>
+          ) : null}
+          <Line stroke={`${colors.primary}33`} strokeWidth={1} x1={padL} x2={width - padR} y1={y(0)} y2={y(0)} />
+
+          {/* Rythme prévu */}
+          {budget > 0 ? (
+            <Line
+              stroke={colors.primary}
+              strokeDasharray="3 4"
+              strokeLinecap="round"
+              strokeOpacity={0.45}
+              strokeWidth={1.5}
+              x1={x(0)}
+              x2={x(curve.days)}
+              y1={y(0)}
+              y2={y(budget)}
+            />
+          ) : null}
+
+          {/* Dépensé cumulé */}
+          <Path d={area} fill="url(#curveFill)" />
+          <Path d={line} fill="none" stroke={colors.primary} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
+
+          {/* Aujourd'hui */}
+          {ongoing ? (
+            <>
+              <Line
+                stroke={dotColor}
+                strokeDasharray="2 3"
+                strokeOpacity={0.5}
+                strokeWidth={1}
+                x1={x(endDay)}
+                x2={x(endDay)}
+                y1={y(last)}
+                y2={y(0)}
+              />
+              <SvgText
+                fill={dotColor}
+                fontFamily={interFonts.semibold}
+                fontSize={10}
+                textAnchor={labelLeft ? "end" : "start"}
+                x={x(endDay) + (labelLeft ? -9 : 9)}
+                y={y(last) - 7}
+              >
+                aujourd'hui
+              </SvgText>
+            </>
+          ) : null}
+          <Circle cx={x(endDay)} cy={y(last)} fill="#FFFFFF" r={5.5} stroke={dotColor} strokeWidth={2.5} />
+
+          {/* Jours */}
+          {[1, mid, curve.days].map((d) => (
+            <SvgText
+              fill={colors.textMuted}
+              fontFamily={interFonts.medium}
+              fontSize={10}
+              key={d}
+              textAnchor={d === 1 ? "start" : d === curve.days ? "end" : "middle"}
+              x={x(d === 1 ? 0 : d)}
+              y={height - 4}
+            >
+              {d}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : null}
+      </View>
+      <View style={gaugeStyles.legend}>
+        <View style={[gaugeStyles.legendSolid, { backgroundColor: colors.primary }]} />
+        <Text style={gaugeStyles.legendText}>Dépensé</Text>
+        {budget > 0 ? (
+          <>
+            <Text style={[gaugeStyles.legendDots, { color: colors.primary }]}>···</Text>
+            <Text style={gaugeStyles.legendText}>Rythme prévu</Text>
+          </>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Budget du mois : courbe du dépensé cumulé face au rythme prévu, puis le détail par semaine. */
 function BudgetGauge({
   weekly,
+  daily,
   spent,
   period,
   currency,
 }: {
   weekly: WeeklyExpense[];
+  daily: DayTotal[];
   spent: number;
   period: string;
   currency: string;
 }) {
-  const pace = budgetPace(weekly, spent, period, new Date());
+  const today = new Date();
+  const pace = budgetPace(weekly, spent, period, today);
   const tone = PACE_TONE[pace.tone];
-  const fill = Math.min(pace.spentShare, 1);
+  const curve = buildMonthCurve(daily, period, today);
   const weekMax = Math.max(...weekly.map((w) => Math.max(w.reel, w.prevu)), 1);
 
   return (
@@ -311,39 +441,16 @@ function BudgetGauge({
             <Text style={gaugeStyles.budget}> dépensés ce mois</Text>
           </View>
           <Text style={gaugeStyles.budgetLine}>
-            sur un budget de dépenses de {formatMoney(pace.budget, currency)}
+            sur un budget de dépenses de {formatMoney(pace.budget, currency)} ·{" "}
+            <Text style={{ color: tone.fg, fontFamily: interFonts.semibold }}>
+              {Math.round(pace.spentShare * 100)} %
+            </Text>
           </Text>
-
-          <View style={gaugeStyles.barRow}>
-            <View style={gaugeStyles.track}>
-              <View
-                style={[
-                  gaugeStyles.fill,
-                  {
-                    backgroundColor: pace.tone === "over" ? OVER_VIOLET : colors.primary,
-                    width: `${fill * 100}%`,
-                  },
-                ]}
-              />
-              {pace.timeShare > 0 && pace.timeShare < 1 ? (
-                <View style={[gaugeStyles.todayTick, { left: `${pace.timeShare * 100}%` }]} />
-              ) : null}
-            </View>
-            <Text style={[gaugeStyles.pct, { color: tone.fg }]}>{Math.round(pace.spentShare * 100)} %</Text>
-          </View>
-          {pace.timeShare > 0 && pace.timeShare < 1 ? (
-            <View style={gaugeStyles.todayRow}>
-              <Text
-                style={[
-                  gaugeStyles.todayLabel,
-                  { left: `${Math.min(Math.max(pace.timeShare * 100, 12), 88)}%` },
-                ]}
-              >
-                ▲ aujourd'hui ({Math.round(pace.timeShare * 100)} % du mois)
-              </Text>
-            </View>
-          ) : null}
         </>
+      ) : null}
+
+      {curve.cumulative.length > 0 ? (
+        <MonthCurveChart budget={pace.budget} curve={curve} over={pace.tone === "over"} />
       ) : null}
 
       <View style={[gaugeStyles.messagePill, { backgroundColor: tone.bg }]}>
@@ -427,35 +534,10 @@ const gaugeStyles = StyleSheet.create({
   amountRow: { alignItems: "baseline", flexDirection: "row", flexWrap: "wrap" },
   spent: { color: colors.primary, fontFamily: interFonts.bold, fontSize: 22 },
   budget: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 14 },
-  barRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  track: {
-    backgroundColor: `${colors.primary}20`,
-    borderRadius: 99,
-    flex: 1,
-    height: 12,
-    position: "relative",
-  },
-  fill: { borderRadius: 99, height: 12 },
-  todayTick: {
-    backgroundColor: OVER_VIOLET,
-    borderRadius: 1,
-    height: 18,
-    marginLeft: -1,
-    position: "absolute",
-    top: -3,
-    width: 2,
-  },
-  pct: { color: colors.primary, fontFamily: interFonts.semibold, fontSize: 13, minWidth: 40, textAlign: "right" },
-  todayRow: { height: 16, marginRight: 50, position: "relative" },
-  todayLabel: {
-    color: colors.textMuted,
-    fontFamily: interFonts.medium,
-    fontSize: 10,
-    marginLeft: -80,
-    position: "absolute",
-    textAlign: "center",
-    width: 160,
-  },
+  legend: { alignItems: "center", flexDirection: "row", gap: 6, marginTop: 2 },
+  legendSolid: { borderRadius: 2, height: 3, width: 14 },
+  legendDots: { fontFamily: interFonts.bold, fontSize: 14, letterSpacing: 1, lineHeight: 14, marginLeft: 8 },
+  legendText: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 11 },
   budgetLine: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 12, marginTop: -6 },
   messagePill: { alignSelf: "flex-start", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
   message: { fontFamily: interFonts.semibold, fontSize: 12 },
@@ -612,6 +694,7 @@ export default function Dashboard() {
   const openNotifications = useCallback(() => router.push("/notifications"), []);
 
   const [data, setData] = useState<Dashboard | null>(null);
+  const [daily, setDaily] = useState<DayTotal[]>([]);
   const [prev, setPrev] = useState<{
     income: number;
     expenses: number;
@@ -651,6 +734,20 @@ export default function Dashboard() {
     [period],
   );
 
+  /** Dépenses jour par jour du mois affiché, pour la courbe « Budget du mois ». */
+  const loadDaily = useCallback(
+    async (uid: string) => {
+      const [y, m] = period.split("-").map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      try {
+        setDaily(await expensesApi.daily(uid, { from: `${period}-01`, to: `${period}-${String(lastDay).padStart(2, "0")}` }));
+      } catch {
+        setDaily([]);
+      }
+    },
+    [period],
+  );
+
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
     setError(null);
@@ -658,6 +755,7 @@ export default function Dashboard() {
       if (!userId) throw new Error("no-session");
       setData(await analytics.dashboard(userId, period));
       void loadPrevious(userId);
+      void loadDaily(userId);
     } catch {
       if (!opts?.silent) {
         setData(null);
@@ -670,7 +768,7 @@ export default function Dashboard() {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [userId, period, loadPrevious]);
+  }, [userId, period, loadPrevious, loadDaily]);
 
   const onRefresh = useCallback(async () => {
     if (!userId) return;
@@ -957,6 +1055,7 @@ export default function Dashboard() {
         </View>
         <BudgetGauge
           currency={currency}
+          daily={daily}
           period={period}
           spent={data?.expenses ?? 0}
           weekly={data?.weekly ?? []}

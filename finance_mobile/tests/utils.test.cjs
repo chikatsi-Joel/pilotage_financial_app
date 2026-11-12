@@ -112,7 +112,14 @@ test("totalGap flags only a significant difference with the ticket total", () =>
 });
 
 
-const { validateAuthForm, authErrorMessage, sanitizeCode, isCodeComplete } = load("src/shared/utils/authForm.ts");
+const {
+  validateAuthForm,
+  authErrorMessage,
+  sanitizeCode,
+  isCodeComplete,
+  firebaseErrorMessage,
+  isUnknownFirebaseAccount,
+} = load("src/shared/utils/authForm.ts");
 
 test("validateAuthForm checks name, email and password length on sign-up", () => {
   const ok = { mode: "register", name: "Awa", email: "awa@x.io", password: "12345678" };
@@ -404,4 +411,63 @@ test("budgetPace compares the share spent with the share of the month elapsed", 
   assert.equal(compactAmount(1200000), "1,2M");
   assert.equal(compactAmount(2000000), "2M");
   assert.equal(compactAmount(950), "950");
+});
+
+test("Firebase errors are readable and unknown accounts trigger the legacy migration", () => {
+  assert.equal(firebaseErrorMessage("auth/invalid-credential"), "Email ou mot de passe incorrect");
+  assert.match(firebaseErrorMessage("auth/email-already-in-use"), /existe déjà/);
+  assert.match(firebaseErrorMessage("auth/network-request-failed"), /injoignable/);
+  assert.match(firebaseErrorMessage("auth/whatever"), /Réessayez/);
+  assert.ok(isUnknownFirebaseAccount("auth/invalid-credential"));
+  assert.ok(!isUnknownFirebaseAccount("auth/too-many-requests"));
+});
+
+const { goalChance, normalCdf } = load("src/shared/utils/goalChance.ts");
+
+test("normalCdf matches known values", () => {
+  assert.ok(Math.abs(normalCdf(0) - 0.5) < 1e-6);
+  assert.ok(Math.abs(normalCdf(1.96) - 0.975) < 1e-3);
+  assert.ok(Math.abs(normalCdf(-1) - 0.1587) < 1e-3);
+});
+
+test("goalChance reflects pace, regularity and deadline", () => {
+  const today = new Date(2026, 10, 12).getTime();
+  const monthly = (amounts) =>
+    amounts.map((amount, i) => ({ amount, created_at: new Date(2026, 10 - (amounts.length - 1 - i), 5).toISOString() }));
+  const base = { current: 60000, target: 120000, today };
+  const in6 = new Date(2027, 4, 12).getTime();
+
+  // 10 000/mois, régulier, 60 000 restants en 6 mois : pile au rythme → ~50 %.
+  const even = goalChance({ ...base, contributions: monthly([10000, 10000, 10000, 10000, 10000, 10000]), monthlyPace: 10000, deadline: in6 });
+  assert.ok(even.probability > 0.4 && even.probability < 0.6, String(even.probability));
+
+  // 15 000/mois : large avance.
+  const ahead = goalChance({ ...base, contributions: monthly([15000, 15000, 15000, 15000]), monthlyPace: 15000, deadline: in6 });
+  assert.equal(ahead.tone, "good");
+
+  // Même moyenne mais très irrégulier : moins sûr qu'un versement régulier en avance.
+  const bumpy = goalChance({ ...base, contributions: monthly([45000, 0, 0, 15000]), monthlyPace: 15000, deadline: in6 });
+  assert.ok(bumpy.probability < ahead.probability);
+
+  // 3 000/mois : très improbable.
+  assert.equal(goalChance({ ...base, contributions: monthly([3000, 3000]), monthlyPace: 3000, deadline: in6 }).label, "< 5 %");
+
+  // Cas limites.
+  assert.equal(goalChance({ ...base, current: 130000, contributions: [], monthlyPace: 0, deadline: in6 }).label, "100 %");
+  assert.equal(goalChance({ ...base, contributions: monthly([5000]), monthlyPace: 5000, deadline: today - 1 }).probability, 0);
+  assert.equal(goalChance({ ...base, contributions: [], monthlyPace: 0, deadline: in6 }).probability, null);
+});
+
+test("buildMonthCurve accumulates daily spending up to today", () => {
+  const { buildMonthCurve } = load("src/shared/utils/monthCurve.ts");
+  const daily = [
+    { date: "2026-11-02", total: 100 },
+    { date: "2026-11-05", total: 50 },
+    { date: "2026-10-31", total: 999 },
+  ];
+  const now = buildMonthCurve(daily, "2026-11", new Date(2026, 10, 6));
+  assert.equal(now.days, 30);
+  assert.deepEqual(now.cumulative, [0, 100, 100, 100, 150, 150]);
+  assert.equal(buildMonthCurve(daily, "2026-11", new Date(2026, 11, 3)).cumulative.length, 30);
+  assert.deepEqual(buildMonthCurve(daily, "2026-12", new Date(2026, 10, 6)).cumulative, []);
 });
