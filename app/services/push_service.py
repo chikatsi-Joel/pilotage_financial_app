@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models import NotificationPreference, PushDevice
+from app.services import settings_store
 from app.schemas.common import (
     DeviceRegister,
     NotificationPreferencesUpdate,
@@ -90,8 +91,9 @@ async def update_preferences(
 async def _post_expo(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Envoie un lot (≤ 100) au service Expo et renvoie un ticket par message."""
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
-    if settings.expo_access_token:
-        headers["Authorization"] = f"Bearer {settings.expo_access_token}"
+    token = await settings_store.get("expo_access_token")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     async with httpx.AsyncClient(timeout=settings.push_timeout) as client:
         response = await client.post(settings.expo_push_url, json=messages, headers=headers)
         response.raise_for_status()
@@ -168,3 +170,54 @@ async def send_to_user(
     except Exception:
         log.exception("Échec d'envoi de notification push à %s", user_id)
         return 0
+
+
+async def send_bulk(
+    devices: list[tuple[UUID, str]],
+    title: str,
+    body: str,
+    db: AsyncSession,
+    data: dict[str, Any] | None = None,
+) -> tuple[set[UUID], int]:
+    """Même message à de nombreux appareils (user_id, jeton), par lots de 100 vers Expo.
+
+    Renvoie les utilisateurs atteints et le nombre d'appareils acceptés. Un lot en échec
+    (réseau) est journalisé et n'interrompt pas les suivants.
+    """
+    if not settings.push_enabled or not devices:
+        return set(), 0
+    payload = data or {}
+    sticker = _sticker_url(payload)
+    channel = CHANNEL_BY_KIND.get(payload.get("kind", ""), "default")
+    reached: set[UUID] = set()
+    accepted = 0
+    dead: list[str] = []
+    for start in range(0, len(devices), EXPO_BATCH_SIZE):
+        batch = devices[start : start + EXPO_BATCH_SIZE]
+        messages = [
+            {
+                "to": token,
+                "title": title,
+                "body": body,
+                "data": payload,
+                "sound": "default",
+                "channelId": channel,
+                **({"richContent": {"image": sticker}} if sticker else {}),
+            }
+            for _, token in batch
+        ]
+        try:
+            tickets = await _post_expo(messages)
+        except Exception:
+            log.exception("Échec d'un lot d'envoi groupé (%d appareils)", len(batch))
+            continue
+        for (user_id, token), ticket in zip(batch, tickets):
+            if ticket.get("status") == "ok":
+                accepted += 1
+                reached.add(user_id)
+            elif (ticket.get("details") or {}).get("error") == "DeviceNotRegistered":
+                dead.append(token)
+    if dead:
+        await db.execute(delete(PushDevice).where(PushDevice.token.in_(dead)))
+        await db.commit()
+    return reached, accepted

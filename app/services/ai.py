@@ -9,6 +9,7 @@ from typing import Any, Protocol
 import ollama as _ollama
 
 from app.core.config import settings
+from app.services import settings_store
 from app.services.context.context_promt import SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
@@ -196,29 +197,35 @@ class OllamaProvider:
         model: str | None = None,
         timeout: float | None = None,
     ):
-        self._base_url = base_url or settings.ollama_base_url
-        self._model = model or settings.ollama_model
-        self._vision_model = (
-            settings.ollama_vision_model or self._model
-        )
+        # None = valeur de la configuration (backoffice, sinon .env), relue à chaque appel.
+        self._base_url_override = base_url
+        self._model_override = model
         self._timeout = timeout or settings.ollama_timeout
 
-    def _get_client(self) -> _ollama.AsyncClient:
-        headers = {}
-        if settings.ollama_api_key:
-            headers["Authorization"] = f"Bearer {settings.ollama_api_key}"
-        return _ollama.AsyncClient(
-            host=self._base_url,
-            timeout=self._timeout,
-            headers=headers,
-        )
+    async def base_url(self) -> str:
+        return self._base_url_override or await settings_store.get("ollama_base_url")
+
+    async def model(self) -> str:
+        return self._model_override or await settings_store.get("ollama_model")
+
+    async def vision_model(self) -> str:
+        return await settings_store.get("ollama_vision_model") or await self.model()
+
+    async def _client(self) -> _ollama.AsyncClient:
+        """Client configuré avec les valeurs courantes (backoffice, sinon .env)."""
+        return self._get_client(await self.base_url(), await settings_store.get("ollama_api_key"))
+
+    def _get_client(self, base_url: str, api_key: str) -> _ollama.AsyncClient:
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        return _ollama.AsyncClient(host=base_url, timeout=self._timeout, headers=headers)
 
     async def analyze(self, structured_context: dict[str, Any]) -> dict[str, Any]:
         prompt = _build_prompt(structured_context)
-        client = self._get_client()
+        client = await self._client()
+        model = await self.model()
         try:
             response = await client.chat(
-                model=self._model,
+                model=model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
@@ -250,10 +257,11 @@ class OllamaProvider:
             f"{catalogue}\n\n"
             "Extrais les champs de ce ticket de caisse."
         )
-        client = self._get_client()
+        client = await self._client()
+        vision_model = await self.vision_model()
         try:
             response = await client.chat(
-                model=self._vision_model,
+                model=vision_model,
                 messages=[
                     {
                         "role": "system",
@@ -282,7 +290,7 @@ def _explain_ollama_error(exc: Exception) -> str:
     """Message lisible pour l'utilisateur ; le détail brut reste dans les logs."""
     status = getattr(exc, "status_code", None)
     if status in (401, 403):
-        return "Clé API Ollama absente ou invalide (vérifiez OLLAMA_API_KEY côté serveur)"
+        return "Clé API Ollama absente ou invalide (backoffice › Configuration, ou OLLAMA_API_KEY)"
     return str(exc)
 
 

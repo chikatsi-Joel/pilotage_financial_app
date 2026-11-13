@@ -13,13 +13,15 @@ import asyncio
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuthSession, User
+from app.db.upsert import insert_ignore
+from app.models import AuthSession, User, UserActivityDay
 from app.schemas.common import (
     FirebaseSignInRequest,
     LoginRequest,
@@ -339,10 +341,30 @@ async def authenticate(token: str, db: AsyncSession) -> User | None:
         return None
     session, user = row
     now = datetime.now(timezone.utc)
+    dirty = False
     if now - _aware(session.last_used_at) > _LAST_USED_REFRESH:
         session.last_used_at = now
+        dirty = True
+    if await _record_activity(user.id, now.date(), db):
+        dirty = True
+    if dirty:
         await db.commit()
     return user
+
+
+# Jours d'activité déjà écrits par ce processus : une seule écriture par utilisateur et par jour.
+_activity_seen: set[tuple[UUID, date]] = set()
+
+
+async def _record_activity(user_id: UUID, day: date, db: AsyncSession) -> bool:
+    """Marque l'utilisateur actif ce jour-là (KPI du backoffice) ; True si une écriture a eu lieu."""
+    if (user_id, day) in _activity_seen:
+        return False
+    if len(_activity_seen) > 100_000:
+        _activity_seen.clear()
+    await insert_ignore(db, UserActivityDay, [{"user_id": user_id, "day": day}], ["user_id", "day"])
+    _activity_seen.add((user_id, day))
+    return True
 
 
 async def logout(token: str, db: AsyncSession) -> None:

@@ -65,6 +65,19 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     scheduler_interval_seconds: int = 900
 
+    # Backoffice (/admin). Clé de chiffrement des secrets de la table app_settings : n'importe
+    # quelle chaîne longue et aléatoire ; la changer rend illisibles les secrets déjà enregistrés.
+    settings_secret_key: str = ""
+    admin_session_hours: int = 12
+    # Cookie de session admin en HTTPS uniquement. Vide = actif sauf en environnement « development ».
+    admin_cookie_secure: bool | None = None
+
+    @property
+    def admin_cookie_is_secure(self) -> bool:
+        if self.admin_cookie_secure is not None:
+            return self.admin_cookie_secure
+        return self.environment != "development"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_origins(cls, value):

@@ -39,3 +39,21 @@ async def upsert(
         set_={column: stmt.excluded[column] for column in update_columns},
     )
     await db.execute(stmt)
+
+
+async def insert_ignore(
+    db: AsyncSession,
+    model: type[Base],
+    rows: Sequence[Mapping[str, Any]],
+    conflict_columns: Iterable[str],
+) -> None:
+    """INSERT … ON CONFLICT DO NOTHING : ajoute les lignes absentes, ignore les autres."""
+    if not rows:
+        return
+    insert = _INSERTS.get(db.get_bind().dialect.name)
+    if insert is None:
+        raise NotImplementedError("insert_ignore non pris en charge pour ce dialecte")
+    stmt = insert(model).values(list(rows)).on_conflict_do_nothing(
+        index_elements=list(conflict_columns)
+    )
+    await db.execute(stmt)

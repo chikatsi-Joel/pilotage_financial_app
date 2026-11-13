@@ -9,3 +9,8 @@ __pycache__/
 
 # Sauvegardes locales de configuration (contiennent des secrets)
 .env*.bak
+
+# Backoffice compilé (généré par npm run build ou par le Dockerfile)
+static/admin/
+backoffice/node_modules/
+backoffice/*.tsbuildinfo

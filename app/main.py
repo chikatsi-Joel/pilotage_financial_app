@@ -1,12 +1,15 @@
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routers import (
+    admin,
     ai,
     analytics,
     auth,
@@ -27,15 +30,13 @@ from app.services import notification_service
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    task = (
-        asyncio.create_task(notification_service.scheduler_loop())
-        if settings.scheduler_enabled and settings.push_enabled
-        else None
-    )
+    tasks: list[asyncio.Task] = []
+    if settings.scheduler_enabled and settings.push_enabled:
+        tasks.append(asyncio.create_task(notification_service.scheduler_loop()))
     try:
         yield
     finally:
-        if task:
+        for task in tasks:
             task.cancel()
 
 
@@ -66,6 +67,25 @@ app.include_router(what_if.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
 app.include_router(receipts.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(admin.router)
+
+# Backoffice (pages compilées de backoffice/ dans static/admin) : toute route inconnue sous
+# /admin renvoie index.html (navigation côté client).
+ADMIN_DIR = Path(__file__).resolve().parent.parent / "static" / "admin"
+
+
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin/{path:path}", include_in_schema=False)
+async def admin_app(path: str = ""):
+    if path.startswith("api/"):
+        raise HTTPException(status_code=404)
+    candidate = (ADMIN_DIR / path).resolve()
+    if path and candidate.is_file() and ADMIN_DIR in candidate.parents:
+        return FileResponse(candidate)
+    index = ADMIN_DIR / "index.html"
+    if not index.is_file():
+        raise HTTPException(status_code=404, detail="Backoffice non compilé (npm run build dans backoffice/)")
+    return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/health", tags=["system"])

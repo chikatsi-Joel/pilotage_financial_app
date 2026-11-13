@@ -75,6 +75,9 @@ class User(Base):
     expenses: Mapped[list["Expense"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     savings_goals: Mapped[list["SavingsGoal"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
+    # KPI du backoffice (inscriptions par période).
+    __table_args__ = (Index("ix_users_created_at", "created_at"),)
+
 
 class AuthSession(Base):
     """Session d'appareil : le jeton n'expire jamais, seule la déconnexion le révoque."""
@@ -117,11 +120,16 @@ class NotificationLog(Base):
 
     __tablename__ = "notification_log"
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Pas d'index propre sur user_id : uq_notification_user_key (user_id, key) le couvre.
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     key: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    __table_args__ = (UniqueConstraint("user_id", "key", name="uq_notification_user_key"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "key", name="uq_notification_user_key"),
+        # Historique du backoffice (tri par date) et statistiques sur 30 jours.
+        Index("ix_notification_log_created_at", "created_at"),
+    )
 
 
 class Income(Base):
@@ -174,6 +182,11 @@ class Expense(Base):
         # l'ancien ix_expense_user_date (user_id, expense_date), supprimé en 0011.
         Index("ix_expense_user_date_id", "user_id", desc("expense_date"), desc("id")),
         Index("ix_expense_category_date", "category_id", "expense_date"),
+        # KPI du backoffice (dépenses sur 30 jours, tous utilisateurs) : BRIN, quelques Ko et
+        # coût d'écriture quasi nul sur la table la plus écrite. PostgreSQL uniquement.
+        Index("ix_expense_date_brin", "expense_date", postgresql_using="brin").ddl_if(
+            dialect="postgresql"
+        ),
     )
 
 
@@ -300,3 +313,55 @@ class AIAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "period", name="uq_ai_analysis_user_period"),)
+
+
+# ── Backoffice ───────────────────────────────────────────────────────────
+
+
+class UserActivityDay(Base):
+    """Un jour où l'utilisateur a utilisé l'app (requête authentifiée) : base des KPI « actifs »."""
+
+    __tablename__ = "user_activity_days"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+
+    # count(DISTINCT user_id) par période en index-only scan.
+    __table_args__ = (Index("ix_user_activity_day_user", "day", "user_id"),)
+
+
+class AdminUser(Base):
+    """Compte du backoffice, distinct des comptes de l'app."""
+
+    __tablename__ = "admin_users"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AdminSession(Base):
+    __tablename__ = "admin_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    admin_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("admin_users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AppSetting(Base):
+    """Configuration générale modifiable depuis le backoffice (clé API Ollama, etc.).
+
+    Les secrets sont chiffrés (Fernet, clé `SETTINGS_SECRET_KEY` du serveur) et jamais renvoyés en clair.
+    """
+
+    __tablename__ = "app_settings"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    is_secret: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    updated_by: Mapped[str | None] = mapped_column(String(254), nullable=True)

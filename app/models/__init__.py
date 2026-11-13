@@ -1,5 +1,8 @@
 from app.models.entities import (
+    AdminSession,
+    AdminUser,
     AIAnalysis,
+    AppSetting,
     AuthSession,
     Budget,
     Category,
@@ -21,9 +24,14 @@ from app.models.entities import (
     SavingsGoal,
     TrendDirection,
     User,
+    UserActivityDay,
 )
 
 __all__ = [
+    "AdminSession",
+    "AdminUser",
+    "AppSetting",
+    "UserActivityDay",
     "AIAnalysis",
     "AuthSession",
     "Budget",

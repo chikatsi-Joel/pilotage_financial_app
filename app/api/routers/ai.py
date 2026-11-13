@@ -128,6 +128,6 @@ async def ai_health():
     provider = get_ai_provider()
     return {
         "status": "ok",
-        "ollama_url": provider._base_url,
-        "configured_model": provider._model,
+        "ollama_url": await provider.base_url(),
+        "configured_model": await provider.model(),
     }

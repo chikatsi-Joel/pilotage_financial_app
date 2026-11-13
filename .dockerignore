@@ -5,3 +5,10 @@ __pycache__
 .ruff_cache
 .env
 *.pyc
+node_modules
+**/node_modules
+finance_mobile
+graphify-out
+static/admin
+stitch_finances_baseline_analyzer
+backoffice/*.tsbuildinfo
