@@ -1,11 +1,75 @@
 {
   "parameters": {
+    "announcement_text": {
+      "defaultValue": {
+        "value": "Nouveau : donnez une échéance à vos objectifs d'épargne, Lucia vous dit combien mettre de côté chaque mois."
+      },
+      "conditionalValues": {
+        "salutation test": {
+          "rolloutValue": {
+            "rolloutId": "rollout_1",
+            "value": "Salut tout le monde.. Bienvenue sur l'application LUCIA"
+          }
+        }
+      },
+      "description": "Bandeau en tête de l'accueil (280 caractères max). Vide = aucun bandeau.",
+      "valueType": "STRING"
+    },
     "api_base_url": {
       "defaultValue": {
         "value": "http://172.21.253.63:8000/api/v1"
       },
       "description": "Adresse du serveur Lucia (origine ou base /api/v1). Vide = adresse intégrée au build.",
       "valueType": "STRING"
+    },
+    "maintenance_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "true = écran de maintenance plein écran sur toutes les apps, en temps réel.",
+      "valueType": "BOOLEAN"
+    },
+    "announcement_link": {
+      "defaultValue": {
+        "value": ""
+      },
+      "description": "Lien https « En savoir plus » du bandeau (optionnel).",
+      "valueType": "STRING"
+    },
+    "maintenance_message": {
+      "defaultValue": {
+        "value": ""
+      },
+      "description": "Texte de l'écran de maintenance. Vide = message par défaut.",
+      "valueType": "STRING"
+    },
+    "tour_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Visite guidée de l'accueil (lancée une fois par appareil). false = jamais automatiquement.",
+      "valueType": "BOOLEAN"
+    },
+    "tour_version": {
+      "defaultValue": {
+        "value": "1"
+      },
+      "description": "Augmenter ce nombre remontre toutes les visites guidées à tous les utilisateurs.",
+      "valueType": "NUMBER"
+    },
+    "tour_steps": {
+      "defaultValue": {
+        "value": "{}"
+      },
+      "description": "JSON par page {dashboard|analyse|budget|savings: [{target,title,text}]}. Cibles : voir finance_mobile/src/shared/utils/tour.ts (TOUR_TARGETS). {} = textes intégrés.",
+      "valueType": "JSON"
     }
-  }
+  },
+  "conditions": [
+    {
+      "name": "salutation test",
+      "expression": "device.os == 'android'",
+      "tagColor": "BLUE"
+    }
+  ]
 }

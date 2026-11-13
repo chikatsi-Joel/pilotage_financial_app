@@ -19,6 +19,7 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg"
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, interFonts } from "../../src/ui/theme";
+import { useAutoTour, useTour } from "../../src/ui/tour/TourProvider";
 import { budget as budgetApi } from "../../src/shared/api/budget";
 import { categories as categoriesApi } from "../../src/shared/api/categories";
 import { useAppStore } from "../../src/shared/store";
@@ -504,6 +505,9 @@ export default function Budget() {
   const [refreshing, setRefreshing] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const tour = useTour();
+  useAutoTour("budget", loaded, addModalVisible);
 
   const formatCurrency = useCallback(
     (n: number) => formatMoney(n, currency),
@@ -566,6 +570,7 @@ export default function Budget() {
       setCategories([]);
     } finally {
       setRefreshing(false);
+      setLoaded(true);
     }
   }, [userId, period]);
 
@@ -671,7 +676,7 @@ export default function Budget() {
               <Text style={styles.headerEyebrow}>Votre budget</Text>
               <Text style={styles.headerTitle}>Budget</Text>
             </View>
-            <View style={styles.monthPill}>
+            <View collapsable={false} ref={tour.target("budget.month")} style={styles.monthPill}>
               <Text style={styles.monthText}>{monthLabel(period)}</Text>
             </View>
           </View>
@@ -694,6 +699,7 @@ export default function Budget() {
                 catégorie pour démarrer la répartition.
               </Text>
               <Pressable
+                ref={tour.target("budget.add")}
                 style={styles.emptyCta}
                 onPress={openCreate}
                 accessibilityLabel="Créer une catégorie"
@@ -763,7 +769,7 @@ export default function Budget() {
             {/* ── Décision budgétaire ── */}
             {data && (
               <FadeIn delay={140}>
-                <View style={styles.decisionCard}>
+                <View collapsable={false} ref={tour.target("budget.decision")} style={styles.decisionCard}>
                   <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb1]} />
                   <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb2]} />
                   <View pointerEvents="none" style={[styles.heroOrb, styles.decisionOrb3]} />
@@ -835,6 +841,7 @@ export default function Budget() {
                   </Text>
                 </View>
                 <Pressable
+                  ref={tour.target("budget.add")}
                   style={styles.addCatBtn}
                   onPress={openCreate}
                   accessibilityLabel="Ajouter une catégorie"

@@ -21,6 +21,8 @@ interface Props {
   name: string | null;
   onClose: () => void;
   onNotifications: () => void;
+  /** Remet les visites guidées à zéro et relance celle de l'accueil. */
+  onTour: () => void;
   onSignOut: () => void | Promise<void>;
 }
 
@@ -31,7 +33,7 @@ const CLOSE_MS = 180;
  * Menu du compte : feuille qui monte du bas de l'écran.
  * La déconnexion demande une confirmation dans la feuille (pas de boîte système).
  */
-export function ProfileMenu({ visible, name, onClose, onNotifications, onSignOut }: Props) {
+export function ProfileMenu({ visible, name, onClose, onNotifications, onTour, onSignOut }: Props) {
   const insets = useSafeAreaInsets();
   const progress = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
@@ -169,6 +171,17 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onSignOut
                   <MaterialCommunityIcons color={colors.primary} name="bell-outline" size={20} />
                 </View>
                 <Text style={styles.cardTitle}>Notifications</Text>
+                <MaterialCommunityIcons color={colors.primary} name="chevron-right" size={22} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => closeThen(onTour)}
+                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              >
+                <View style={styles.cardIcon}>
+                  <MaterialCommunityIcons color={colors.primary} name="map-marker-path" size={20} />
+                </View>
+                <Text style={styles.cardTitle}>Revoir les visites guidées</Text>
                 <MaterialCommunityIcons color={colors.primary} name="chevron-right" size={22} />
               </Pressable>
               <Pressable

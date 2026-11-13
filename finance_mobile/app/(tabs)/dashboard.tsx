@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,7 +14,10 @@ import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 
 import { colors, interFonts } from "../../src/ui/theme";
+import { AnnouncementBanner } from "../../src/ui/AnnouncementBanner";
 import { ProfileMenu } from "../../src/ui/ProfileMenu";
+import { useAutoTour, useTour } from "../../src/ui/tour/TourProvider";
+import { useRemoteFlags } from "../../src/shared/config/remoteFlags";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
 import { signOut } from "../../src/shared/auth/signOut";
@@ -705,6 +708,18 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Visite guidée de l'accueil, une fois les données affichées.
+  const tour = useTour();
+  const maintenance = useRemoteFlags((s) => s.maintenance.enabled);
+  useEffect(() => {
+    // La maintenance ferme le menu, qui passerait au-dessus de son écran.
+    if (maintenance) setMenuOpen(false);
+  }, [maintenance]);
+  useAutoTour("dashboard", data !== null, menuOpen);
+  const replayTours = useCallback(() => {
+    void tour.resetAll().then(() => tour.start("dashboard"));
+  }, [tour]);
+
   /** Mois précédent, pour les flèches de tendance. Les dépenses sont comparées à date égale. */
   const loadPrevious = useCallback(
     async (uid: string) => {
@@ -888,6 +903,7 @@ export default function Dashboard() {
           <Text style={styles.headerTitle}>Tableau de bord</Text>
           <View style={styles.headerActions}>
             <Pressable
+              ref={tour.target("income")}
               accessibilityRole="button"
               accessibilityLabel="Ajouter un revenu (salaire, prêt, dividende)"
               onPress={() => router.push("/add-income")}
@@ -903,6 +919,7 @@ export default function Dashboard() {
               />
             </Pressable>
             <Pressable
+              ref={tour.target("account")}
               accessibilityRole="button"
               accessibilityLabel="Mon compte"
               onPress={() => setMenuOpen(true)}
@@ -919,13 +936,16 @@ export default function Dashboard() {
               onClose={closeMenu}
               onNotifications={openNotifications}
               onSignOut={signOut}
+              onTour={replayTours}
               visible={menuOpen}
             />
           </View>
         </View>
 
+        <AnnouncementBanner />
+
         {/* ── Solde Restant ── */}
-        <View style={styles.soldeCard}>
+        <View collapsable={false} ref={tour.target("balance")} style={styles.soldeCard}>
           <View pointerEvents="none" style={styles.soldeDecorTop} />
           <View pointerEvents="none" style={styles.soldeDecorBottom} />
           <Text style={styles.soldeLabel}>Solde Restant</Text>

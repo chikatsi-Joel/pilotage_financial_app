@@ -543,3 +543,69 @@ test("goal deadline: presets, monthly effort and labels", () => {
   assert.equal(durationLabel("2026-07-31", today), "Dans 6 mois");
   assert.equal(durationLabel("2026-01-20", today), "Échéance dépassée");
 });
+
+test("remote flags: maintenance and announcement parsing", () => {
+  const { parseRemoteFlags, DEFAULT_MAINTENANCE_MESSAGE } = load("src/shared/utils/remoteFlags.ts");
+  const base = { maintenanceEnabled: "", maintenanceMessage: "", announcementText: "", announcementLink: "" };
+  const off = parseRemoteFlags(base);
+  assert.equal(off.maintenance.enabled, false);
+  assert.equal(off.maintenance.message, DEFAULT_MAINTENANCE_MESSAGE);
+  assert.equal(off.announcement, null);
+
+  const on = parseRemoteFlags({ ...base, maintenanceEnabled: " TRUE ", maintenanceMessage: " Retour à 14h " });
+  assert.deepEqual(on.maintenance, { enabled: true, message: "Retour à 14h" });
+  assert.equal(parseRemoteFlags({ ...base, maintenanceEnabled: "nope" }).maintenance.enabled, false);
+
+  const ann = parseRemoteFlags({ ...base, announcementText: " Nouveau ! ", announcementLink: "https://lucia.app/news" });
+  assert.deepEqual(ann.announcement, { text: "Nouveau !", link: "https://lucia.app/news" });
+  assert.equal(parseRemoteFlags({ ...base, announcementText: "x", announcementLink: "javascript:alert(1)" }).announcement.link, null);
+  assert.equal(parseRemoteFlags({ ...base, announcementText: "x", announcementLink: "http://insecure" }).announcement.link, null);
+  assert.equal(parseRemoteFlags({ ...base, announcementText: "y".repeat(400) }).announcement.text.length, 280);
+});
+
+test("guided tours: per-page Remote Config steps, version and placement", () => {
+  const t = load("src/shared/utils/tour.ts");
+  const d = t.DEFAULT_TOURS;
+  assert.deepEqual(t.parseTours(""), d);
+  assert.deepEqual(t.parseTours("pas du json"), d);
+  // Ancien format : un tableau = visite de l'accueil.
+  const legacy = t.parseTours('[{"target":"account","title":"Compte","text":"x"}]');
+  assert.deepEqual(legacy.dashboard.map((s) => s.target), ["account"]);
+  assert.equal(legacy.budget, d.budget);
+  // Format par page ; cible d'une autre page ignorée ; doublon ignoré ; texte manquant repris.
+  const tours = t.parseTours(JSON.stringify({
+    budget: [
+      { target: "budget.add", title: " Catégories " },
+      { target: "balance", title: "pas ici", text: "x" },
+      { target: "budget.add", title: "doublon", text: "x" },
+    ],
+    savings: [],
+    inconnu: [{ target: "x", title: "y", text: "z" }],
+  }));
+  assert.deepEqual(tours.budget.map((s) => s.target), ["budget.add"]);
+  assert.equal(tours.budget[0].title, "Catégories");
+  assert.equal(tours.budget[0].text, d.budget.find((s) => s.target === "budget.add").text);
+  assert.equal(tours.savings, d.savings);
+  assert.equal(t.tourSeenKey("budget"), "lucia-tour-seen-version:budget");
+
+  assert.equal(t.parseTourVersion(""), 1);
+  assert.equal(t.parseTourVersion("3"), 3);
+  assert.equal(t.parseTourVersion("-2"), 1);
+  assert.equal(t.shouldAutoStartTour(true, 1, null), true);
+  assert.equal(t.shouldAutoStartTour(true, 1, "1"), false);
+  assert.equal(t.shouldAutoStartTour(true, 2, "1"), true);
+  assert.equal(t.shouldAutoStartTour(false, 2, null), false);
+
+  const screen = { width: 400, height: 800 };
+  assert.equal(t.isOnScreen({ x: 10, y: 700, width: 50, height: 120 }, screen), false);
+  assert.equal(t.isOnScreen({ x: 10, y: 600, width: 50, height: 120 }, screen), true);
+  const bubble = { width: 300, height: 180 };
+  const low = t.placeBubble({ x: 20, y: 100, width: 360, height: 120 }, screen, bubble);
+  assert.equal(low.below, true);
+  assert.equal(low.top, 234);
+  const tab = t.placeBubble({ x: 330, y: 720, width: 50, height: 40 }, screen, bubble);
+  assert.equal(tab.below, false);
+  assert.equal(tab.top, 720 - 14 - 180);
+  assert.equal(tab.left, 400 - 16 - 300);
+  assert.ok(tab.arrowLeft <= 300 - 22 && tab.arrowLeft >= 22);
+});

@@ -4,6 +4,15 @@ import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors, interFonts } from "../../src/ui/theme";
+import { useTour } from "../../src/ui/tour/TourProvider";
+import type { TourTarget } from "../../src/shared/utils/tour";
+
+/** Onglets expliqués par la visite guidée. */
+const TOUR_TABS: Record<string, TourTarget> = {
+  analyse: "tab-analyse",
+  budget: "tab-budget",
+  savings: "tab-savings",
+};
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -22,6 +31,7 @@ const FALLBACK: { active: IconName; idle: IconName } = {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const tour = useTour();
 
   return (
     <Tabs
@@ -42,7 +52,11 @@ export default function TabLayout() {
         tabBarIcon: ({ color, focused }) => {
           const set = icons[route.name] ?? FALLBACK;
           return (
-            <View style={[styles.pill, focused && styles.pillActive]}>
+            <View
+              collapsable={false}
+              ref={TOUR_TABS[route.name] ? tour.target(TOUR_TABS[route.name]) : undefined}
+              style={[styles.pill, focused && styles.pillActive]}
+            >
               <MaterialCommunityIcons
                 color={String(color)}
                 name={focused ? set.active : set.idle}

@@ -17,6 +17,7 @@ import { Link, router, useFocusEffect } from "expo-router";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { colors, interFonts } from "../../src/ui/theme";
+import { useAutoTour, useTour } from "../../src/ui/tour/TourProvider";
 import { EmptyState } from "../../src/ui/components";
 import { savings as savingsApi } from "../../src/shared/api/savings";
 import { useAppStore } from "../../src/shared/store";
@@ -228,6 +229,9 @@ export default function Savings() {
   const [newDeadline, setNewDeadline] = useState(() => addMonthsISO(new Date(), 12));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const tour = useTour();
+  useAutoTour("savings", loaded, createVisible || editId !== null);
 
   const formatEur = useCallback(
     (n: number) => formatMoney(n, currency),
@@ -252,6 +256,8 @@ export default function Savings() {
       );
     } catch {
       setGoals([]);
+    } finally {
+      setLoaded(true);
     }
   }, [userId]);
 
@@ -369,7 +375,7 @@ export default function Savings() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Total savings ── */}
-        <View style={styles.totalSection}>
+        <View collapsable={false} ref={tour.target("savings.total")} style={styles.totalSection}>
           <Text style={styles.totalLabel}>Épargne totale</Text>
           <Text style={styles.totalAmount}>{formatEur(totalSavings)}</Text>
           <View style={styles.totalPill}>
@@ -385,7 +391,7 @@ export default function Savings() {
         </View>
 
         {/* ── Global progress ── */}
-        <View style={styles.progressCard}>
+        <View collapsable={false} ref={tour.target("savings.progress")} style={styles.progressCard}>
           <View pointerEvents="none" style={[styles.progressOrb, styles.progressOrb1]} />
           <View pointerEvents="none" style={[styles.progressOrb, styles.progressOrb2]} />
           <View pointerEvents="none" style={[styles.progressOrb, styles.progressOrb3]} />
@@ -402,6 +408,7 @@ export default function Savings() {
         <View style={styles.sectionHeader}>
           <Text style={styles.goalsTitle}>Vos objectifs</Text>
           <Pressable
+            ref={tour.target("savings.add")}
             onPress={openCreate}
             hitSlop={6}
             style={styles.addGoalBtn}

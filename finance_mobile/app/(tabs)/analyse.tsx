@@ -22,6 +22,7 @@ import type { CategoryAnalytics } from "../../src/shared/types";
 import { groupByDate } from "../../src/shared/utils/paging";
 import { formatMoney } from "../../src/shared/utils/money";
 import { colors, interFonts } from "../../src/ui/theme";
+import { useAutoTour, useTour } from "../../src/ui/tour/TourProvider";
 import { expenseTag, type ExpenseTagKind } from "../../src/shared/utils/optimization";
 
 /** Couleurs des étiquettes : essentielle (bleu), optimisable (violet), autre (gris). */
@@ -94,6 +95,9 @@ export default function Depenses() {
     reload,
     loadMore,
   } = usePagedExpenses({ userId, from, to, q: debouncedQuery });
+
+  const tour = useTour();
+  useAutoTour("analyse", !loading);
 
   const catById = useMemo(() => {
     const map = new Map<string, CategoryAnalytics>();
@@ -237,6 +241,7 @@ export default function Depenses() {
         </View>
         <View style={styles.headerRight}>
           <Pressable
+            ref={tour.target("expenses.analyse")}
             style={styles.analyseBtn}
             onPress={() => router.push("/analyse-insights")}
             hitSlop={6}
@@ -276,17 +281,20 @@ export default function Depenses() {
         ListHeaderComponent={
           <View style={styles.listHeader}>
         {/* ── Search bar ── */}
-        <SearchBar
-          placeholder="Rechercher une transaction..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onFilterPress={() => {}}
-        />
+        <View collapsable={false} ref={tour.target("expenses.search")}>
+          <SearchBar
+            placeholder="Rechercher une transaction..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onFilterPress={() => {}}
+          />
+        </View>
 
         {/* ── Résumé du mois ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Résumé du mois</Text>
           <Pressable
+            ref={tour.target("expenses.add")}
             style={styles.addCatBtn}
             onPress={() => router.push("/add-expense")}
             hitSlop={6}
@@ -297,7 +305,7 @@ export default function Depenses() {
             <Text style={styles.addCatText}>Ajouter</Text>
           </Pressable>
         </View>
-        <View style={styles.summaryGrid}>
+        <View collapsable={false} ref={tour.target("expenses.summary")} style={styles.summaryGrid}>
           <View style={styles.summaryCard}>
             <View style={styles.summaryDecor} />
             <View style={styles.summaryIconRow}>

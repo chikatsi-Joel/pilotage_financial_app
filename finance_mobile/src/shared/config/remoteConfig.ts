@@ -1,12 +1,33 @@
 import { overrideApiUrl } from "../api/baseUrl";
+import { parseRemoteFlags } from "../utils/remoteFlags";
+import { parseTours, parseTourVersion } from "../utils/tour";
 import { hasFirebaseNative } from "./firebaseNative";
+import { useRemoteFlags } from "./remoteFlags";
 
 type RemoteConfigModule = typeof import("@react-native-firebase/remote-config");
 
 /** Clés lues dans Firebase Remote Config. */
 export const REMOTE_KEYS = {
   apiBaseUrl: "api_base_url",
+  maintenanceEnabled: "maintenance_enabled",
+  maintenanceMessage: "maintenance_message",
+  announcementText: "announcement_text",
+  announcementLink: "announcement_link",
+  tourEnabled: "tour_enabled",
+  tourVersion: "tour_version",
+  tourSteps: "tour_steps",
 } as const;
+
+/** Valeurs embarquées : utilisées tant que Firebase n'a rien renvoyé. */
+const DEFAULTS: Record<string, string> = Object.fromEntries(
+  Object.values(REMOTE_KEYS).map((key) => [key, key === REMOTE_KEYS.maintenanceEnabled
+      ? "false"
+      : key === REMOTE_KEYS.tourEnabled
+        ? "true"
+        : key === REMOTE_KEYS.tourVersion
+          ? "1"
+          : ""]),
+);
 
 const FETCH_INTERVAL_MS = __DEV__ ? 0 : 60 * 60 * 1000;
 
@@ -31,7 +52,27 @@ function load(): RemoteConfigModule | null {
 
 function apply(m: RemoteConfigModule): void {
   const rc = m.getRemoteConfig();
-  overrideApiUrl(m.getValue(rc, REMOTE_KEYS.apiBaseUrl).asString());
+  const read = (key: string) => m.getValue(rc, key).asString();
+  if (__DEV__) {
+    // Diagnostic en développement : valeur reçue et origine (« remote », « default » ou « static »).
+    const v = m.getValue(rc, REMOTE_KEYS.announcementText);
+    console.log("[Remote Config] announcement_text =", JSON.stringify(v.asString()), "source:", v.getSource());
+  }
+  overrideApiUrl(read(REMOTE_KEYS.apiBaseUrl));
+  const tourEnabled = read(REMOTE_KEYS.tourEnabled).trim().toLowerCase();
+  useRemoteFlags.setState({
+    ...parseRemoteFlags({
+      maintenanceEnabled: read(REMOTE_KEYS.maintenanceEnabled),
+      maintenanceMessage: read(REMOTE_KEYS.maintenanceMessage),
+      announcementText: read(REMOTE_KEYS.announcementText),
+      announcementLink: read(REMOTE_KEYS.announcementLink),
+    }),
+    tour: {
+      enabled: tourEnabled !== "false" && tourEnabled !== "0",
+      version: parseTourVersion(read(REMOTE_KEYS.tourVersion)),
+      steps: parseTours(read(REMOTE_KEYS.tourSteps)),
+    },
+  });
 }
 
 /**
@@ -47,7 +88,7 @@ export async function initRemoteConfig(): Promise<void> {
   const rc = m.getRemoteConfig();
   try {
     // API modulaire v27 (comme le SDK web) : valeurs par défaut et réglages sont des propriétés.
-    rc.defaultConfig = { [REMOTE_KEYS.apiBaseUrl]: "" };
+    rc.defaultConfig = DEFAULTS;
     rc.settings = { ...rc.settings, minimumFetchIntervalMillis: FETCH_INTERVAL_MS, fetchTimeoutMillis: 10_000 };
     await m.activate(rc);
     apply(m);
