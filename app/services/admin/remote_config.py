@@ -11,26 +11,20 @@ publication faite entre-temps depuis la console.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
-import time
 from typing import Any
 
 import httpx
-import jwt
 
 from app.core.config import settings
-from app.services import settings_store
+from app.services import google_oauth, settings_store
 from app.services.errors import Conflict, ServiceError
 
 SCOPE = "https://www.googleapis.com/auth/firebase.remoteconfig"
 API = "https://firebaseremoteconfig.googleapis.com/v1/projects/{project}/remoteConfig"
 VALUE_TYPES = ("STRING", "BOOLEAN", "NUMBER", "JSON")
 TIMEOUT = 15.0
-
-# (empreinte du compte de service, jeton, expiration monotone) : un autre compte = nouveau jeton.
-_token: tuple[str, str, float] | None = None
 
 
 class RemoteConfigError(ServiceError):
@@ -67,8 +61,7 @@ async def _account() -> dict[str, str]:
 
 def forget_token() -> None:
     """Appelé quand le compte de service change ou est supprimé."""
-    global _token
-    _token = None
+    google_oauth.forget()
 
 
 def _error_detail(response: httpx.Response) -> str:
@@ -79,38 +72,10 @@ def _error_detail(response: httpx.Response) -> str:
 
 
 async def _access_token(client: httpx.AsyncClient) -> str:
-    global _token
-    account = await _account()
-    fingerprint = hashlib.sha256(
-        (account["client_email"] + account["private_key"]).encode()
-    ).hexdigest()
-    if _token and _token[0] == fingerprint and _token[2] - 60 > time.monotonic():
-        return _token[1]
-    now = int(time.time())
-    assertion = jwt.encode(
-        {
-            "iss": account["client_email"],
-            "scope": SCOPE,
-            "aud": account["token_uri"],
-            "iat": now,
-            "exp": now + 3600,
-        },
-        account["private_key"],
-        algorithm="RS256",
-    )
-    response = await client.post(
-        account["token_uri"],
-        data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": assertion},
-    )
-    if response.status_code != 200:
-        raise RemoteConfigError(f"Connexion Google refusée ({response.status_code})")
     try:
-        body = response.json()
-        access = str(body["access_token"])
-    except (ValueError, KeyError, TypeError) as exc:
-        raise RemoteConfigError("Réponse inattendue du serveur d'authentification Google") from exc
-    _token = (fingerprint, access, time.monotonic() + int(body.get("expires_in", 3600)))
-    return access
+        return await google_oauth.access_token(client, await _account(), SCOPE)
+    except google_oauth.GoogleAuthError as exc:
+        raise RemoteConfigError(str(exc)) from exc
 
 
 async def _project() -> str:

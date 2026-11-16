@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de confidentialité · Lucia</title>
+<style>
+  :root { --violet: #584cb9; --ink: #0b1c30; --muted: #4b4a57; --line: #e4dfff; --bg: #f8f7ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 18px 64px; }
+  header { border-bottom: 1px solid var(--line); margin-bottom: 24px; padding-bottom: 16px; }
+  .brand { color: var(--violet); font-weight: 700; letter-spacing: .4px; }
+  h1 { font-size: 1.7rem; margin: 6px 0 4px; }
+  h2 { color: var(--violet); font-size: 1.15rem; margin: 30px 0 8px; }
+  p, li { color: var(--muted); }
+  strong { color: var(--ink); }
+  ul { padding-left: 20px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .small { font-size: .9rem; }
+  a { color: var(--violet); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand">LUCIA</div>
+  <h1>Politique de confidentialité</h1>
+  <p class="small">En vigueur depuis le 16 novembre 2026.</p>
+</header>
+
+<p>Lucia est une application de gestion de finances personnelles : dépenses, revenus, budgets, objectifs d'épargne et conseils. Cette page explique quelles données Lucia traite, pourquoi, avec qui elles sont partagées et comment exercer vos droits.</p>
+
+<h2>1. Responsable du traitement</h2>
+<div class="card">
+  <p><strong>CHIKATSI PIEDJOU Gradi Joël</strong>, éditeur de Lucia, Cameroun.<br>
+  Contact : <a href="mailto:kappachikatsi@gmail.com">kappachikatsi@gmail.com</a></p>
+</div>
+
+<h2>2. Données collectées</h2>
+<ul>
+  <li><strong>Compte</strong> : adresse e-mail, nom, devise choisie, identifiant de connexion Firebase et mode de connexion (e-mail et mot de passe, ou Google). Pour les comptes créés avant Firebase, un mot de passe <em>haché</em> (jamais en clair). Les codes de vérification envoyés par e-mail sont stockés hachés et expirent.</li>
+  <li><strong>Données financières que vous saisissez</strong> : revenus, dépenses (montant, date, description, catégorie), catégories et budgets mensuels, objectifs d'épargne et versements, ainsi que les budgets, recommandations et analyses générés à partir de ces données.</li>
+  <li><strong>Photos de tickets de caisse</strong> : quand vous scannez un ticket, la photo est transmise pour en extraire le montant et la date. <strong>Lucia ne conserve pas la photo</strong> : seule la dépense que vous validez est enregistrée.</li>
+  <li><strong>Données techniques</strong> : jeton de notification push de l'appareil et sa plateforme (Android ou iOS), modèle d'appareil et version de l'application associés à votre session, jours d'utilisation de l'application, historique des notifications envoyées, identifiant d'installation utilisé par Firebase pour la configuration de l'application, adresse IP traitée par nos prestataires lors des connexions.</li>
+</ul>
+<p>Lucia ne contient <strong>aucune publicité</strong>, aucun outil de mesure d'audience publicitaire et ne vend aucune donnée.</p>
+
+<h2>3. Pourquoi nous utilisons ces données</h2>
+<ul>
+  <li>Faire fonctionner le service : enregistrer vos opérations, calculer vos budgets, vos écarts par rapport à vos habitudes et vos objectifs.</li>
+  <li>Produire des analyses et conseils personnalisés, y compris par intelligence artificielle.</li>
+  <li>Vous envoyer les notifications que vous avez activées (alertes de budget, rappels, étapes d'épargne).</li>
+  <li>Sécuriser votre compte (vérification de l'e-mail, sessions de connexion).</li>
+  <li>Suivre l'usage global du service sous forme de statistiques agrégées (nombre d'utilisateurs actifs, par exemple).</li>
+</ul>
+<p>Ces traitements reposent sur l'exécution du service que vous demandez en créant un compte, et sur votre consentement pour les notifications (désactivables à tout moment dans l'application et dans les réglages du téléphone).</p>
+
+<h2>4. Avec qui ces données sont partagées</h2>
+<ul>
+  <li><strong>Google Firebase</strong> (Authentication, Remote Config) et <strong>Google Sign-In</strong> : connexion à votre compte et configuration de l'application.</li>
+  <li><strong>Ollama</strong> (service d'intelligence artificielle en ligne, api.ollama.com) : reçoit les <strong>photos de tickets</strong> à analyser et, pour l'analyse de vos dépenses, un <strong>résumé de votre situation financière</strong> (noms de catégories, montants du mois, habitudes de dépense, revenus et épargne). Lucia ne transmet ces données qu'aux fins de produire la réponse affichée dans l'application ; leur traitement par Ollama est régi par sa propre <a href="https://ollama.com/privacy">politique de confidentialité</a>.</li>
+  <li><strong>Expo</strong>, puis <strong>Firebase Cloud Messaging</strong> (Android) ou <strong>Apple Push Notification service</strong> (iOS) : acheminement des notifications. Une notification peut contenir un nom de catégorie ou un montant.</li>
+  <li><strong>Google Gmail</strong> : envoi des e-mails contenant vos codes de vérification.</li>
+  <li><strong>Notre hébergeur</strong> (Oracle Cloud Infrastructure) : stockage de la base de données et exécution du serveur Lucia.</li>
+</ul>
+<p>Ces prestataires peuvent traiter des données en dehors du Cameroun. Nous ne leur transmettons que ce qui est nécessaire au service rendu.</p>
+
+<h2>5. Durée de conservation</h2>
+<ul>
+  <li>Vos données sont conservées tant que votre compte existe.</li>
+  <li>Une session de connexion reste active jusqu'à ce que vous vous déconnectiez ou supprimiez votre compte.</li>
+  <li>Quand vous supprimez votre compte, toutes vos données sont effacées immédiatement de la base. Les sauvegardes techniques du serveur sont conservées <strong>15 jours au maximum</strong> puis détruites ; vos données en disparaissent donc au plus tard 15 jours après la suppression.</li>
+</ul>
+
+<h2>6. Vos droits</h2>
+<p>Vous pouvez à tout moment :</p>
+<ul>
+  <li><strong>consulter et corriger</strong> vos données directement dans l'application ;</li>
+  <li><strong>supprimer votre compte et toutes vos données</strong> depuis l'application (Profil &rsaquo; Supprimer mon compte) ou en suivant la <a href="/suppression-compte">procédure de suppression</a> ;</li>
+  <li><strong>obtenir une copie</strong> de vos données ou vous opposer à un traitement, en écrivant à <a href="mailto:kappachikatsi@gmail.com">kappachikatsi@gmail.com</a>. Nous répondons sous 30 jours.</li>
+</ul>
+<p>Ces droits s'exercent conformément à la loi camerounaise sur la protection des données à caractère personnel.</p>
+
+<h2>7. Sécurité</h2>
+<ul>
+  <li>Les échanges entre l'application et le serveur sont chiffrés (HTTPS).</li>
+  <li>Les mots de passe et codes de vérification sont stockés hachés.</li>
+  <li>Les clés et secrets du serveur sont chiffrés.</li>
+  <li>L'accès à l'outil d'administration est réservé à l'éditeur et protégé par un identifiant distinct.</li>
+</ul>
+
+<h2>8. Mineurs</h2>
+<p>Lucia s'adresse aux personnes de 16 ans et plus. Nous ne collectons pas sciemment de données concernant des enfants plus jeunes.</p>
+
+<h2>9. Modifications</h2>
+<p>Si cette politique change, la nouvelle version est publiée sur cette page avec sa date d'entrée en vigueur, et les changements importants vous sont signalés dans l'application.</p>
+</main>
+</body>
+</html>

@@ -148,3 +148,54 @@ export async function firebaseSignOut(): Promise<void> {
     }
   }
 }
+
+/** Mode de connexion de l'utilisateur Firebase courant ; `null` = compte sans Firebase. */
+export function currentProvider(): "password" | "google.com" | null {
+  const user = loadAuth()?.getAuth().currentUser;
+  if (!user) return null;
+  const ids = user.providerData.map((p) => p.providerId);
+  if (ids.includes("google.com")) return "google.com";
+  return ids.includes("password") ? "password" : null;
+}
+
+/**
+ * Ré-identification avant une action sensible (suppression du compte) : renvoie un ID token
+ * tout frais, dont la date d'authentification prouve au serveur que c'est bien l'utilisateur.
+ * `null` si l'utilisateur a fermé la fenêtre Google.
+ */
+export async function reauthenticate(password?: string): Promise<string | null> {
+  const mod = requireAuth();
+  const user = mod.getAuth().currentUser;
+  if (!user) throw new FirebaseAuthError("auth/no-current-user", "Aucun compte Firebase connecté");
+  try {
+    if (currentProvider() === "google.com") {
+      const google = loadGoogle();
+      if (!google) throw new FirebaseAuthError("auth/unavailable", "Google indisponible");
+      const res = await google.GoogleSignin.signIn();
+      if (res.type !== "success") return null;
+      if (!res.data.idToken) throw new FirebaseAuthError("auth/no-id-token", "Jeton Google manquant");
+      await mod.reauthenticateWithCredential(user, mod.GoogleAuthProvider.credential(res.data.idToken));
+    } else {
+      if (!password || !user.email) throw new FirebaseAuthError("auth/missing-password", "Mot de passe requis");
+      await mod.reauthenticateWithCredential(user, mod.EmailAuthProvider.credential(user.email, password));
+    }
+    return await mod.getIdToken(user, true);
+  } catch (error) {
+    const code = (error as { code?: string })?.code;
+    if (loadGoogle() && code === loadGoogle()?.statusCodes.SIGN_IN_CANCELLED) return null;
+    throw error instanceof FirebaseAuthError ? error : wrap(error);
+  }
+}
+
+/** Supprime le compte Firebase sur l'appareil, au mieux (le serveur le fait aussi). */
+export async function firebaseDeleteCurrentUser(): Promise<void> {
+  const mod = loadAuth();
+  const user = mod?.getAuth().currentUser;
+  if (!mod || !user) return;
+  try {
+    await mod.deleteUser(user);
+  } catch {
+    // Déjà supprimé côté serveur, ou ré-identification trop ancienne : sans conséquence,
+    // les données Lucia sont déjà effacées.
+  }
+}

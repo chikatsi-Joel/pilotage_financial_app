@@ -90,3 +90,8 @@ export async function unregisterPush(userId: string): Promise<void> {
     // Hors ligne : le serveur retirera l'appareil quand Expo le signalera inactif.
   }
 }
+
+/** Oublie le jeton push local sans appel serveur (compte supprimé : ses appareils aussi). */
+export async function forgetPushToken(): Promise<void> {
+  await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => undefined);
+}

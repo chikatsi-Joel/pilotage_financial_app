@@ -147,7 +147,7 @@ def _build_prompt(context: dict[str, Any]) -> str:
             f"current={cat.get('current_amount', 0)}, "
             f"baseline={cat.get('baseline_amount', 'N/A')}, "
             f"expected={cat.get('expected_amount', 'N/A')}, "
-            f"variation={cat.get('variation_percentage', 0)}%, "
+            f"variation={cat.get('variation_percentage', 0)}% (vs habitude à la même date), "
             f"level={cat.get('level', 0)}, "
             f"trend={cat.get('trend', 0)}, "
             f"seasonality={cat.get('seasonality_strength', 0)} "

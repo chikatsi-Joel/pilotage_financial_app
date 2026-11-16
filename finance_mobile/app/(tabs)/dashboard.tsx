@@ -21,6 +21,7 @@ import { useRemoteFlags } from "../../src/shared/config/remoteFlags";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
 import { signOut } from "../../src/shared/auth/signOut";
+import { openPrivacyPolicy } from "../../src/shared/config/legal";
 import type {
   CategoryAnalytics,
   Dashboard,
@@ -935,6 +936,8 @@ export default function Dashboard() {
               name={userName}
               onClose={closeMenu}
               onNotifications={openNotifications}
+              onDeleteAccount={() => router.push("/delete-account")}
+              onPrivacy={openPrivacyPolicy}
               onSignOut={signOut}
               onTour={replayTours}
               visible={menuOpen}

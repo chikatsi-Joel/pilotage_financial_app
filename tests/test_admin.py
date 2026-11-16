@@ -352,9 +352,11 @@ async def test_ollama_base_url_requires_https_off_localhost(client):
 
 
 def test_remote_config_token_cache_is_bound_to_account(monkeypatch):
-    remote_config._token = ("ancienne-empreinte", "jeton", 1e12)
+    from app.services import google_oauth
+
+    google_oauth._tokens[("ancienne-empreinte", remote_config.SCOPE)] = ("jeton", 1e12)
     remote_config.forget_token()
-    assert remote_config._token is None
+    assert google_oauth._tokens == {}
 
 
 async def test_flags_need_service_account(client):

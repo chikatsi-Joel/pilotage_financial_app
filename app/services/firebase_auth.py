@@ -31,6 +31,7 @@ class FirebaseIdentity:
     email_verified: bool
     name: str | None
     provider: str  # "password", "google.com", …
+    auth_time: int = 0  # dernière authentification réelle (secondes epoch)
 
 
 class _CertCache:
@@ -96,6 +97,9 @@ async def verify_id_token(token: str) -> FirebaseIdentity:
         raise Unauthorized(_INVALID)
     if claims.get("auth_time", 0) > time.time() + 30:
         raise Unauthorized(_INVALID)
+    auth_time = claims.get("auth_time", 0)
+    if not isinstance(auth_time, (int, float)) or isinstance(auth_time, bool):
+        raise Unauthorized(_INVALID)
     email = claims.get("email")
     return FirebaseIdentity(
         uid=uid,
@@ -103,4 +107,5 @@ async def verify_id_token(token: str) -> FirebaseIdentity:
         email_verified=bool(claims.get("email_verified")),
         name=claims.get("name") if isinstance(claims.get("name"), str) else None,
         provider=str((claims.get("firebase") or {}).get("sign_in_provider", "")),
+        auth_time=int(auth_time),
     )

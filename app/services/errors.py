@@ -22,6 +22,16 @@ class Unauthorized(ServiceError):
     status_code = 401
 
 
+class Forbidden(ServiceError):
+    """Action refusée malgré une session valide (ex. ré-identification incorrecte).
+
+    403 et non 401 : l'app mobile déconnecte sur tout 401, ce qui fermerait la session
+    pour un simple mot de passe mal saisi.
+    """
+
+    status_code = 403
+
+
 class EmailNotVerified(ServiceError):
     status_code = 403
 

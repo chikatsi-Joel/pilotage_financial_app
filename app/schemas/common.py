@@ -62,6 +62,16 @@ class FirebaseTokenRequest(BaseModel):
     id_token: str = Field(min_length=20, max_length=4096)
 
 
+class AccountDeletionRequest(BaseModel):
+    """Ré-identification exigée pour supprimer le compte : jeton Firebase récent, ou
+    mot de passe pour un compte sans Firebase."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id_token: str | None = Field(default=None, min_length=20, max_length=4096)
+    password: str | None = Field(default=None, min_length=1, max_length=128)
+
+
 class FirebaseSignInRequest(FirebaseTokenRequest):
     """Profil facultatif, utilisé seulement à la création du compte Lucia."""
 

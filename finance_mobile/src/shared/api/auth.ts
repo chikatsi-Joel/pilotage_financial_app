@@ -34,4 +34,7 @@ export const auth = {
     api.post("/auth/logout", undefined, { headers: { Authorization: `Bearer ${token}` } }).then(() => undefined),
   me: () => api.get<User>("/auth/me").then((r) => r.data),
   logout: () => api.post("/auth/logout").then(() => undefined),
+  /** Suppression définitive du compte : jeton Firebase frais, ou mot de passe (ancien compte). */
+  deleteAccount: (data: { id_token?: string; password?: string }) =>
+    api.post("/auth/account/delete", data).then(() => undefined),
 };

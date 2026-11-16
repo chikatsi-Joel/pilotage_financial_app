@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -35,6 +35,7 @@ from app.services.analytics.models import (
     CategoryType,
     OptimizationPotential,
 )
+from app.services.analytics.statistics import relative_gap
 from app.services.periods import month_bounds, parse_period, shift_period
 
 _engine = FinancialAnalyticsEngine()
@@ -302,11 +303,29 @@ async def _dashboard_extra(
         savings_goal,
     )
 
+# Version de la sémantique des écarts stockée dans le cache : une ligne d'une autre
+# version est recalculée à la lecture (pas de migration de données).
+ANALYTICS_SEMANTICS = 2
+
+
+def _utc_today() -> date:
+    return datetime.now(UTC).date()
+
+
+def as_of_day(period: str, today: date) -> int | None:
+    """Jour jusqu'auquel comparer le mois `period` : None s'il est clôturé, 0 s'il est futur."""
+    current = f"{today.year:04d}-{today.month:02d}"
+    if period < current:
+        return None
+    return today.day if period == current else 0
+
+
 async def compute_category_analytics(
-    user_id: UUID, period: str, db: AsyncSession
+    user_id: UUID, period: str, db: AsyncSession, today: date | None = None
 ) -> list[CategoryAnalyticsRead]:
     year, month = parse_period(period)
     _, current_end = month_bounds(period)
+    day_limit = as_of_day(period, today or _utc_today())
 
     category_result = await db.execute(
         select(Category)
@@ -328,12 +347,21 @@ async def compute_category_analytics(
     )
     expense_year = extract("year", Expense.expense_date)
     expense_month = extract("month", Expense.expense_date)
+    # Même requête : total du mois et total « à date » (du 1er au jour `day_limit`), pour
+    # comparer le mois en cours aux mois passés à date équivalente.
+    to_date_total = func.sum(
+        case(
+            (extract("day", Expense.expense_date) <= (day_limit or 0), Expense.amount),
+            else_=0,
+        )
+    )
     monthly_rows = await db.execute(
         select(
             Expense.category_id,
             expense_year,
             expense_month,
             func.sum(Expense.amount),
+            to_date_total,
         )
         .where(
             Expense.user_id == user_id,
@@ -342,10 +370,19 @@ async def compute_category_analytics(
         .group_by(Expense.category_id, expense_year, expense_month)
     )
     monthly: dict[str, dict[tuple[int, int], float]] = defaultdict(dict)
-    for category_id, y, m, total in monthly_rows.all():
+    to_date: dict[str, dict[tuple[int, int], float]] = defaultdict(dict)
+    for category_id, y, m, total, total_to_date in monthly_rows.all():
         monthly[str(category_id)][(int(y), int(m))] = float(total)
+        to_date[str(category_id)][(int(y), int(m))] = float(total_to_date or 0)
 
-    results = _engine.analyze_monthly(categories, monthly, year, month)
+    results = _engine.analyze_monthly(
+        categories,
+        monthly,
+        year,
+        month,
+        to_date if day_limit is not None else None,
+        day_limit,
+    )
 
     return [
         CategoryAnalyticsRead(
@@ -471,10 +508,11 @@ _ANALYTICS_UPDATE_COLUMNS = (
 
 
 async def refresh_analytics(
-    user_id: UUID, period: str, db: AsyncSession
+    user_id: UUID, period: str, db: AsyncSession, today: date | None = None
 ) -> dict:
+    today = today or _utc_today()
     analytics = await compute_category_analytics(
-        user_id, period, db
+        user_id, period, db, today
     )
 
     income, expense = await get_period_totals(user_id, period, db)
@@ -513,7 +551,7 @@ async def refresh_analytics(
             "baseline": money(a.baseline_amount),
             "trend": Decimal(str(p.trend)),
             "volatility": Decimal(str(p.volatility)),
-            "deviation": Decimal(str(a.current_amount - a.expected_amount)),
+            "deviation": money(a.current_amount - a.expected_amount),
             "frequency": 0,
             "confidence": _confidence_level(p.confidence),
             "trend_direction": _trend_direction(p.trend),
@@ -524,6 +562,8 @@ async def refresh_analytics(
             | {
                 "essential": a.essential,
                 "opportunity_score": a.opportunity_score,
+                "semantics": ANALYTICS_SEMANTICS,
+                "as_of": today.isoformat(),
             },
         })
     await upsert(
@@ -560,10 +600,20 @@ async def get_period_totals(
 async def invalidate_snapshots(
     user_id: UUID, period: str, db: AsyncSession
 ) -> None:
+    # Lignes du mois ET des mois suivants : ceux-ci comparent leur dépense à une habitude
+    # qui inclut `period`, leur cache est périmé. Pour les mois suivants, le snapshot part
+    # aussi (sans snapshot, la lecture recalcule ; avec un snapshot et aucune ligne, un
+    # cache vide serait pris pour valide).
     await db.execute(
         delete(CategoryAnalytics).where(
             CategoryAnalytics.user_id == user_id,
-            CategoryAnalytics.period == period,
+            CategoryAnalytics.period >= period,
+        )
+    )
+    await db.execute(
+        delete(MonthlySnapshot).where(
+            MonthlySnapshot.user_id == user_id,
+            MonthlySnapshot.period > period,
         )
     )
     # Les lignes de catégories sont supprimées (une catégorie sans dépense ne doit plus
@@ -615,10 +665,8 @@ def _snapshot_to_category_read(
         current_amount=float(row.current_amount),
         baseline_amount=float(row.baseline) if row.baseline else 0.0,
         expected_amount=float(row.current_amount - row.deviation),
-        variation_percentage=(
-            float(row.deviation / row.baseline * 100)
-            if row.baseline
-            else 0.0
+        variation_percentage=relative_gap(
+            float(row.current_amount), float(row.current_amount - row.deviation)
         ),
         potential_saving=float(row.estimated_saving),
         opportunity_score=float(p.get("opportunity_score", 0.0)),
@@ -626,8 +674,21 @@ def _snapshot_to_category_read(
     )
 
 
+def _is_stale(row: CategoryAnalytics, period: str, today: date) -> bool:
+    """Ligne à recalculer : ancienne version, ou mois en cours calculé un autre jour."""
+    p = row.profile_data
+    if p is None or p.get("semantics") != ANALYTICS_SEMANTICS:
+        return True
+    return as_of_day(period, today) is not None and p.get("as_of") != today.isoformat()
+
+
 async def _load_cached_analytics(
-    user_id: UUID, period: str, db: AsyncSession, *, allow_empty: bool = False
+    user_id: UUID,
+    period: str,
+    db: AsyncSession,
+    *,
+    allow_empty: bool = False,
+    today: date | None = None,
 ) -> list[CategoryAnalyticsRead] | None:
     """Lit les analytics en cache ; `None` si absent ou obsolète (à recalculer).
 
@@ -657,7 +718,7 @@ async def _load_cached_analytics(
     ).all()
 
     if (not rows and not allow_empty) or any(
-        row.profile_data is None for row, _ in rows
+        _is_stale(row, period, today or _utc_today()) for row, _ in rows
     ):
         return None
 

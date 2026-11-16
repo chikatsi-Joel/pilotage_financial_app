@@ -24,6 +24,8 @@ interface Props {
   /** Remet les visites guidées à zéro et relance celle de l'accueil. */
   onTour: () => void;
   onSignOut: () => void | Promise<void>;
+  onPrivacy: () => void;
+  onDeleteAccount: () => void;
 }
 
 const OPEN_MS = 240;
@@ -33,7 +35,16 @@ const CLOSE_MS = 180;
  * Menu du compte : feuille qui monte du bas de l'écran.
  * La déconnexion demande une confirmation dans la feuille (pas de boîte système).
  */
-export function ProfileMenu({ visible, name, onClose, onNotifications, onTour, onSignOut }: Props) {
+export function ProfileMenu({
+  visible,
+  name,
+  onClose,
+  onNotifications,
+  onTour,
+  onSignOut,
+  onPrivacy,
+  onDeleteAccount,
+}: Props) {
   const insets = useSafeAreaInsets();
   const progress = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
@@ -185,6 +196,17 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onTour, o
                 <MaterialCommunityIcons color={colors.primary} name="chevron-right" size={22} />
               </Pressable>
               <Pressable
+                accessibilityRole="link"
+                onPress={() => closeThen(onPrivacy)}
+                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              >
+                <View style={styles.cardIcon}>
+                  <MaterialCommunityIcons color={colors.primary} name="shield-lock-outline" size={20} />
+                </View>
+                <Text style={styles.cardTitle}>Politique de confidentialité</Text>
+                <MaterialCommunityIcons color={colors.primary} name="open-in-new" size={18} />
+              </Pressable>
+              <Pressable
                 accessibilityRole="button"
                 onPress={() => setConfirming(true)}
                 style={({ pressed }) => [styles.card, pressed && styles.pressed]}
@@ -193,6 +215,13 @@ export function ProfileMenu({ visible, name, onClose, onNotifications, onTour, o
                   <MaterialCommunityIcons color={colors.danger} name="logout" size={20} />
                 </View>
                 <Text style={[styles.cardTitle, { color: colors.danger }]}>Se déconnecter</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => closeThen(onDeleteAccount)}
+                style={({ pressed }) => [styles.deleteLink, pressed && styles.pressed]}
+              >
+                <Text style={styles.deleteLinkText}>Supprimer mon compte</Text>
               </Pressable>
             </View>
           )}
@@ -314,4 +343,11 @@ const styles = StyleSheet.create({
   btnDanger: { backgroundColor: colors.danger },
   btnDangerText: { color: "#FFFFFF", fontSize: 14, fontFamily: interFonts.bold },
   pressed: { opacity: 0.85 },
+  deleteLink: { alignSelf: "center", paddingHorizontal: 12, paddingVertical: 6 },
+  deleteLinkText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontFamily: interFonts.semibold,
+    textDecorationLine: "underline",
+  },
 });

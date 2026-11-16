@@ -1,45 +1,15 @@
 {
  "2024-03": [
   {
-   "baseline_amount": 39709.649999999994,
-   "current_amount": 38642.15,
-   "description": "",
-   "essential": false,
-   "expected_amount": 35930.64836530598,
-   "name": "Restaurants",
-   "opportunity_score": 0.03157629002558893,
-   "period": "2024-03",
-   "potential_saving": 2711.5016346940247,
-   "profile": {
-    "anomaly_score": 0.0,
-    "change_points": [],
-    "confidence": 0.24085559271949283,
-    "drift_score": 0.0,
-    "forecast": {
-     "mae": null,
-     "method": "naive",
-     "value": 38642.15
-    },
-    "history_months": 3,
-    "last_change": -0.03796634812278175,
-    "level": 39709.649999999994,
-    "seasonality_reliable": false,
-    "seasonality_strength": 0.0,
-    "trend": -0.09516582580541556,
-    "volatility": 0.03796634812278175
-   },
-   "variation_percentage": -2.68826343218838
-  },
-  {
-   "baseline_amount": 87401.6987,
+   "baseline_amount": 87356.261,
    "current_amount": 87507.72,
    "description": "",
    "essential": true,
-   "expected_amount": 88317.99220411452,
+   "expected_amount": 87356.261,
    "name": "Alimentation",
-   "opportunity_score": 0.0010234646087035639,
+   "opportunity_score": 0.0011177112367876255,
    "period": "2024-03",
-   "potential_saving": 0.0,
+   "potential_saving": 37.86475000000064,
    "profile": {
     "anomaly_score": 0.0,
     "change_points": [],
@@ -52,13 +22,13 @@
     },
     "history_months": 3,
     "last_change": -0.04136931653361682,
-    "level": 87401.6987,
+    "level": 87356.261,
     "seasonality_reliable": false,
     "seasonality_strength": 0.0,
     "trend": 0.010483703609235834,
     "volatility": 0.020967407218471668
    },
-   "variation_percentage": 0.12130347759477542
+   "variation_percentage": 0.1733808181190385
   },
   {
    "baseline_amount": 12990.989999999998,
@@ -121,11 +91,41 @@
    "variation_percentage": -100.0
   },
   {
-   "baseline_amount": 22616.134699999995,
+   "baseline_amount": 44451.206000000006,
+   "current_amount": 38642.15,
+   "description": "",
+   "essential": false,
+   "expected_amount": 44451.206000000006,
+   "name": "Restaurants",
+   "opportunity_score": 0.0,
+   "period": "2024-03",
+   "potential_saving": 0.0,
+   "profile": {
+    "anomaly_score": 0.0,
+    "change_points": [],
+    "confidence": 0.24085559271949278,
+    "drift_score": 0.0,
+    "forecast": {
+     "mae": null,
+     "method": "naive",
+     "value": 38642.15
+    },
+    "history_months": 3,
+    "last_change": -0.03796634812278192,
+    "level": 44451.206000000006,
+    "seasonality_reliable": false,
+    "seasonality_strength": 0.0,
+    "trend": -0.09516582580541563,
+    "volatility": 0.03796634812278192
+   },
+   "variation_percentage": -13.068387840815845
+  },
+  {
+   "baseline_amount": 23325.610999999997,
    "current_amount": 20960.69,
    "description": "",
    "essential": true,
-   "expected_amount": 21786.848465173203,
+   "expected_amount": 23325.610999999997,
    "name": "Transport",
    "opportunity_score": 0.0,
    "period": "2024-03",
@@ -142,13 +142,13 @@
     },
     "history_months": 3,
     "last_change": -0.16067196888822335,
-    "level": 22616.134699999995,
+    "level": 23325.610999999997,
     "seasonality_reliable": false,
     "seasonality_strength": 0.0,
     "trend": -0.03666790306244476,
     "volatility": 0.07333580612488952
    },
-   "variation_percentage": -7.3197507972040725
+   "variation_percentage": -10.13873119979579
   }
  ],
  "2025-12": [
@@ -157,43 +157,43 @@
    "current_amount": 0.0,
    "description": "",
    "essential": false,
-   "expected_amount": 39302.14620547559,
+   "expected_amount": 37307.59583556693,
    "name": "Restaurants",
    "opportunity_score": 0.55,
    "period": "2025-12",
    "potential_saving": 0.0,
    "profile": {
-    "anomaly_score": 3.182206475908989,
+    "anomaly_score": 3.1822064759089885,
     "change_points": [
      12
     ],
-    "confidence": 0.8456350702609025,
+    "confidence": 0.8456350702609023,
     "drift_score": 1.0,
     "forecast": {
-     "mae": 5732.878750000002,
+     "mae": 5732.87875,
      "method": "naive",
-     "value": 71137.82999999999
+     "value": 71137.83
     },
     "history_months": 19,
-    "last_change": -0.04546305377142836,
+    "last_change": -0.04546305377142817,
     "level": 37307.59583556693,
     "seasonality_reliable": false,
     "seasonality_strength": 0.0,
-    "trend": 0.053462313109095376,
-    "volatility": 0.18254319761297458
+    "trend": 0.053462313109095355,
+    "volatility": 0.18254319761297472
    },
    "variation_percentage": -100.0
   },
   {
-   "baseline_amount": 51400.318432,
+   "baseline_amount": 47782.70776,
    "current_amount": 59841.41,
    "description": "",
    "essential": false,
-   "expected_amount": 56958.19167389256,
+   "expected_amount": 47782.70776,
    "name": "Loisirs",
-   "opportunity_score": 0.24419937821538817,
+   "opportunity_score": 0.3164484772726355,
    "period": "2025-12",
-   "potential_saving": 1729.9309956644677,
+   "potential_saving": 7235.221344000003,
    "profile": {
     "anomaly_score": 1.7265263073545472,
     "change_points": [],
@@ -206,24 +206,24 @@
     },
     "history_months": 6,
     "last_change": 0.5271661501798793,
-    "level": 51400.318432,
+    "level": 47782.70776,
     "seasonality_reliable": false,
     "seasonality_strength": 0.0,
     "trend": 0.10812915972972696,
     "volatility": 0.19703176325824023
    },
-   "variation_percentage": 16.4222553974391
+   "variation_percentage": 25.236540173837994
   },
   {
    "baseline_amount": 23052.303531639773,
    "current_amount": 54138.91,
    "description": "",
    "essential": true,
-   "expected_amount": 23093.456133203243,
+   "expected_amount": 23052.303531639773,
    "name": "Transport",
-   "opportunity_score": 0.1374489131924793,
+   "opportunity_score": 0.1375002219573867,
    "period": "2025-12",
-   "potential_saving": 18627.272320078057,
+   "potential_saving": 18651.963881016138,
    "profile": {
     "anomaly_score": 0.6745,
     "change_points": [
@@ -250,15 +250,47 @@
    "variation_percentage": 134.85249500421165
   },
   {
-   "baseline_amount": 12978.038139938984,
+   "baseline_amount": 96456.04471202617,
+   "current_amount": 100953.03,
+   "description": "",
+   "essential": true,
+   "expected_amount": 96456.04471202617,
+   "name": "Alimentation",
+   "opportunity_score": 0.10373333289969494,
+   "period": "2025-12",
+   "potential_saving": 1124.246321993458,
+   "profile": {
+    "anomaly_score": 2.0235,
+    "change_points": [
+     15
+    ],
+    "confidence": 0.9731056260087835,
+    "drift_score": 0.7336254137157227,
+    "forecast": {
+     "mae": 2381.717730155785,
+     "method": "trend",
+     "value": 99517.56083333331
+    },
+    "history_months": 24,
+    "last_change": 0.04249342071634028,
+    "level": 96456.04471202617,
+    "seasonality_reliable": true,
+    "seasonality_strength": 1.0,
+    "trend": 0.005529560053502151,
+    "volatility": 0.027637671874865627
+   },
+   "variation_percentage": 4.6622119965625615
+  },
+  {
+   "baseline_amount": 12972.487342769979,
    "current_amount": 12990.99,
    "description": "",
    "essential": false,
-   "expected_amount": 12978.038139938984,
+   "expected_amount": 12972.487342769979,
    "name": "Abonnements",
-   "opportunity_score": 0.09073127190891438,
+   "opportunity_score": 0.09107345909759666,
    "period": "2025-12",
-   "potential_saving": 12.951860061015395,
+   "potential_saving": 18.502657230021214,
    "profile": {
     "anomaly_score": 1.349,
     "change_points": [],
@@ -271,90 +303,26 @@
     },
     "history_months": 24,
     "last_change": 0.0,
-    "level": 12978.038139938984,
+    "level": 12972.487342769979,
     "seasonality_reliable": true,
     "seasonality_strength": 0.980982014999651,
     "trend": 0.0,
     "volatility": 0.0
    },
-   "variation_percentage": 0.09979828939750895
-  },
-  {
-   "baseline_amount": 97805.1402984183,
-   "current_amount": 100953.03,
-   "description": "",
-   "essential": true,
-   "expected_amount": 98345.9596952396,
-   "name": "Alimentation",
-   "opportunity_score": 0.06821859218108056,
-   "period": "2025-12",
-   "potential_saving": 651.767576190101,
-   "profile": {
-    "anomaly_score": 0.0,
-    "change_points": [
-     15
-    ],
-    "confidence": 0.9731056260087835,
-    "drift_score": 0.7336254137157227,
-    "forecast": {
-     "mae": 2381.717730155783,
-     "method": "trend",
-     "value": 99517.56083333331
-    },
-    "history_months": 24,
-    "last_change": 0.04249342071634013,
-    "level": 97805.1402984183,
-    "seasonality_reliable": true,
-    "seasonality_strength": 1.0,
-    "trend": 0.005529560053502138,
-    "volatility": 0.027637671874865634
-   },
-   "variation_percentage": 3.218531962611594
+   "variation_percentage": 0.14262998869167054
   }
  ],
  "2026-06": [
   {
-   "baseline_amount": 73826.57200689286,
-   "current_amount": 72177.06,
-   "description": "",
-   "essential": false,
-   "expected_amount": 76403.8479183759,
-   "name": "Restaurants",
-   "opportunity_score": 0.4461101257539829,
-   "period": "2026-06",
-   "potential_saving": 0.0,
-   "profile": {
-    "anomaly_score": 6565484.882077386,
-    "change_points": [
-     12
-    ],
-    "confidence": 0.7607891092217962,
-    "drift_score": 0.6682619194915593,
-    "forecast": {
-     "mae": 5046.147142857144,
-     "method": "naive",
-     "value": 72177.06
-    },
-    "history_months": 24,
-    "last_change": -0.03541615576699095,
-    "level": 73826.57200689286,
-    "seasonality_reliable": true,
-    "seasonality_strength": 0.9756690960164635,
-    "trend": 0.03490986837696333,
-    "volatility": 0.3144247044005272
-   },
-   "variation_percentage": -2.2343066487481753
-  },
-  {
-   "baseline_amount": 14489.16922661568,
+   "baseline_amount": 12988.813180879544,
    "current_amount": 17990.0,
    "description": "",
    "essential": false,
-   "expected_amount": 14489.16922661568,
+   "expected_amount": 12988.813180879544,
    "name": "Abonnements",
-   "opportunity_score": 0.3721353973312652,
+   "opportunity_score": 0.45986247458648305,
    "period": "2026-06",
-   "potential_saving": 3500.8307733843194,
+   "potential_saving": 5001.186819120456,
    "profile": {
     "anomaly_score": 1853684380143768.5,
     "change_points": [],
@@ -367,20 +335,52 @@
     },
     "history_months": 30,
     "last_change": 0.3848059308797867,
-    "level": 14489.16922661568,
+    "level": 12988.813180879544,
     "seasonality_reliable": true,
     "seasonality_strength": 0.8652401833935313,
     "trend": 0.0,
     "volatility": 0.0
    },
-   "variation_percentage": 24.161708091265275
+   "variation_percentage": 38.5038013055924
   },
   {
-   "baseline_amount": 34866.57357293135,
+   "baseline_amount": 74533.50572413267,
+   "current_amount": 72177.06,
+   "description": "",
+   "essential": false,
+   "expected_amount": 74533.50572413267,
+   "name": "Restaurants",
+   "opportunity_score": 0.3360434590873163,
+   "period": "2026-06",
+   "potential_saving": 0.0,
+   "profile": {
+    "anomaly_score": 1.349,
+    "change_points": [
+     12
+    ],
+    "confidence": 0.7607891092217964,
+    "drift_score": 0.6682619194915596,
+    "forecast": {
+     "mae": 5046.147142857143,
+     "method": "naive",
+     "value": 72177.06
+    },
+    "history_months": 24,
+    "last_change": -0.03541615576699095,
+    "level": 74533.50572413267,
+    "seasonality_reliable": true,
+    "seasonality_strength": 1.0,
+    "trend": 0.034909868376963346,
+    "volatility": 0.3144247044005271
+   },
+   "variation_percentage": -3.161592496204962
+  },
+  {
+   "baseline_amount": 40244.866537523194,
    "current_amount": 26973.47,
    "description": "",
    "essential": false,
-   "expected_amount": 33313.439274458964,
+   "expected_amount": 40244.866537523194,
    "name": "Loisirs",
    "opportunity_score": 0.11221049325355908,
    "period": "2026-06",
@@ -399,26 +399,26 @@
     },
     "history_months": 11,
     "last_change": 0.17238644048937476,
-    "level": 34866.57357293135,
+    "level": 40244.866537523194,
     "seasonality_reliable": false,
     "seasonality_strength": 0.0,
     "trend": -0.04454507969427095,
     "volatility": 0.272106838447526
    },
-   "variation_percentage": -22.63802480166608
+   "variation_percentage": -32.97661957742937
   },
   {
-   "baseline_amount": 100457.89120515515,
+   "baseline_amount": 98213.20172165021,
    "current_amount": 105695.5,
    "description": "",
    "essential": true,
-   "expected_amount": 101032.05817864907,
+   "expected_amount": 98213.20172165021,
    "name": "Alimentation",
-   "opportunity_score": 0.0817657609692595,
+   "opportunity_score": 0.08461994593363084,
    "period": "2026-06",
-   "potential_saving": 1165.8604553377336,
+   "potential_saving": 1870.5745695874466,
    "profile": {
-    "anomaly_score": 1.3044180557687202,
+    "anomaly_score": 1.304418056558458,
     "change_points": [
      15,
      27
@@ -426,26 +426,26 @@
     "confidence": 0.9663054380137104,
     "drift_score": 0.6139704989680713,
     "forecast": {
-     "mae": 3061.7908259106416,
+     "mae": 3061.790825910643,
      "method": "trend",
      "value": 102970.86112643675
     },
     "history_months": 30,
     "last_change": 0.026707478974185152,
-    "level": 100457.89120515515,
+    "level": 98213.20172165021,
     "seasonality_reliable": true,
-    "seasonality_strength": 0.9282327130325155,
+    "seasonality_strength": 0.9282327130325173,
     "trend": 0.005715498967834754,
     "volatility": 0.03486947362683849
    },
-   "variation_percentage": 5.21373555826352
+   "variation_percentage": 7.618424149897541
   },
   {
-   "baseline_amount": 23230.899000833884,
+   "baseline_amount": 23578.761429762693,
    "current_amount": 22419.22,
    "description": "",
    "essential": true,
-   "expected_amount": 23212.796402189993,
+   "expected_amount": 23578.761429762693,
    "name": "Transport",
    "opportunity_score": 0.029304602075199276,
    "period": "2026-06",
@@ -467,13 +467,13 @@
     },
     "history_months": 30,
     "last_change": -0.1065765348230087,
-    "level": 23230.899000833884,
+    "level": 23578.761429762693,
     "seasonality_reliable": true,
     "seasonality_strength": 0.993417865180534,
     "trend": -0.000779246582030276,
     "volatility": 0.09894826334281777
    },
-   "variation_percentage": -3.4939629361943654
+   "variation_percentage": -4.917736808257627
   }
  ]
 }

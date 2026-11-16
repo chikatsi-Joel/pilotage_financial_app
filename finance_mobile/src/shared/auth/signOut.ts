@@ -1,9 +1,9 @@
 import { router } from "expo-router";
 
 import { auth } from "../api/auth";
-import { unregisterPush } from "../notifications/push";
+import { forgetPushToken, unregisterPush } from "../notifications/push";
 import { useAppStore } from "../store";
-import { firebaseSignOut } from "./firebase";
+import { firebaseDeleteCurrentUser, firebaseSignOut } from "./firebase";
 import { clearToken } from "./session";
 
 /** Termine la session locale et renvoie vers l'écran de connexion. */
@@ -23,5 +23,16 @@ export async function signOut(): Promise<void> {
   } catch {
     // Hors ligne : la session locale est quand même fermée.
   }
+  await endLocalSession();
+}
+
+/**
+ * Après la suppression du compte (le serveur a déjà tout effacé) : compte Firebase de
+ * l'appareil, jeton push et données mises en cache sur le téléphone, puis écran de connexion.
+ */
+export async function endDeletedAccount(): Promise<void> {
+  await firebaseDeleteCurrentUser();
+  await forgetPushToken();
+  await useAppStore.persist.clearStorage();
   await endLocalSession();
 }

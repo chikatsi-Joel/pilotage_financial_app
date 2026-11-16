@@ -87,3 +87,8 @@ def confidence(values: list[float]) -> float:
     dispersion_factor = 1 / (1 + dispersion)
 
     return float(history_factor * dispersion_factor)
+
+
+def relative_gap(current: float, reference: float) -> float:
+    """Écart de `current` à `reference`, en %. 0 sans référence (aucun historique)."""
+    return (current - reference) / reference * 100 if reference > 0 else 0.0

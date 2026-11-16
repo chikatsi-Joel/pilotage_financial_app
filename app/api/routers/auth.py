@@ -4,6 +4,7 @@ from fastapi import APIRouter, Header, Response, status
 
 from app.api.deps import Credentials, CurrentUser, DbSession, TokenDep
 from app.schemas.common import (
+    AccountDeletionRequest,
     AuthResponse,
     FirebaseSignInRequest,
     FirebaseTokenRequest,
@@ -15,7 +16,7 @@ from app.schemas.common import (
     UserRead,
     VerifyRequest,
 )
-from app.services import auth_service, firebase_auth
+from app.services import account_service, auth_service, firebase_auth
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -98,3 +99,12 @@ async def me(user: CurrentUser):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(token: TokenDep, db: DbSession) -> None:
     await auth_service.logout(token, db)
+
+
+@router.post("/account/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(payload: AccountDeletionRequest, user: CurrentUser, db: DbSession) -> None:
+    """Supprime définitivement le compte et toutes ses données (ré-identification exigée).
+
+    403 si la ré-identification échoue (la session reste ouverte).
+    """
+    await account_service.delete_account(user, payload, db)

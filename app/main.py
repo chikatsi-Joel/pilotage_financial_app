@@ -88,6 +88,28 @@ async def admin_app(path: str = ""):
     return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
+# Pages légales publiques (exigées par Google Play et l'App Store) : HTML statique, sans JS ni
+# ressource externe, servies sans authentification. Alias anglais pour les fiches des stores.
+LEGAL_DIR = Path(__file__).resolve().parent.parent / "static" / "legal"
+LEGAL_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "public, max-age=3600",
+}
+
+
+@app.get("/confidentialite", include_in_schema=False)
+@app.get("/privacy", include_in_schema=False)
+async def privacy_policy() -> FileResponse:
+    return FileResponse(LEGAL_DIR / "confidentialite.html", headers=LEGAL_HEADERS)
+
+
+@app.get("/suppression-compte", include_in_schema=False)
+@app.get("/account-deletion", include_in_schema=False)
+async def account_deletion_page() -> FileResponse:
+    return FileResponse(LEGAL_DIR / "suppression-compte.html", headers=LEGAL_HEADERS)
+
+
 @app.get("/health", tags=["system"])
 async def health():
     async with AsyncSession(get_engine()) as session:

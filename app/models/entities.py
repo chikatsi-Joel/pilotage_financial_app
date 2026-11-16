@@ -249,7 +249,7 @@ class CategoryAnalytics(Base):
     baseline: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     trend: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=0)
     volatility: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=0)
-    deviation: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=0)
+    deviation: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
     frequency: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     seasonality: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), nullable=True)
     confidence: Mapped[ConfidenceLevel] = mapped_column(Enum(ConfidenceLevel), nullable=False)

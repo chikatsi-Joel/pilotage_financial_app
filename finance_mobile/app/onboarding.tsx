@@ -27,6 +27,7 @@ import {
   googleSignIn,
 } from "../src/shared/auth/firebase";
 import { saveToken } from "../src/shared/auth/session";
+import { openPrivacyPolicy } from "../src/shared/config/legal";
 import { registerForPush } from "../src/shared/notifications/push";
 import {
   CODE_LENGTH,
@@ -484,6 +485,9 @@ export default function Onboarding() {
               Vous restez connecté sur cet appareil jusqu'à la déconnexion.
             </Text>
           </View>
+          <Pressable accessibilityRole="link" hitSlop={8} onPress={openPrivacyPolicy} style={styles.privacyLink}>
+            <Text style={styles.privacyLinkText}>Politique de confidentialité</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -727,4 +731,6 @@ const styles = StyleSheet.create({
 
   footer: { alignItems: "center", flexDirection: "row", gap: 6, justifyContent: "center" },
   footerText: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
+  privacyLink: { alignSelf: "center", marginTop: 8, paddingVertical: 4 },
+  privacyLinkText: { color: colors.primary, fontSize: 11.5, fontFamily: interFonts.semibold },
 });
