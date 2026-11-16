@@ -22,8 +22,10 @@
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -43,7 +45,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "L'accès à la caméra permet de photographier vos factures."
+          "cameraPermission": "L'accès à la caméra permet de photographier vos factures.",
+          "recordAudioAndroid": false
         }
       ],
       "expo-status-bar",
@@ -66,6 +69,15 @@
           "android": {
             "usesCleartextTraffic": true
           }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
         }
       ]
     ],
