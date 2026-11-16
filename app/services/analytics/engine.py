@@ -26,6 +26,7 @@ from app.services.analytics.time_series import (
     drift_score,
     residual_anomaly_score,
     seasonality_strength,
+    stl,
 )
 
 CENT = Decimal("0.01")
@@ -138,9 +139,10 @@ class FinancialAnalyticsEngine:
 
         trend = theil_sen_trend(values)
         variation = relative_gap(current, expected)
-        anomaly = residual_anomaly_score(values)
+        fit = stl(values)  # un seul ajustement STL pour l'anomalie et la saisonnalité
+        anomaly = residual_anomaly_score(values, fit=fit)
         drift = drift_score(values)
-        seasonal, seasonal_reliable = seasonality_strength(values)
+        seasonal, seasonal_reliable = seasonality_strength(values, fit=fit)
         volatility = mad(values) / max(
             abs(robust_center(values)), 1e-9
         )

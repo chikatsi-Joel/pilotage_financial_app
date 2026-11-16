@@ -5,5 +5,8 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT="$HOME/lucia-backups"
 mkdir -p "$OUT"
 cd "$DIR"
-sudo docker compose exec -T db pg_dump -U finance -d finance -Fc > "$OUT/lucia-$(date +%F).dump"
+# Écrit dans un .tmp puis renomme : un pg_dump en échec ne laisse pas un faux .dump valide.
+DEST="$OUT/lucia-$(date +%F).dump"
+sudo docker compose exec -T db pg_dump -U finance -d finance -Fc > "$DEST.tmp"
+mv "$DEST.tmp" "$DEST"
 find "$OUT" -name 'lucia-*.dump' -mtime +14 -delete

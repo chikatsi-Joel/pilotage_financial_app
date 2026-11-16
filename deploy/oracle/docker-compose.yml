@@ -1,4 +1,4 @@
-# Production sur la VM Oracle (Ubuntu ARM) : Postgres + API + Caddy (HTTPS Let's Encrypt).
+# Production sur la VM (Google Cloud / Oracle, Ubuntu) : Postgres + API + Caddy (HTTPS Let's Encrypt).
 # Lancement depuis ce dossier : docker compose up -d --build
 # Seul Caddy est exposé (80/443) ; Postgres et l'API restent sur le réseau Docker interne.
 services:
@@ -12,9 +12,25 @@ services:
       - -c
       - pg_stat_statements.track=top
       - -c
-      - pg_stat_statements.max=5000
+      - pg_stat_statements.max=1000
       - -c
       - pg_stat_statements.track_utility=off
+      # Réglages pour 1 Go de RAM (e2-micro), partagés avec l'API et Caddy.
+      - -c
+      - max_connections=25
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - work_mem=4MB
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     environment:
       POSTGRES_DB: finance
       POSTGRES_USER: finance
@@ -39,6 +55,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    logging: *logging
+    # Garde-fou : un pic mémoire de l'analytique ne doit pas faire tomber Postgres (OOM).
+    mem_limit: 600m
 
   caddy:
     image: caddy:2-alpine
@@ -55,6 +74,7 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+    logging: *logging
 
 volumes:
   postgres_data:

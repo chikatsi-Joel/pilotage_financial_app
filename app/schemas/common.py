@@ -165,10 +165,12 @@ class ExpenseRead(ORMModel):
 
 
 class MonthlyTotal(BaseModel):
-    """Dépenses totales d'un mois (YYYY-MM)."""
+    """Totaux d'un mois (YYYY-MM) : dépenses (`total`), revenus et épargne (revenus − dépenses)."""
 
     period: str
     total: float
+    income: float = 0.0
+    savings: float = 0.0
 
 
 class ExpenseDailyTotal(BaseModel):

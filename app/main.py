@@ -81,7 +81,12 @@ async def admin_app(path: str = ""):
         raise HTTPException(status_code=404)
     candidate = (ADMIN_DIR / path).resolve()
     if path and candidate.is_file() and ADMIN_DIR in candidate.parents:
-        return FileResponse(candidate)
+        # Fichiers de build Vite nommés par empreinte (assets/…-<hash>.js) : immuables.
+        immutable = path.startswith("assets/")
+        return FileResponse(
+            candidate,
+            headers={"Cache-Control": "public, max-age=31536000, immutable"} if immutable else None,
+        )
     index = ADMIN_DIR / "index.html"
     if not index.is_file():
         raise HTTPException(status_code=404, detail="Backoffice non compilé (npm run build dans backoffice/)")

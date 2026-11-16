@@ -458,6 +458,16 @@ test("goalChance reflects pace, regularity and deadline", () => {
   assert.equal(goalChance({ ...base, contributions: [], monthlyPace: 0, deadline: in6 }).probability, null);
 });
 
+test("sparkline helpers rebuild daily totals and same-date sums", () => {
+  const { sparklineToDaily, sumFirstDays, buildMonthCurve } = load("src/shared/utils/monthCurve.ts");
+  const spark = [100, 0, 50, 25];
+  const daily = sparklineToDaily(spark, "2026-02");
+  assert.deepEqual(daily[2], { date: "2026-02-03", total: 50 });
+  assert.equal(sumFirstDays(spark, 3), 150);
+  assert.equal(sumFirstDays(spark, 0), 0);
+  assert.deepEqual(buildMonthCurve(daily, "2026-02", new Date(2026, 1, 4)).cumulative, [100, 100, 150, 175]);
+});
+
 test("buildMonthCurve accumulates daily spending up to today", () => {
   const { buildMonthCurve } = load("src/shared/utils/monthCurve.ts");
   const daily = [

@@ -10,10 +10,10 @@ from sqlalchemy import select
 from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
 from app.schemas.common import PaginatedResponse
-from app.services.periods import parse_period
 from app.services import ai_analysis_service
 from app.services.ai import OllamaProvider, get_provider
 from app.services.pagination import paginate
+from app.services.periods import parse_period
 
 router = APIRouter(
     prefix="/users/{user_id}/ai", tags=["ai"]
@@ -31,6 +31,8 @@ class AIAnalysisResponse(BaseModel):
     recommendations: list[dict]
     projected_impact: dict
     fallback: bool = False
+    # True : analyse enregistrée resservie (données inchangées depuis), sans appel au modèle.
+    cached: bool = False
     parse_error: str | None = None
     number_warnings: list[str] | None = None
 
@@ -47,28 +49,21 @@ class AIAnalysisStoredRead(BaseModel):
 
 
 @router.post("/analyze", response_model=AIAnalysisResponse,)
-async def analyze_period(period: str, user: UserDep, db: DbSession,):
+async def analyze_period(
+    period: str,
+    user: UserDep,
+    db: DbSession,
+    force: Annotated[bool, Query()] = False,
+):
+    """Analyse du mois, resservie depuis la base si ses données n'ont pas changé.
+
+    `force=true` relance le modèle même si une analyse à jour existe.
+    """
     parse_period(period)
 
     provider = get_ai_provider()
     # Contexte lu puis connexion libérée avant l'appel au modèle (voir ai_analysis_service).
-    result = await ai_analysis_service.analyze(user.id, period, db, provider)
-
-    """entity = AIAnalysis(
-        user_id=user.id,
-        period=period,
-        model=provider._model,
-        summary=result.get("summary", ""),
-        alerts_json=json.dumps( result.get("alerts", []), ensure_ascii=False,),
-        recommendations_json=json.dumps(result.get("recommendations", []), ensure_ascii=False,),
-        projected_impact_json=json.dumps(
-            result.get("projected_impact", {}),
-            ensure_ascii=False,
-        ),
-        fallback=result.get("fallback", False),
-    )
-    db.add(entity)
-    await db.commit()"""
+    result = await ai_analysis_service.analyze(user.id, period, db, provider, force=force)
 
     return AIAnalysisResponse(
         period=period,
@@ -79,6 +74,7 @@ async def analyze_period(period: str, user: UserDep, db: DbSession,):
             "projected_impact", {}
         ),
         fallback=result.get("fallback", False),
+        cached=result.get("cached", False),
         parse_error=result.get("parse_error"),
         number_warnings=result.get("number_warnings"),
     )

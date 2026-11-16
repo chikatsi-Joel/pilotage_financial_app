@@ -202,7 +202,7 @@ async def test_expense_in_a_past_month_invalidates_later_months(maker):
     async with maker() as db:
         user, cat = await _seed(db, SIX_MONTHS)
         today = date(2026, 11, 16)
-        for period in ("2026-09", "2026-10", "2026-11"):
+        for period in ("2026-08", "2026-09", "2026-10", "2026-11"):
             await analytics_service.refresh_analytics(user.id, period, db, today)
         db.add(
             Expense(
@@ -215,5 +215,6 @@ async def test_expense_in_a_past_month_invalidates_later_months(maker):
         await analytics_service.invalidate_snapshots(user.id, "2026-09", db)
         periods = set((await db.execute(select(CategoryAnalytics.period))).scalars())
         snapshots = set((await db.execute(select(MonthlySnapshot.period))).scalars())
-        assert "2026-10" not in periods and "2026-11" not in periods
-        assert snapshots == {"2026-09"}
+        # Mois touché et suivants invalidés (recalcul paresseux), mois antérieurs intacts.
+        assert periods == {"2026-08"}
+        assert snapshots == {"2026-08"}

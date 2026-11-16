@@ -962,36 +962,37 @@ export default function StatsDetail() {
     setError(null);
     const window = monthWindow(period, PERIODS.find((p) => p.key === range)!.months);
     try {
-      const [dashboards, catItems] = await Promise.all([
-        Promise.all(
-          window.map((m) => analyticsApi.dashboard(userId, m).catch(() => null)),
-        ),
+      // Totaux de toute la fenêtre en une requête ; le dashboard seulement pour le mois
+      // affiché (taux d'épargne, objectif), au lieu d'un dashboard par mois.
+      const [totals, current, catItems] = await Promise.all([
+        analyticsApi.monthly(userId, period, window.length).catch(() => null),
+        analyticsApi.dashboard(userId, period).catch(() => null),
         analyticsApi.categories(userId, period).catch(() => [] as CategoryAnalytics[]),
       ]);
+      const byPeriod = new Map((totals ?? []).map((t) => [t.period, t]));
 
       setMonths(
-        window.map((key, i) => {
-          const [y, m] = key.split("-").map(Number);
-          const d = dashboards[i];
+        window.map((key) => {
+          const [, m] = key.split("-").map(Number);
+          const t = byPeriod.get(key);
           return {
             key,
             label: MONTH_SHORT[m - 1] ?? key,
-            income: d?.income ?? 0,
-            expenses: d?.expenses ?? 0,
-            savings: d?.savings ?? 0,
+            income: t?.income ?? 0,
+            expenses: t?.total ?? 0,
+            savings: t?.savings ?? 0,
           };
         }),
       );
       setItems(catItems);
 
-      const current = dashboards[dashboards.length - 1];
       setBalance(current?.savings ?? 0);
       setSavingsRate(current?.savings_rate ?? 0);
       setGoal(current?.savings_goal ?? null);
-      const previous = dashboards[dashboards.length - 2];
+      const previous = window.length > 1 ? byPeriod.get(window[window.length - 2]) : undefined;
       setVariation(
-        current && previous && previous.expenses > 0
-          ? ((current.expenses - previous.expenses) / previous.expenses) * 100
+        current && previous && previous.total > 0
+          ? ((current.expenses - previous.total) / previous.total) * 100
           : (current?.monthly_variation ?? null),
       );
     } catch {

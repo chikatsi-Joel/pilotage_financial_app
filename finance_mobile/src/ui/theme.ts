@@ -1,4 +1,3 @@
-import { MD3LightTheme } from "react-native-paper";
 
 export const colors = {
   background: "#F8F9FF",
@@ -32,15 +31,3 @@ export const interFonts = {
   semibold: "Inter_600SemiBold",
   bold: "Inter_700Bold",
 } as const;
-
-export const paperTheme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: colors.primary,
-    secondary: colors.accent,
-    background: colors.background,
-    surface: colors.surface,
-    onSurface: colors.text,
-  },
-};

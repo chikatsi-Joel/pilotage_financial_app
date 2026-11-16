@@ -122,6 +122,11 @@ class AIAnalysisProvider(Protocol):
 
 
 
+# À incrémenter quand SYSTEM_PROMPT ou _build_prompt change de façon significative : les
+# analyses enregistrées avec l'ancienne version sont alors régénérées (empreinte différente).
+PROMPT_VERSION = 1
+
+
 def _build_prompt(context: dict[str, Any]) -> str:
     period = context.get("period", "N/A")
     dashboard = context.get("dashboard", {})
@@ -234,8 +239,8 @@ class OllamaProvider:
             )
             raw = response["message"]["content"]
             result = _parse_response(raw)
-            log.info("ai result : %s", result)
-            return _validate_llm_output(result, structured_context)
+            log.debug("ai result : %s", result)  # contenu financier : pas en INFO
+            return validate_llm_output(result, structured_context)
 
         except _ollama.ResponseError as exc:
             log.error("Ollama API error: %s", exc)
@@ -363,7 +368,7 @@ def _walk_numbers(value: Any) -> set[float]:
         return set()
 
 
-def _validate_llm_output(
+def validate_llm_output(
     result: dict[str, Any],
     context: dict[str, Any],
 ) -> dict[str, Any]:

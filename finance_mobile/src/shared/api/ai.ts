@@ -11,10 +11,12 @@ function path(userId: string) {
 }
 
 export const ai = {
-  analyze: (userId: string, period: string) =>
+  /** Analyse du mois : resservie par le serveur tant que les données n'ont pas changé ;
+   *  `force` relance le modèle. */
+  analyze: (userId: string, period: string, force = false) =>
     api
       .post<AIAnalysis>(`${path(userId)}/analyze`, null, {
-        params: { period },
+        params: force ? { period, force } : { period },
         // Le modèle cloud peut mettre jusqu'à ~60 s (timeout serveur) : on laisse de la marge.
         timeout: 90000,
       })

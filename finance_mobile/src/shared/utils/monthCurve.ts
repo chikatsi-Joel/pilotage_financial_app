@@ -11,6 +11,19 @@ export interface MonthCurve {
 }
 
 /**
+ * Dépenses jour par jour depuis la `sparkline` du dashboard (un total par jour du mois,
+ * index 0 = le 1er) : évite une requête dédiée pour la courbe du mois.
+ */
+export function sparklineToDaily(sparkline: number[], period: string): DayTotal[] {
+  return sparkline.map((total, i) => ({ date: `${period}-${String(i + 1).padStart(2, "0")}`, total }));
+}
+
+/** Total des `days` premiers jours d'une sparkline (comparaison « à date égale »). */
+export function sumFirstDays(sparkline: number[], days: number): number {
+  return sparkline.slice(0, Math.max(0, days)).reduce((s, v) => s + v, 0);
+}
+
+/**
  * Cumul des dépenses jour par jour sur le mois `period` (« AAAA-MM »),
  * arrêté à aujourd'hui pour le mois en cours, complet pour un mois passé.
  */

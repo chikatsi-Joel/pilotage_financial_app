@@ -22,6 +22,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import (
+    AIAnalysis,
     Category,
     CategoryAnalytics,
     Essentiality,
@@ -171,6 +172,50 @@ async def test_cached_dashboard_query_budget(env, client) -> None:
     assert hit.status_code == 200
     assert hit.json() == miss.json()
     assert counter.count <= 8, counter.statements
+
+
+async def test_monthly_totals_match_dashboards_in_one_query(env, client) -> None:
+    """Écran Stats « 1A » : un appel (une requête SQL de totaux) au lieu de 12 dashboards."""
+    _, maker, counter = env
+    async with maker() as db:
+        user, _, token = await _seed_user(db, 3)
+    headers = {"Authorization": f"Bearer {token}"}
+    base = f"/api/v1/users/{user.id}/analytics"
+    async with client as c:
+        counter.reset()
+        monthly = (await c.get(f"{base}/monthly?period=2026-11&months=12", headers=headers)).json()
+        monthly_queries = [q for q in counter.statements if "income" in q.lower()]
+        dashboards = [
+            (await c.get(f"{base}/dashboard?period={m['period']}", headers=headers)).json()
+            for m in monthly
+        ]
+    assert len(monthly) == 12 and len(monthly_queries) == 1
+    for m, d in zip(monthly, dashboards, strict=True):
+        assert (m["income"], m["total"], m["savings"]) == (
+            d["income"], d["expenses"], d["savings"]
+        ), m["period"]
+
+
+async def test_budget_from_cache_matches_live_computation(env) -> None:
+    """Le budget lit le cache d'analytics : mêmes lignes qu'avec un calcul complet."""
+    from app.services import budget_service
+    from app.services.budget import generate_budget
+
+    _, maker, _ = env
+    async with maker() as db:
+        user, _, _ = await _seed_user(db, 6)
+        budget = await budget_service.recommend_budget(user.id, "2026-11", db)
+        live = await analytics_service.compute_category_analytics(user.id, "2026-11", db)
+        income, expenses = await analytics_service.get_period_totals(user.id, "2026-11", db)
+        expected = generate_budget(
+            "2026-11", income, expenses, income - expenses,
+            None if budget.target_savings is None else Decimal(str(budget.target_savings)),
+            [a.model_dump() | {"category_id": a.category_id} for a in live],
+        )
+    got = [(c.category_id, c.recommended, c.reduction) for c in budget.categories]
+    want = [(c.category_id, c.recommended, c.reduction) for c in expected.categories]
+    assert got == want
+    assert budget.recommended_expenses == expected.recommended_expenses
 
 
 async def test_category_analytics_without_expenses_is_not_recomputed_each_call(
@@ -330,14 +375,15 @@ async def test_refresh_updates_rows_already_loaded_in_the_session(env) -> None:
     assert after[0].current_amount == 5000.0
 
 
-async def test_bulk_recomputes_each_touched_month_once(env, monkeypatch) -> None:
+async def test_writes_invalidate_without_recomputing(env, monkeypatch) -> None:
+    """Écriture = invalidation seule ; le recalcul a lieu une fois, à la lecture suivante."""
     _, maker, _ = env
     calls: list[str] = []
     original = analytics_service.refresh_analytics
 
-    async def spy(user_id, period, db):
+    async def spy(user_id, period, db, today=None):
         calls.append(period)
-        return await original(user_id, period, db)
+        return await original(user_id, period, db, today)
 
     monkeypatch.setattr(analytics_service, "refresh_analytics", spy)
     async with maker() as db:
@@ -348,8 +394,12 @@ async def test_bulk_recomputes_each_touched_month_once(env, monkeypatch) -> None
             for i in range(6)
         ]
         created = await expense_service.create_many(user.id, payloads, db)
-    assert sorted(calls) == ["2026-10", "2026-11"]
-    assert len(created) == 6 and all(e.amount == Decimal("10.00") for e in created)
+        assert calls == []
+        assert len(created) == 6 and all(e.amount == Decimal("10.00") for e in created)
+
+        await analytics_service.get_category_analytics_snapshot(user.id, "2026-11", db)
+        await analytics_service.get_category_analytics_snapshot(user.id, "2026-11", db)
+    assert calls == ["2026-11"]
 
 
 # ── Connexion libérée avant les appels au LLM ───────────────────────────────
@@ -360,9 +410,9 @@ async def test_ai_analysis_ends_the_transaction_before_calling_the_model(env, mo
     computed: list[str] = []
     original = analytics_service.compute_category_analytics
 
-    async def spy(user_id, period, db):
+    async def spy(user_id, period, db, today=None):
         computed.append(period)
-        return await original(user_id, period, db)
+        return await original(user_id, period, db, today)
 
     monkeypatch.setattr(analytics_service, "compute_category_analytics", spy)
     async with maker() as db:
@@ -431,3 +481,97 @@ async def test_second_budget_alert_pass_reads_sent_keys_without_failing_insert(
     assert sent == 2  # paliers 80 et 100
     assert not any(s.lstrip().upper().startswith("INSERT") for s in counter.statements)
     assert counter.count <= 4, counter.statements
+
+
+# ── Analyse IA mise en cache ────────────────────────────────────────────────
+
+
+class _FakeProvider:
+    def __init__(self, fallback: bool = False) -> None:
+        self.calls = 0
+        self.fallback = fallback
+
+    async def model(self) -> str:
+        return "m1"
+
+    async def analyze(self, context):
+        self.calls += 1
+        return {"summary": f"analyse {self.calls}", "alerts": [], "recommendations": [],
+                "projected_impact": {}, "fallback": self.fallback}
+
+
+async def test_ai_analysis_is_reused_until_data_changes(env) -> None:
+    _, maker, _ = env
+    provider = _FakeProvider()
+    async with maker() as db:
+        user, cats, _ = await _seed_user(db, 2)
+        first = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        again = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        assert provider.calls == 1
+        assert again["cached"] is True and again["summary"] == first["summary"]
+
+        # Nouvelle dépense : contexte différent, le modèle est rappelé.
+        await expense_service.create(
+            user.id,
+            ExpenseCreate(amount=Decimal("999"), category_id=cats[0].id,
+                          expense_date=date(2026, 11, 3)),
+            db,
+        )
+        changed = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        assert provider.calls == 2 and changed["summary"] == "analyse 2"
+
+        # Relance explicite.
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider, force=True)
+        assert provider.calls == 3
+        rows = (await db.execute(select(func.count()).select_from(AIAnalysis))).scalar_one()
+    assert rows == 1
+
+
+async def test_ai_fallback_is_not_stored(env) -> None:
+    _, maker, _ = env
+    provider = _FakeProvider(fallback=True)
+    async with maker() as db:
+        user, _, _ = await _seed_user(db, 2)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        rows = (await db.execute(select(func.count()).select_from(AIAnalysis))).scalar_one()
+    assert provider.calls == 2 and rows == 0
+
+
+async def test_ai_unparsable_answer_is_not_stored(env) -> None:
+    _, maker, _ = env
+
+    class Unparsable(_FakeProvider):
+        async def analyze(self, context):
+            self.calls += 1
+            return {"summary": "texte brut", "alerts": [], "recommendations": [],
+                    "projected_impact": {}, "parse_error": "JSON invalide"}
+
+    provider = Unparsable()
+    async with maker() as db:
+        user, _, _ = await _seed_user(db, 2)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        rows = (await db.execute(select(func.count()).select_from(AIAnalysis))).scalar_one()
+    assert provider.calls == 2 and rows == 0
+
+
+async def test_ai_reused_analysis_keeps_number_warnings(env) -> None:
+    from app.services.ai import validate_llm_output
+
+    _, maker, _ = env
+
+    class Inventive(_FakeProvider):
+        async def analyze(self, context):
+            self.calls += 1
+            result = {"summary": "Vous pourriez économiser 987654 XAF.", "alerts": [],
+                      "recommendations": [], "projected_impact": {}}
+            return validate_llm_output(result, context)
+
+    provider = Inventive()
+    async with maker() as db:
+        user, _, _ = await _seed_user(db, 2)
+        first = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        again = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+    assert provider.calls == 1 and first.get("number_warnings")
+    assert again["cached"] is True and again.get("number_warnings") == first["number_warnings"]

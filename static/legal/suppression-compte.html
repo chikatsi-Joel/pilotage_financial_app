@@ -3,57 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#584cb9">
 <title>Supprimer son compte · Lucia</title>
 <style>
-  :root { --violet: #584cb9; --ink: #0b1c30; --muted: #4b4a57; --line: #e4dfff; --bg: #f8f7ff; }
+  :root {
+    --violet: #584cb9; --violet-dark: #4a3ca6; --violet-soft: #e4dfff; --lilac: #cfc6ff;
+    --ink: #0b1c30; --muted: #4b4a57; --line: #e8e4ff; --bg: #f6f5ff; --danger: #b3261e; --danger-soft: #fbe9e7;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 32px 18px 64px; }
-  header { border-bottom: 1px solid var(--line); margin-bottom: 24px; padding-bottom: 16px; }
-  .brand { color: var(--violet); font-weight: 700; letter-spacing: .4px; }
-  h1 { font-size: 1.7rem; margin: 6px 0 4px; }
-  h2 { color: var(--violet); font-size: 1.15rem; margin: 30px 0 8px; }
-  p, li { color: var(--muted); }
-  strong { color: var(--ink); }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-  a { color: var(--violet); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--violet); font-weight: 600; }
+
+  .hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #6f60d8, var(--violet-dark)); color: #fff; padding: 36px 20px 64px; }
+  .hero::before, .hero::after { content: ""; position: absolute; border-radius: 50%; background: #fff; }
+  .hero::before { width: 320px; height: 320px; right: -110px; top: -140px; opacity: .09; }
+  .hero::after { width: 180px; height: 180px; left: -60px; bottom: -90px; opacity: .07; }
+  .hero-inner { position: relative; max-width: 760px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .3px; }
+  .brand svg { width: 38px; height: 38px; border-radius: 11px; box-shadow: 0 6px 16px rgba(0,0,0,.18); }
+  .hero h1 { font-size: clamp(1.8rem, 6vw, 2.5rem); line-height: 1.15; margin: 26px 0 8px; }
+  .hero p { margin: 0; color: #ffffffd9; font-size: 1.05rem; }
+
+  main { max-width: 760px; margin: -36px auto 0; padding: 0 16px 56px; position: relative; }
+  .card { position: relative; overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-bottom: 14px; box-shadow: 0 6px 20px rgba(88,76,185,.06); }
+  .card::after { content: ""; position: absolute; width: 120px; height: 120px; right: -50px; top: -60px; border-radius: 50%; background: var(--violet); opacity: .05; }
+  .card h2 { display: flex; align-items: center; gap: 12px; font-size: 1.12rem; margin: 0 0 12px; }
+  .icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--violet-soft); color: var(--violet); }
+  .icon.danger { background: var(--danger-soft); color: var(--danger); }
+  .icon svg { width: 21px; height: 21px; }
+  .card p { margin: 0 0 10px; color: var(--muted); }
+  .card p:last-child { margin-bottom: 0; }
+
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; display: grid; gap: 10px; }
+  ol.steps li { counter-increment: s; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--bg); color: var(--muted); }
+  ol.steps li::before { content: counter(s); flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--violet); color: #fff; font-weight: 700; font-size: .9rem; }
+  ol.steps strong { color: var(--ink); }
+
+  ul.ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  ul.ticks li { position: relative; padding-left: 26px; color: var(--muted); }
+  ul.ticks li::before { content: ""; position: absolute; left: 4px; top: .55em; width: 9px; height: 9px; border-radius: 50%; background: var(--lilac); box-shadow: 0 0 0 3px var(--violet-soft); }
+  ul.ticks.gone li::before { background: #f3b4ae; box-shadow: 0 0 0 3px var(--danger-soft); }
+
+  .note { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--violet-soft); color: var(--violet-dark); font-weight: 600; font-size: .95rem; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; background: var(--violet); color: #fff; border-radius: 14px; padding: 11px 16px; font-weight: 700; font-size: .95rem; margin-top: 12px; }
+  .btn svg { width: 17px; height: 17px; }
+  footer { text-align: center; margin-top: 26px; font-size: .85rem; color: var(--muted); }
 </style>
 </head>
 <body>
-<main>
-<header>
-  <div class="brand">LUCIA</div>
-  <h1>Supprimer votre compte Lucia</h1>
+<header class="hero">
+  <div class="hero-inner">
+    <div class="brand">
+      <svg viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a6be0"/><stop offset="1" stop-color="#4a3ca6"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#g)"/><path d="M182 122 V304 Q182 378 256 378 H300 Q350 378 374 334" fill="none" stroke="#fff" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/><circle cx="388" cy="214" r="38" fill="#cfc6ff"/></svg>
+      Lucia
+    </div>
+    <h1>Supprimer votre compte</h1>
+    <p>Vous pouvez effacer votre compte et toutes vos données à tout moment.</p>
+  </div>
 </header>
 
-<h2>Depuis l'application (immédiat)</h2>
-<ol>
-  <li>Ouvrez Lucia et touchez l'<strong>icône de profil</strong> en haut de l'écran d'accueil.</li>
-  <li>Choisissez <strong>Supprimer mon compte</strong>.</li>
-  <li>Tapez <strong>SUPPRIMER</strong>, puis confirmez votre identité (mot de passe ou compte Google).</li>
-</ol>
-<p>Votre compte et toutes vos données sont effacés immédiatement, puis vous êtes déconnecté.</p>
+<main>
+  <section class="card">
+    <h2><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M11 18h2"/></svg></span>Depuis l'application, tout de suite</h2>
+    <ol class="steps">
+      <li><span>Ouvrez Lucia et touchez l'<strong>icône de profil</strong> en haut de l'accueil.</span></li>
+      <li><span>Choisissez <strong>Supprimer mon compte</strong>.</span></li>
+      <li><span>Tapez <strong>SUPPRIMER</strong>, puis confirmez avec votre mot de passe ou votre compte Google.</span></li>
+    </ol>
+    <p class="note">Tout est effacé immédiatement, puis vous êtes déconnecté.</p>
+  </section>
 
-<h2>Sans l'application</h2>
-<div class="card">
-  <p>Écrivez à <a href="mailto:kappachikatsi@gmail.com?subject=Suppression%20de%20mon%20compte%20Lucia">kappachikatsi@gmail.com</a> avec pour objet « Suppression de mon compte Lucia », <strong>depuis l'adresse e-mail de votre compte</strong>. Votre compte est supprimé sous 7 jours et nous vous le confirmons par e-mail.</p>
-</div>
+  <section class="card">
+    <h2><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 7l9 6 9-6"/></svg></span>Sans l'application</h2>
+    <p>Écrivez-nous <strong>depuis l'adresse e-mail de votre compte</strong>, avec pour objet « Suppression de mon compte Lucia ». Nous supprimons le compte sous 7 jours et vous le confirmons par e-mail.</p>
+    <a class="btn" href="mailto:kappachikatsi@gmail.com?subject=Suppression%20de%20mon%20compte%20Lucia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>Écrire à kappachikatsi@gmail.com</a>
+  </section>
 
-<h2>Ce qui est supprimé</h2>
-<ul>
-  <li>Votre compte : e-mail, nom, devise, identifiant de connexion.</li>
-  <li>Toutes vos données financières : dépenses, revenus, catégories, budgets, objectifs d'épargne et versements, analyses et recommandations.</li>
-  <li>Vos appareils enregistrés pour les notifications, vos préférences, l'historique des notifications et vos jours d'utilisation.</li>
-  <li>Votre compte de connexion Firebase.</li>
-</ul>
+  <section class="card">
+    <h2><span class="icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></span>Ce qui est effacé</h2>
+    <ul class="ticks gone">
+      <li>Votre compte : e-mail, nom, devise et connexion (y compris le compte Firebase).</li>
+      <li>Toutes vos données financières : dépenses, revenus, catégories, budgets, objectifs et versements.</li>
+      <li>Vos analyses, recommandations, notifications et appareils enregistrés.</li>
+    </ul>
+  </section>
 
-<h2>Ce qui peut subsister temporairement</h2>
-<ul>
-  <li>Les <strong>sauvegardes techniques</strong> du serveur, conservées <strong>15 jours au maximum</strong> puis détruites automatiquement.</li>
-  <li>Aucune donnée n'est conservée au-delà, sauf obligation légale.</li>
-</ul>
+  <section class="card">
+    <h2><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Ce qui peut rester un temps</h2>
+    <p>Les sauvegardes techniques du serveur, détruites automatiquement au bout de <strong>15 jours au maximum</strong>. Rien n'est conservé au-delà, sauf obligation légale.</p>
+  </section>
 
-<p>Plus de détails dans notre <a href="/confidentialite">politique de confidentialité</a>.</p>
+  <footer>Plus de détails dans notre <a href="/confidentialite">politique de confidentialité</a></footer>
 </main>
 </body>
 </html>

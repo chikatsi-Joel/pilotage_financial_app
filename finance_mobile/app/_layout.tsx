@@ -11,7 +11,6 @@ import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
 import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
-import { PaperProvider } from "react-native-paper";
 
 import { setUnauthorizedHandler } from "../src/shared/auth/session";
 import { initRemoteConfig } from "../src/shared/config/remoteConfig";
@@ -21,7 +20,7 @@ import { useNotificationRouting } from "../src/shared/notifications/useNotificat
 import { useAppStore } from "../src/shared/store";
 import { MaintenanceScreen } from "../src/ui/MaintenanceScreen";
 import { TourProvider } from "../src/ui/tour/TourProvider";
-import { colors, paperTheme } from "../src/ui/theme";
+import { colors } from "../src/ui/theme";
 
 /** Thème de navigation clair fixe : évite le fond sombre derrière la barre d'onglets. */
 const navigationTheme = {
@@ -87,8 +86,7 @@ export default function RootLayout() {
   if ((!fontsLoaded && !fontError) || !configReady) return null;
 
   return (
-    <PaperProvider theme={paperTheme}>
-      <ThemeProvider value={navigationTheme}>
+    <ThemeProvider value={navigationTheme}>
         <TourProvider>
           {/* Pendant la maintenance, l'app en dessous est masquée aux lecteurs d'écran. */}
           <View
@@ -112,8 +110,7 @@ export default function RootLayout() {
             <MaintenanceScreen message={maintenance.message} />
           </View>
         ) : null}
-      </ThemeProvider>
-    </PaperProvider>
+    </ThemeProvider>
   );
 }
 

@@ -316,7 +316,11 @@ export interface WhatIfRequest {
 
 export interface MonthlyTotal {
   period: string;
+  /** Dépenses du mois. */
   total: number;
+  income: number;
+  /** Revenus − dépenses. */
+  savings: number;
 }
 
 export interface WhatIfResult {

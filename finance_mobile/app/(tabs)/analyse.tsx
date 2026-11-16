@@ -120,11 +120,7 @@ export default function Depenses() {
   const onRefresh = useCallback(async () => {
     if (!userId) return;
     setRefreshing(true);
-    try {
-      await analytics.refresh(userId, period);
-    } catch {
-      // Rafraîchissement serveur indisponible : on repart des données actuelles.
-    }
+    // Pas de recalcul forcé : le serveur invalide son cache à chaque écriture.
     await Promise.all([loadCats({ silent: true }), reload({ silent: true })]);
     setRefreshing(false);
   }, [userId, period, loadCats, reload]);

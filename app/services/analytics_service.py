@@ -112,7 +112,7 @@ def _expense_sum(start: date, end: date) -> ColumnElement[Decimal]:
     )
 
 
-def _period_totals_query(
+def period_totals_query(
     user_id: UUID, months: list[tuple[date, date]]
 ) -> Select:
     """Une seule requête : revenus puis dépenses de chaque mois de `months`, à plat.
@@ -418,7 +418,7 @@ async def build_dashboard(
     prev_bounds = month_bounds(shift_period(period))
 
     # Mois courant, mois précédent et versements d'épargne : une seule requête
-    totals = _period_totals_query(user_id, [(start, end), prev_bounds]).add_columns(
+    totals = period_totals_query(user_id, [(start, end), prev_bounds]).add_columns(
         _contributions_sum(user_id, start, end)
     )
     income_total, expense_total, prev_income, prev_expense, contributions = (
@@ -511,6 +511,7 @@ async def refresh_analytics(
     user_id: UUID, period: str, db: AsyncSession, today: date | None = None
 ) -> dict:
     today = today or _utc_today()
+    await _lock_user_analytics(user_id, db)
     analytics = await compute_category_analytics(
         user_id, period, db, today
     )
@@ -592,18 +593,37 @@ async def get_period_totals(
     user_id: UUID, period: str, db: AsyncSession
 ) -> tuple[Decimal, Decimal]:
     income, expense = (
-        await db.execute(_period_totals_query(user_id, [month_bounds(period)]))
+        await db.execute(period_totals_query(user_id, [month_bounds(period)]))
     ).one()
     return money(income), expense
+
+
+async def _lock_user_analytics(user_id: UUID, db: AsyncSession) -> None:
+    """Sérialise recalcul et invalidation du cache d'un utilisateur (jusqu'au commit).
+
+    Sans verrou, une lecture qui recalcule pendant qu'une écriture invalide pourrait
+    réinsérer, après les DELETE de l'écriture, un cache calculé sur l'ancien état et le
+    figer. Verrou consultatif transactionnel PostgreSQL ; rien à faire sous SQLite (tests),
+    où les écritures sont déjà sérialisées.
+    """
+    if db.get_bind().dialect.name == "postgresql":
+        await db.execute(
+            select(func.pg_advisory_xact_lock(func.hashtextextended(str(user_id), 0)))
+        )
 
 
 async def invalidate_snapshots(
     user_id: UUID, period: str, db: AsyncSession
 ) -> None:
-    # Lignes du mois ET des mois suivants : ceux-ci comparent leur dépense à une habitude
-    # qui inclut `period`, leur cache est périmé. Pour les mois suivants, le snapshot part
-    # aussi (sans snapshot, la lecture recalcule ; avec un snapshot et aucune ligne, un
-    # cache vide serait pris pour valide).
+    """Invalide le cache du mois `period` et des mois suivants, sans recalcul.
+
+    Les mois suivants comparent leur dépense à une habitude qui inclut `period` : leur cache
+    est périmé aussi. Le recalcul est paresseux : la prochaine lecture
+    (`_cached_analytics_or_refresh`) le fait une seule fois, hors de la requête d'écriture.
+    Le snapshot part avec les lignes : sans snapshot la lecture recalcule, alors qu'un
+    snapshot sans ligne serait pris pour un cache vide valide.
+    """
+    await _lock_user_analytics(user_id, db)
     await db.execute(
         delete(CategoryAnalytics).where(
             CategoryAnalytics.user_id == user_id,
@@ -613,13 +633,9 @@ async def invalidate_snapshots(
     await db.execute(
         delete(MonthlySnapshot).where(
             MonthlySnapshot.user_id == user_id,
-            MonthlySnapshot.period > period,
+            MonthlySnapshot.period >= period,
         )
     )
-    # Les lignes de catégories sont supprimées (une catégorie sans dépense ne doit plus
-    # apparaître) ; le snapshot du mois est toujours réécrit par l'upsert de refresh.
-    await db.flush()
-    await refresh_analytics(user_id, period, db)
 
 
 def _snapshot_to_category_read(
@@ -713,6 +729,7 @@ async def _load_cached_analytics(
                 CategoryAnalytics.user_id == user_id,
                 CategoryAnalytics.period == period,
             )
+            .order_by(Category.name, CategoryAnalytics.category_id)
             .execution_options(populate_existing=True)
         )
     ).all()
@@ -722,7 +739,12 @@ async def _load_cached_analytics(
     ):
         return None
 
-    return [_snapshot_to_category_read(row, category) for row, category in rows]
+    # Même ordre que le moteur : opportunité décroissante (tri stable, puis par nom).
+    return sorted(
+        (_snapshot_to_category_read(row, category) for row, category in rows),
+        key=lambda a: a.opportunity_score,
+        reverse=True,
+    )
 
 
 async def _has_monthly_snapshot(
@@ -753,6 +775,13 @@ async def _cached_analytics_or_refresh(
         return await _load_cached_analytics(user_id, period, db, allow_empty=True)
 
     analytics = await cached()
+    if analytics is None:
+        # Verrou pris, on revérifie : une lecture parallèle vient peut-être de recalculer
+        # (un seul calcul au lieu de deux, ex. dashboard + catégories lancés ensemble).
+        await _lock_user_analytics(user_id, db)
+        analytics = await cached()
+        if analytics is not None:
+            await db.commit()  # libère le verrou : la suite de la requête n'en a pas besoin
     if analytics is None:
         await refresh_analytics(user_id, period, db)
         analytics = await cached()

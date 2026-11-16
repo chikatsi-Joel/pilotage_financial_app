@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import ruptures as rpt
-from statsmodels.tsa.seasonal import STL
 
 from app.services.analytics.statistics import mad, robust_center, robust_z
+
+# Sentinelle : « ajustement STL non fourni, le calculer ». None signifie « pas assez de données ».
+_UNSET: Any = object()
 
 # STL thresholds:
 # - >= 24 months: full STL with seasonal component
@@ -15,15 +19,22 @@ _MIN_TREND = 12
 
 
 def stl(values: list[float], period: int = 12):
+    """Décomposition STL, ou None sous 24 mois d'historique.
+
+    statsmodels (et pandas) n'est importé qu'au premier besoin : la plupart des utilisateurs
+    n'ont pas 24 mois d'historique, l'API démarre plus vite et consomme moins de mémoire.
+    """
     if len(values) < max(2 * period, _MIN_SEASONAL):
         return None
+    from statsmodels.tsa.seasonal import STL
+
     return STL(
         np.asarray(values, float), period=period, robust=True
     ).fit()
 
 
 def seasonality_strength(
-    values: list[float], period: int = 12
+    values: list[float], period: int = 12, *, fit: Any = _UNSET
 ) -> tuple[float, bool]:
     """
     Returns (strength, reliable).
@@ -33,7 +44,7 @@ def seasonality_strength(
     """
     if len(values) < max(2 * period, _MIN_SEASONAL):
         return 0.0, False
-    r = stl(values, period)
+    r = stl(values, period) if fit is _UNSET else fit
     if r is None:
         return 0.0, False
     resid = np.asarray(r.resid)
@@ -79,9 +90,10 @@ def drift_score(values: list[float]) -> float:
 
 
 def residual_anomaly_score(
-    values: list[float], period: int = 12
+    values: list[float], period: int = 12, *, fit: Any = _UNSET
 ) -> float:
-    r = stl(values, period)
+    """`fit` : ajustement STL déjà calculé sur `values` (évite un second ajustement)."""
+    r = stl(values, period) if fit is _UNSET else fit
     if r is None:
         if len(values) < 3:
             return 0.0

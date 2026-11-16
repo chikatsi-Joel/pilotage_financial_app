@@ -10,7 +10,18 @@ _SessionLocal: async_sessionmaker[AsyncSession] | None = None
 def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
-        _engine = create_async_engine(settings.database_url, pool_pre_ping=True, future=True)
+        # Pool borné (5 + 5) : un seul worker uvicorn sur une petite VM ; au-delà, une requête
+        # attend une connexion (30 s max) au lieu d'ouvrir des connexions Postgres sans fin.
+        _engine = create_async_engine(
+            settings.database_url,
+            pool_pre_ping=True,
+            future=True,
+            **(
+                {"pool_size": 5, "max_overflow": 5, "pool_timeout": 30}
+                if settings.database_url.startswith("postgresql")
+                else {}
+            ),
+        )
     return _engine
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:

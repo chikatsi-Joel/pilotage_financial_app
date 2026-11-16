@@ -33,8 +33,13 @@ import { MONTHS_FR } from "../../src/shared/utils/date";
 import { dailyAllowance } from "../../src/shared/utils/dailyAllowance";
 import { budgetPace, compactAmount, type PaceTone } from "../../src/shared/utils/budgetPace";
 import { previousRange, relativeChange } from "../../src/shared/utils/monthCompare";
-import { expenses as expensesApi } from "../../src/shared/api/expenses";
-import { buildMonthCurve, type DayTotal, type MonthCurve } from "../../src/shared/utils/monthCurve";
+import {
+  buildMonthCurve,
+  sparklineToDaily,
+  sumFirstDays,
+  type DayTotal,
+  type MonthCurve,
+} from "../../src/shared/utils/monthCurve";
 
 // ═══════════════════════════════════════════════════════════
 //  TYPES & AIDES
@@ -726,19 +731,15 @@ export default function Dashboard() {
     async (uid: string) => {
       const range = previousRange(period, new Date());
       try {
-        const [prevDash, prevDaily] = await Promise.all([
-          analytics.dashboard(uid, range.period),
-          range.sameDate
-            ? expensesApi.daily(uid, { from: range.from, to: range.to })
-            : Promise.resolve(null),
-        ]);
+        // Un seul appel : la sparkline (un total par jour) donne aussi le total « à date égale ».
+        const prevDash = await analytics.dashboard(uid, range.period);
         const label = new Date(`${range.period}-01T12:00:00`).toLocaleDateString("fr-FR", {
           month: "short",
         });
         setPrev({
           income: prevDash.income,
-          expenses: prevDaily
-            ? prevDaily.reduce((s, d) => s + d.total, 0)
+          expenses: range.sameDate
+            ? sumFirstDays(prevDash.sparkline, Number(range.to.slice(8, 10)))
             : prevDash.expenses,
           savingsRate: prevDash.savings_rate,
           label,
@@ -750,28 +751,16 @@ export default function Dashboard() {
     [period],
   );
 
-  /** Dépenses jour par jour du mois affiché, pour la courbe « Budget du mois ». */
-  const loadDaily = useCallback(
-    async (uid: string) => {
-      const [y, m] = period.split("-").map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      try {
-        setDaily(await expensesApi.daily(uid, { from: `${period}-01`, to: `${period}-${String(lastDay).padStart(2, "0")}` }));
-      } catch {
-        setDaily([]);
-      }
-    },
-    [period],
-  );
-
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       if (!userId) throw new Error("no-session");
-      setData(await analytics.dashboard(userId, period));
+      const dash = await analytics.dashboard(userId, period);
+      setData(dash);
+      // Courbe « Budget du mois » : jours déjà fournis par la sparkline du dashboard.
+      setDaily(sparklineToDaily(dash.sparkline ?? [], period));
       void loadPrevious(userId);
-      void loadDaily(userId);
     } catch {
       if (!opts?.silent) {
         setData(null);
@@ -784,16 +773,12 @@ export default function Dashboard() {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [userId, period, loadPrevious, loadDaily]);
+  }, [userId, period, loadPrevious]);
 
   const onRefresh = useCallback(async () => {
     if (!userId) return;
     setRefreshing(true);
-    try {
-      await analytics.refresh(userId, period);
-    } catch {
-      // Rafraîchissement serveur indisponible : on repart des données actuelles.
-    }
+    // Pas de recalcul forcé : le serveur invalide son cache à chaque écriture.
     await load({ silent: true });
     setRefreshing(false);
   }, [userId, period, load]);

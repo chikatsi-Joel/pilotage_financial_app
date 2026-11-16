@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Préparation d'une VM Oracle Cloud (Ubuntu 24.04, ARM) pour Lucia. Idempotent : relançable.
+# Préparation d'une VM Ubuntu 24.04 (Google Cloud e2-micro, Oracle ARM…) pour Lucia. Idempotent : relançable.
 #   bash setup.sh <ip-publique>
 set -euo pipefail
 
@@ -14,20 +14,29 @@ if ! command -v docker >/dev/null; then
   sudo usermod -aG docker "$USER"
 fi
 
-# 2. Pare-feu de l'image Oracle : elle rejette tout sauf SSH (iptables), en plus de la Security List.
-for port in 80 443; do
-  sudo iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null \
-    || sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport "$port" -j ACCEPT
-done
-sudo iptables -C INPUT -p udp --dport 443 -j ACCEPT 2>/dev/null \
-  || sudo iptables -I INPUT 6 -m state --state NEW -p udp --dport 443 -j ACCEPT
-sudo apt-get install -y iptables-persistent >/dev/null 2>&1 || true
-sudo netfilter-persistent save
+# 2. Petite VM (e2-micro : 1 Go de RAM) : 2 Go de swap pour Postgres + API + build Docker.
+if [ ! -f /swapfile ] && [ "$(awk '/MemTotal/ {print $2}' /proc/meminfo)" -lt 3000000 ]; then
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+  sudo mkswap /swapfile >/dev/null && sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+fi
 
-# 3. Code.
+# 3. Pare-feu local : seule l'image Oracle rejette tout sauf SSH (règle REJECT dans INPUT).
+#    Sur Google Cloud, il suffit d'avoir coché « Autoriser HTTP/HTTPS » sur la VM.
+if sudo iptables -S INPUT 2>/dev/null | grep -q -- '-j REJECT'; then
+  for rule in "tcp 80" "tcp 443" "udp 443"; do
+    set -- $rule
+    sudo iptables -C INPUT -p "$1" --dport "$2" -j ACCEPT 2>/dev/null \
+      || sudo iptables -I INPUT 1 -p "$1" --dport "$2" -j ACCEPT
+  done
+  sudo apt-get install -y iptables-persistent >/dev/null 2>&1 || true
+  sudo netfilter-persistent save
+fi
+
+# 4. Code.
 if [ -d "$APP_DIR/.git" ]; then git -C "$APP_DIR" pull --ff-only; else git clone "$REPO" "$APP_DIR"; fi
 
-# 4. .env : créé une seule fois, secrets générés sur la VM (jamais transmis).
+# 5. .env : créé une seule fois, secrets générés sur la VM (jamais transmis).
 cd "$DEPLOY_DIR"
 if [ ! -f .env ]; then
   cp .env.example .env
@@ -38,7 +47,7 @@ if [ ! -f .env ]; then
   echo ">> .env créé. Ajoute SMTP_PASSWORD dedans (nano $DEPLOY_DIR/.env) puis relance."
 fi
 
-# 5. Sauvegarde quotidienne de la base (03:30, 15 jours au plus).
+# 6. Sauvegarde quotidienne de la base (03:30, 15 jours au plus).
 chmod +x "$DEPLOY_DIR/backup.sh"
 ( crontab -l 2>/dev/null | grep -v lucia-backup; echo "30 3 * * * $DEPLOY_DIR/backup.sh # lucia-backup" ) | crontab -
 

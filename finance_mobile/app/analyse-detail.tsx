@@ -375,7 +375,8 @@ export default function AnalyseDetail() {
   const [error, setError] = useState<string | null>(null);
   const [appliedActions, setAppliedActions] = useState<Set<number>>(new Set());
 
-  const load = useCallback(async () => {
+  // `force` (tirer pour rafraîchir) : nouvelle analyse ; sinon la dernière, si elle est à jour.
+  const load = useCallback(async (force = false) => {
     if (!userId) {
       setLoading(false);
       return;
@@ -383,7 +384,7 @@ export default function AnalyseDetail() {
     setError(null);
     try {
       const [aiResult, aiHealth, recs, sysHealth] = await Promise.all([
-        aiApi.analyze(userId, period),
+        aiApi.analyze(userId, period, force),
         aiApi.health(userId).catch(() => null),
         budgetApi.listRecommendations(userId, period).catch(() => null),
         systemApi.health().catch(() => null),
@@ -406,7 +407,7 @@ export default function AnalyseDetail() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    void load();
+    void load(true);
   }, [load]);
 
   const deviations = useMemo(

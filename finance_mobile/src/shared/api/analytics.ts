@@ -21,7 +21,7 @@ export const analytics = {
         params: { period },
       })
       .then((r) => r.data),
-  /** Dépenses totales des `months` derniers mois, finissant à `period`. */
+  /** Dépenses, revenus et épargne des `months` derniers mois, finissant à `period` (une requête). */
   monthly: (userId: string, period: string, months = 12) =>
     api
       .get<MonthlyTotal[]>(`${path(userId)}/monthly`, { params: { period, months } })

@@ -7,28 +7,33 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    Budget, Category, Recommendation,
-    RecommendationStatus, SavingsContribution, SavingsGoal,
+    Budget,
+    Category,
+    Recommendation,
+    RecommendationStatus,
+    SavingsContribution,
+    SavingsGoal,
 )
 from app.schemas.common import (
-    BudgetRead, RecommendationRead,
+    BudgetRead,
+    RecommendationRead,
 )
 from app.services.analytics import money
 from app.services.analytics_service import (
-    compute_category_analytics,
+    get_category_analytics_snapshot,
     get_period_totals,
 )
+from app.services.budget import generate_budget
 from app.services.errors import BusinessRule, Conflict, NotFound
 from app.services.periods import month_bounds
-from app.services.budget import generate_budget
 
 
 async def recommend_budget(user_id: UUID, period: str, db: AsyncSession) -> BudgetRead:
     start, _ = month_bounds(period)
 
-    analytics = await compute_category_analytics(
-        user_id, period, db
-    )
+    # Cache d'analytics (recalculé une fois s'il est absent ou périmé) : `generate_budget`
+    # n'utilise que des champs présents dans le cache.
+    analytics = await get_category_analytics_snapshot(user_id, period, db)
     projected_income, current_expenses = (
         await get_period_totals(user_id, period, db)
     )

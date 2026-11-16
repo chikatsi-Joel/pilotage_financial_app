@@ -310,6 +310,8 @@ class AIAnalysis(Base):
     recommendations_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     projected_impact_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Empreinte du contexte envoyé au modèle : l'analyse est resservie tant qu'elle ne change pas.
+    context_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "period", name="uq_ai_analysis_user_period"),)

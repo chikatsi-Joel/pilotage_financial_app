@@ -24,7 +24,7 @@ from app.services.analytics.models import (
 )
 from app.services.ai import (
     _extract_known_numbers,
-    _validate_llm_output,
+    validate_llm_output,
 )
 
 
@@ -219,7 +219,7 @@ def test_extract_known_numbers():
     assert 150000.0 in numbers
 
 
-def test_validate_llm_output_clean():
+def testvalidate_llm_output_clean():
     result = {
         "summary": "Dépenses totales de 500000 avec un revenu de 800000.",
         "alerts": [],
@@ -230,11 +230,11 @@ def test_validate_llm_output_clean():
         "dashboard": {"income": "800000", "expenses": "500000"},
         "categories": [],
     }
-    validated = _validate_llm_output(result, context)
+    validated = validate_llm_output(result, context)
     assert "number_warnings" not in validated
 
 
-def test_validate_llm_output_detects_hallucination():
+def testvalidate_llm_output_detects_hallucination():
     result = {
         "summary": "Vous avez dépensé 999999 ce mois-ci.",
         "alerts": [],
@@ -245,7 +245,7 @@ def test_validate_llm_output_detects_hallucination():
         "dashboard": {"income": "800000", "expenses": "500000"},
         "categories": [],
     }
-    validated = _validate_llm_output(result, context)
+    validated = validate_llm_output(result, context)
     assert "number_warnings" in validated
     assert len(validated["number_warnings"]) > 0
 

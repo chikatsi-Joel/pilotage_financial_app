@@ -760,6 +760,8 @@ export default function Insights() {
     "Analyse IA en cours de chargement…"
   );
   const [history, setHistory] = useState<AIAnalysisStored[]>([]);
+  // Le mois affiché a sa propre carte : l'historique ne liste que les autres mois.
+  const pastAnalyses = history.filter((h) => h.period !== period);
   const [season, setSeason] = useState<SeasonalitySummary | null>(null);
   const [allCats, setAllCats] = useState<CategoryAnalytics[]>([]);
   const [decidingId, setDecidingId] = useState<string | null>(null);
@@ -905,15 +907,13 @@ export default function Insights() {
         <AiSummaryCard summary={aiSummary} />
 
         {/* ── Historique des analyses ── */}
-        {history.length > 0 && (
+        {pastAnalyses.length > 0 && (
           <>
             <SectionTitle title="Historique des analyses" />
             <View style={styles.listGap}>
-              {history
-                .filter((h) => h.period !== period)
-                .map((h) => (
-                  <AnalysisHistoryRow key={h.id} analysis={h} />
-                ))}
+              {pastAnalyses.map((h) => (
+                <AnalysisHistoryRow key={h.id} analysis={h} />
+              ))}
             </View>
           </>
         )}
