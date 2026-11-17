@@ -15,13 +15,9 @@ import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } 
 
 import { colors, interFonts } from "../../src/ui/theme";
 import { AnnouncementBanner } from "../../src/ui/AnnouncementBanner";
-import { ProfileMenu } from "../../src/ui/ProfileMenu";
 import { useAutoTour, useTour } from "../../src/ui/tour/TourProvider";
-import { useRemoteFlags } from "../../src/shared/config/remoteFlags";
 import { analytics } from "../../src/shared/api/analytics";
 import { useAppStore } from "../../src/shared/store";
-import { signOut } from "../../src/shared/auth/signOut";
-import { openPrivacyPolicy } from "../../src/shared/config/legal";
 import type {
   CategoryAnalytics,
   Dashboard,
@@ -696,11 +692,7 @@ export default function Dashboard() {
   const userId = useAppStore((s) => s.userId);
   const currency = useAppStore((s) => s.currency);
   const period = useAppStore((s) => s.currentPeriod);
-  const userName = useAppStore((s) => s.userName);
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-  const openNotifications = useCallback(() => router.push("/notifications"), []);
 
   const [data, setData] = useState<Dashboard | null>(null);
   const [daily, setDaily] = useState<DayTotal[]>([]);
@@ -716,15 +708,7 @@ export default function Dashboard() {
 
   // Visite guidée de l'accueil, une fois les données affichées.
   const tour = useTour();
-  const maintenance = useRemoteFlags((s) => s.maintenance.enabled);
-  useEffect(() => {
-    // La maintenance ferme le menu, qui passerait au-dessus de son écran.
-    if (maintenance) setMenuOpen(false);
-  }, [maintenance]);
-  useAutoTour("dashboard", data !== null, menuOpen);
-  const replayTours = useCallback(() => {
-    void tour.resetAll().then(() => tour.start("dashboard"));
-  }, [tour]);
+  useAutoTour("dashboard", data !== null);
 
   /** Mois précédent, pour les flèches de tendance. Les dépenses sont comparées à date égale. */
   const loadPrevious = useCallback(
@@ -910,8 +894,8 @@ export default function Dashboard() {
             <Pressable
               ref={tour.target("account")}
               accessibilityRole="button"
-              accessibilityLabel="Mon compte"
-              onPress={() => setMenuOpen(true)}
+              accessibilityLabel="Paramètres du compte"
+              onPress={() => router.push("/settings")}
               style={styles.avatar}
             >
               <MaterialCommunityIcons
@@ -920,16 +904,6 @@ export default function Dashboard() {
                 size={18}
               />
             </Pressable>
-            <ProfileMenu
-              name={userName}
-              onClose={closeMenu}
-              onNotifications={openNotifications}
-              onDeleteAccount={() => router.push("/delete-account")}
-              onPrivacy={openPrivacyPolicy}
-              onSignOut={signOut}
-              onTour={replayTours}
-              visible={menuOpen}
-            />
           </View>
         </View>
 

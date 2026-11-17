@@ -48,8 +48,8 @@ export const DEFAULT_TOURS: Record<TourScreen, TourStep[]> = {
     },
     {
       target: "account",
-      title: "Votre compte",
-      text: "Réglez vos notifications et relancez les visites guidées quand vous voulez.",
+      title: "Vos paramètres",
+      text: "Notifications, sources de revenus, visites guidées et confidentialité : tout est ici.",
     },
   ],
   analyse: [

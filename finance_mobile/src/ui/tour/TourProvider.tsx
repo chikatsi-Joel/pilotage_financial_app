@@ -145,7 +145,7 @@ export function useAutoTour(screen: TourScreen, ready: boolean, blocked = false)
   const decided = useRef(false);
 
   useEffect(() => {
-    decided.current = false; // visites remises à zéro depuis le menu du profil
+    decided.current = false; // visites remises à zéro depuis les Paramètres
   }, [tour.generation]);
 
   useEffect(() => {

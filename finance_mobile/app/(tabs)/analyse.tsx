@@ -251,9 +251,14 @@ export default function Depenses() {
             />
             <Text style={styles.analyseBtnText}>Analyse</Text>
           </Pressable>
-          <View style={styles.avatar}>
+          <Pressable
+            accessibilityLabel="Paramètres du compte"
+            accessibilityRole="button"
+            onPress={() => router.push("/settings")}
+            style={styles.avatar}
+          >
             <MaterialCommunityIcons color="#FFFFFF" name="account" size={18} />
-          </View>
+          </Pressable>
         </View>
       </View>
 

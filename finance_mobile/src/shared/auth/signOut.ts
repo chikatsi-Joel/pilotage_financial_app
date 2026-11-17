@@ -11,6 +11,10 @@ export async function endLocalSession(): Promise<void> {
   await clearToken();
   await firebaseSignOut();
   useAppStore.getState().clearAuth();
+  // Ferme d'abord les écrans empilés (Paramètres, suppression du compte, écran profond lors
+  // d'une session expirée) : sinon `replace` ne remplace que le sommet et les onglets restent
+  // dessous, accessibles par le bouton retour alors que l'utilisateur est déconnecté.
+  if (router.canDismiss()) router.dismissAll();
   router.replace("/onboarding");
 }
 
