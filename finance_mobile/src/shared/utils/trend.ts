@@ -52,7 +52,32 @@ export function describeTrend(profile: TrendInput | null): TrendView {
 
   const sub =
     profile.drift_score > 0.6
-      ? "Dérive marquée"
+      ? "Hausse durable"
       : `${signed(Math.round(profile.trend * 100))} % par mois`;
   return { label: direction(profile.trend), sub };
+}
+
+/**
+ * Explication d'une catégorie par rapport à son habitude. Objectif : dépenser moins. Une baisse
+ * est valorisée ; « réduire » n'est proposé que pour une hausse avec une économie possible.
+ * `money` formate un montant (injecté : module sans dépendance).
+ */
+export function categoryRationale(
+  name: string,
+  variationPct: number,
+  potentialSaving: number,
+  money: (value: number) => string,
+): string {
+  const pct = Math.round(Math.abs(variationPct));
+  if (variationPct < -0.5) {
+    return `Vos dépenses « ${name} » sont ${pct} % sous votre habitude : bel effort, continuez ainsi.`;
+  }
+  if (variationPct <= 0.5 || potentialSaving <= 0) {
+    return variationPct <= 0.5
+      ? `Vos dépenses « ${name} » sont conformes à votre habitude.`
+      : `Vos dépenses « ${name} » sont ${pct} % au-dessus de votre habitude.`;
+  }
+  return `Vos dépenses « ${name} » sont ${pct} % au-dessus de votre habitude. Revenir à votre niveau habituel libérerait environ ${money(
+    potentialSaving,
+  )} ce mois-ci.`;
 }

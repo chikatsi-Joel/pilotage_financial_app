@@ -145,7 +145,19 @@ test("sanitizeCode keeps six digits only", () => {
   assert.equal(isCodeComplete("1234"), false);
 });
 
-const { describeTrend } = load("src/shared/utils/trend.ts");
+const { describeTrend, categoryRationale } = load("src/shared/utils/trend.ts");
+
+test("categoryRationale praises drops and only suggests cutting real increases", () => {
+  const money = (v) => `${v} XAF`;
+  const drop = categoryRationale("Santé", -30, 0, money);
+  assert.match(drop, /30 % sous votre habitude : bel effort/);
+  assert.doesNotMatch(drop, /Réduire|dérive|libérerait/);
+  assert.match(categoryRationale("Loyer", 0, 0, money), /conformes à votre habitude/);
+  const rise = categoryRationale("Sortie", 25, 4000, money);
+  assert.match(rise, /25 % au-dessus/);
+  assert.match(rise, /libérerait environ 4000 XAF ce mois-ci/);
+  assert.doesNotMatch(categoryRationale("Taxi", 12, 0, money), /libérerait/);
+});
 
 test("describeTrend distinguishes rising, falling, stable and too-short history", () => {
   const base = { drift_score: 0.1, history_months: 6 };
@@ -159,7 +171,7 @@ test("describeTrend distinguishes rising, falling, stable and too-short history"
   assert.match(describeTrend({ ...base, trend: 0, history_months: 2, last_change: -0.4 }).label, /baisse/);
   assert.match(describeTrend({ ...base, trend: 0, history_months: 2, last_change: null }).label, /Trop tôt/);
   assert.equal(describeTrend({ ...base, trend: 0.2, history_months: null }).label, "↗ En hausse");
-  assert.match(describeTrend({ trend: 0.2, drift_score: 0.9, history_months: 6 }).sub, /Dérive/);
+  assert.match(describeTrend({ trend: 0.2, drift_score: 0.9, history_months: 6 }).sub, /Hausse durable/);
   assert.equal(describeTrend(null).label, "—");
 });
 
@@ -618,4 +630,109 @@ test("guided tours: per-page Remote Config steps, version and placement", () => 
   assert.equal(tab.top, 720 - 14 - 180);
   assert.equal(tab.left, 400 - 16 - 300);
   assert.ok(tab.arrowLeft <= 300 - 22 && tab.arrowLeft >= 22);
+});
+
+function cat(id, over = {}, profile = {}) {
+  return {
+    category_id: id, name: id, description: "", period: "2026-11", essential: false,
+    current_amount: 100, baseline_amount: 100, expected_amount: 100, variation_percentage: 0,
+    potential_saving: 0, opportunity_score: 0, ...over,
+    profile: {
+      level: 100, history_months: 6, trend: 0, seasonality_strength: 0, seasonality_reliable: false,
+      volatility: 0.1, anomaly_score: 0, change_points: [], drift_score: 0, confidence: 0.8,
+      forecast: { method: "ewma", value: 100, mae: null }, ...profile,
+    },
+  };
+}
+
+test("computeKpis weights by habit and skips the partial month", () => {
+  const { computeKpis } = load("src/shared/utils/analyticsKpis.ts");
+  const items = [
+    cat("Loyer", { baseline_amount: 300, essential: true, potential_saving: 0 },
+        { trend: 0, volatility: 0.05, confidence: 1, drift_score: 0, forecast: { method: "naive", value: 300, mae: 3 } }),
+    cat("Sorties", { baseline_amount: 100, potential_saving: 20 },
+        { trend: 0.1, volatility: 0.5, confidence: 0.4, drift_score: 0.6, forecast: { method: "ewma", value: 120, mae: 4 } }),
+  ];
+  const months = [
+    { period: "2026-09", total: 400, income: 1000, savings: 600 },
+    { period: "2026-10", total: 600, income: 1000, savings: 400 },
+    { period: "2026-11", total: 50, income: 1000, savings: 950 },
+    { period: "2026-08", total: 0, income: 1000, savings: 1000 }, // sans saisie : ignoré
+  ];
+  const k = computeKpis(items, months, "2026-11");
+  assert.equal(k.trend, 0.025);
+  assert.equal(Math.round(k.volatility * 1000), 163);
+  assert.equal(k.confidence, 0.85);
+  // Mois en cours : 50 déjà dépensés + reste attendu (300−100) + (120−100).
+  assert.deepEqual(k.forecast, { total: 270, low: null, high: null }); // pas de fourchette fournie
+  assert.equal(k.fullMonths, 2);
+  assert.equal(k.savingsRate, 0.5);
+  assert.equal(Math.round(k.monthlyCv * 1000), 283);
+  assert.equal(k.essentialShare, 0.75);
+  assert.deepEqual(k.concentration, { count: 2, of: 2 });
+  assert.equal(k.drifting, 1);
+  assert.equal(k.irregular, 1);
+  assert.equal(k.potentialSaving, 20);
+  assert.equal(k.historyMonths, 6);
+  const empty = computeKpis([], [], null);
+  assert.equal(empty.trend, null);
+  assert.equal(empty.forecast, null);
+  assert.equal(empty.savingsRate, null);
+});
+
+test("category insights and matrix tones", () => {
+  const m = load("src/shared/utils/analyticsKpis.ts");
+  const [first] = m.categoryInsights([cat("Petite", { baseline_amount: 10 }), cat("Grosse", { baseline_amount: 500 }, { volatility: 0.2 })]);
+  assert.equal(first.name, "Grosse");
+  assert.equal(first.stability, "variable");
+  assert.equal(Math.round(first.typicalSwing), 148);
+  const [unknown] = m.categoryInsights([cat("X", {}, { history_months: null })]);
+  assert.equal(unknown.historyMonths, null);
+  // Une baisse de dépense est toujours bonne, une hausse à surveiller ou problématique.
+  assert.deepEqual([-0.5, -0.3, 0.01, 0.07, 0.2].map(m.trendTone), ["good", "good", "good", "warn", "bad"]);
+  assert.deepEqual([0, 0.5, 2.5, 4].map(m.anomalyTone), ["good", "good", "warn", "bad"]);
+  assert.deepEqual([0, 0.3, 0.6].map(m.driftTone), ["good", "warn", "bad"]);
+  assert.equal(m.confidenceLevel(0.75), "high");
+  assert.equal(m.confidenceLevel(0.2), "low");
+  assert.equal(m.expectedForMonth({ value: 50 }, 200, true), 200);
+  assert.equal(m.expectedForMonth({ value: 50 }, 200, false), 50);
+  assert.equal(m.expectedForMonth({ value: 50, projection: 260 }, 200, true), 260);
+});
+
+test("running-month forecast keeps overspending and the rest of other categories", () => {
+  const { computeKpis } = load("src/shared/utils/analyticsKpis.ts");
+  const fc = (value) => ({ forecast: { method: "ewma", value, mae: null } });
+  const items = [
+    cat("Loyer", { current_amount: 100 }, fc(100)),
+    cat("Courses", { current_amount: 10 }, fc(50)),
+    cat("Imprévu", { current_amount: 200 }, fc(20)), // dépassement : reste dans la projection
+    cat("Nouvelle", { current_amount: 30 }, fc(0)),  // sans prévision : comptée via le dépensé
+  ];
+  const months = [{ period: "2026-11", total: 340, income: 0, savings: -340 }];
+  assert.equal(computeKpis(items, months, "2026-11").forecast.total, 340 + 40);
+  assert.equal(computeKpis(items, [], null).forecast.total, 170);
+});
+
+test("monthForecast combines category intervals and uses the engine projection", () => {
+  const { monthForecast } = load("src/shared/utils/analyticsKpis.ts");
+  const f = (extra) => ({ forecast: { method: "ewma", value: 100, mae: 10, ...extra } });
+  // Mois en cours : projections du moteur (dépensé + reste au rythme habituel) et bornes.
+  const running = [
+    cat("A", { current_amount: 40 }, f({ projection: 100, projection_low: 70, projection_high: 140 })),
+    cat("B", { current_amount: 10 }, f({ projection: 40, projection_low: 30, projection_high: 50 })),
+  ];
+  const months = [{ period: "2026-11", total: 50, income: 0, savings: -50 }];
+  const r = monthForecast(running, months, "2026-11");
+  assert.equal(r.total, 50 + 60 + 30);
+  assert.ok(Math.abs(r.low - (140 - Math.sqrt(30 ** 2 + 10 ** 2))) < 1e-9);
+  assert.ok(Math.abs(r.high - (140 + Math.sqrt(40 ** 2 + 10 ** 2))) < 1e-9);
+  assert.ok(r.low >= 50); // jamais sous le déjà dépensé
+  // Une catégorie sans fourchette : pas d'intervalle global (couverture non garantie).
+  const partial = [running[0], cat("C", { current_amount: 0 }, f({ projection: 20 }))];
+  assert.equal(monthForecast(partial, months, "2026-11").low, null);
+  // Mois terminé : somme des espérances et de leurs bornes combinées.
+  const closed = [cat("A", {}, f({ low: 80, high: 130 })), cat("B", {}, f({ low: 90, high: 110 }))];
+  const c = monthForecast(closed, [], null);
+  assert.equal(c.total, 200);
+  assert.ok(Math.abs(c.high - (200 + Math.sqrt(30 ** 2 + 10 ** 2))) < 1e-9);
 });

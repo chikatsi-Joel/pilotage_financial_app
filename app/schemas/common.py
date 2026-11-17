@@ -227,9 +227,19 @@ class SavingsGoalContributeRead(BaseModel):
 
 
 class ForecastRead(BaseModel):
+    """Prévision mensuelle : `value` espérance du mois prévu ; `low`/`high` fourchette à 80 %
+    hors échantillon ; `usage_rate` part des mois utilisés ; `projection*` mois en cours
+    seulement (déjà dépensé + reste attendu)."""
+
     method: str
     value: float
     mae: float | None
+    low: float | None = None
+    high: float | None = None
+    usage_rate: float | None = None
+    projection: float | None = None
+    projection_low: float | None = None
+    projection_high: float | None = None
 
 
 class TimeSeriesProfileRead(BaseModel):

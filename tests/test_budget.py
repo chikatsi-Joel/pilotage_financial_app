@@ -74,3 +74,28 @@ def test_budget_without_history_falls_back_to_current_month():
     )
     assert result.categories[0].recommended == Decimal("19000.00")
 
+
+
+def _line(name: str, current: float, baseline: float, variation: float) -> dict:
+    return {
+        "category_id": uuid4(), "name": name, "essential": False,
+        "current_amount": current, "baseline_amount": baseline,
+        "expected_amount": baseline, "variation_percentage": variation,
+    }
+
+
+def test_budget_reasons_match_the_direction_of_spending():
+    """Baisse : encouragée ; sans habitude : pas d'affirmation fausse ; hausse : réduction."""
+    result = generate_budget(
+        "2026-11", Decimal("500000"), Decimal("100000"), Decimal("400000"), None,
+        [
+            _line("Sorties", 7000.0, 10000.0, -30.0),
+            _line("Nouvelle", 8000.0, 0.0, 0.0),
+            _line("Taxi", 15000.0, 10000.0, 50.0),
+        ],
+    )
+    reasons = {line.category_name: line.reason for line in result.categories}
+    assert reasons["Sorties"].startswith("Déjà sous l'habitude")
+    assert reasons["Nouvelle"].startswith("Pas encore d'habitude")
+    assert "sous l'habitude" not in reasons["Nouvelle"]
+    assert reasons["Taxi"].startswith("Réduction de 20%")

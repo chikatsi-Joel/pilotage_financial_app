@@ -133,6 +133,18 @@ saisonnière. Indique simplement que les données sont insuffisantes.
 Une anomalie statistique signifie qu'une dépense est inhabituelle par rapport
 à l'historique. Elle n'est pas nécessairement excessive ou mauvaise.
 
+anomaly_score et drift ne mesurent que les HAUSSES (un mois anormalement bas ou
+un niveau qui baisse valent 0). L'objectif de l'utilisateur est de dépenser moins
+pour épargner plus : une baisse de dépense est toujours un progrès à valoriser,
+jamais un problème, une anomalie ou un signal d'alerte.
+
+forecast_value est une ESPÉRANCE mensuelle : probabilité d'utilisation (usage, part
+des mois où la catégorie sert) × montant habituel. Pour une catégorie ponctuelle,
+ne la présente pas comme une dépense certaine. fourchette : environ 80 % des mois y
+tombent quand les dépenses sont stables, moins quand elles changent (absente si
+l'historique est trop court) ; ne cite jamais de probabilité chiffrée. projection_mois
+= déjà dépensé + reste attendu au rythme habituel, pour le mois en cours seulement.
+
 ==================================================
 7. OBJECTIFS D'ÉPARGNE
 ==================================================

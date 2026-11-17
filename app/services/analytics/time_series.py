@@ -17,6 +17,15 @@ _UNSET: Any = object()
 _MIN_SEASONAL = 24
 _MIN_TREND = 12
 
+# Plancher de dispersion, relatif au niveau habituel de la série : un écart de moins de ~5 %
+# du niveau n'est jamais « hors norme », même si l'historique est parfaitement régulier
+# (évite les z gigantesques sur des résidus STL quasi nuls).
+_MIN_RELATIVE_SCALE = 0.05
+
+
+def _scale_floor(values: list[float]) -> float:
+    return _MIN_RELATIVE_SCALE * abs(robust_center([float(v) for v in values]))
+
 
 def stl(values: list[float], period: int = 12):
     """Décomposition STL, ou None sous 24 mois d'historique.
@@ -50,10 +59,11 @@ def seasonality_strength(
     resid = np.asarray(r.resid)
     combined = resid + np.asarray(r.seasonal)
     den = np.var(combined)
-    strength = (
-        0.0 if den == 0
-        else float(np.clip(1 - np.var(resid) / den, 0, 1))
-    )
+    # Série quasi constante : saisonnier et résidus sont du bruit d'arrondi, leur rapport n'a
+    # pas de sens (il pouvait afficher une « forte saisonnalité » sur un loyer fixe).
+    if den <= _scale_floor(values) ** 2:
+        return 0.0, True
+    strength = float(np.clip(1 - np.var(resid) / den, 0, 1))
     return strength, True
 
 
@@ -77,6 +87,11 @@ def detect_change_points(
 
 
 def drift_score(values: list[float]) -> float:
+    """Dérive À LA HAUSSE du niveau habituel, dans [0, 1].
+
+    Compare les médianes des deux moitiés de l'historique. Seule une hausse compte : pour des
+    dépenses, un niveau qui baisse durablement est un progrès (épargne), pas une dérive.
+    """
     if len(values) < 6:
         return 0.0
     m = len(values) // 2
@@ -85,20 +100,26 @@ def drift_score(values: list[float]) -> float:
     s = mad(values)
     return (
         0.0 if s == 0
-        else float(np.clip(abs(b - a) / (3 * s), 0, 1))
+        else float(np.clip((b - a) / (3 * s), 0, 1))
     )
 
 
 def residual_anomaly_score(
     values: list[float], period: int = 12, *, fit: Any = _UNSET
 ) -> float:
-    """`fit` : ajustement STL déjà calculé sur `values` (évite un second ajustement)."""
+    """Anomalie À LA HAUSSE du dernier mois (z robuste modifié, 0 si en dessous de l'habitude).
+
+    Un dernier mois anormalement BAS est une bonne nouvelle pour l'épargne : il ne compte pas
+    comme anomalie (ni dans le score d'opportunité). `fit` : ajustement STL déjà calculé sur
+    `values` (évite un second ajustement).
+    """
     r = stl(values, period) if fit is _UNSET else fit
     if r is None:
         if len(values) < 3:
             return 0.0
-        return abs(robust_z(values[-1], values[:-1]))
+        return max(0.0, robust_z(values[-1], values[:-1], _scale_floor(values[:-1])))
     residuals = np.asarray(r.resid)
-    return abs(
-        robust_z(float(residuals[-1]), residuals[:-1].tolist())
+    return max(
+        0.0,
+        robust_z(float(residuals[-1]), residuals[:-1].tolist(), _scale_floor(values)),
     )

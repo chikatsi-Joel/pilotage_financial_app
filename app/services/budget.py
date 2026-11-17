@@ -38,10 +38,18 @@ def generate_budget(
             # plafond donnait un budget minuscule, figé ensuite à la validation.
             basis = Decimal(str(baseline)) if baseline > 0 else current
             proposed = money(basis * (Decimal("1") - factor))
-            reason = (
-                f"Réduction de {factor * 100:.0f}% "
-                f"fondée sur la variation de {variation:.1f}%."
-            )
+            if baseline <= 0:
+                reason = (
+                    f"Pas encore d'habitude : objectif {factor * 100:.0f}% "
+                    "sous la dépense actuelle."
+                )
+            elif variation < 0:
+                reason = "Déjà sous l'habitude : objectif légèrement en dessous pour continuer."
+            else:
+                reason = (
+                    f"Réduction de {factor * 100:.0f}% "
+                    f"fondée sur la variation de {variation:.1f}%."
+                )
 
         reduction = max(Decimal("0"), current - proposed)
         lines.append(BudgetCategoryLine(

@@ -124,7 +124,7 @@ class AIAnalysisProvider(Protocol):
 
 # À incrémenter quand SYSTEM_PROMPT ou _build_prompt change de façon significative : les
 # analyses enregistrées avec l'ancienne version sont alors régénérées (empreinte différente).
-PROMPT_VERSION = 1
+PROMPT_VERSION = 4
 
 
 def _build_prompt(context: dict[str, Any]) -> str:
@@ -164,7 +164,10 @@ def _build_prompt(context: dict[str, Any]) -> str:
             f"confidence={cat.get('confidence', 0)}, "
             f"forecast={cat.get('forecast_method', 'N/A')} "
             f"-> {cat.get('forecast_value', 0)} "
-            f"(mae={cat.get('forecast_mae', 'N/A')}), "
+            f"(mae={cat.get('forecast_mae', 'N/A')}, "
+            f"fourchette={cat.get('forecast_low', 'N/A')}..{cat.get('forecast_high', 'N/A')}, "
+            f"usage={cat.get('usage_rate', 'N/A')}, "
+            f"projection_mois={cat.get('month_projection', 'N/A')}), "
             f"essential={cat.get('essential', False)}, "
             f"potential_saving={cat.get('potential_saving', 0)}, "
             f"opportunity_score={cat.get('opportunity_score', 0)}"
@@ -338,7 +341,8 @@ def _extract_known_numbers(context: dict[str, Any]) -> set[float]:
             "opportunity_score", "level", "trend",
             "seasonality_strength", "volatility",
             "anomaly_score", "drift_score", "confidence",
-            "forecast_value",
+            "forecast_value", "forecast_mae", "forecast_low", "forecast_high",
+            "usage_rate", "month_projection",
         ):
             val = cat.get(key)
             if val is not None:

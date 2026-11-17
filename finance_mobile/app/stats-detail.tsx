@@ -1,942 +1,76 @@
+/**
+ * Statistiques : page analytique (maquette A + C validée). De haut en bas :
+ * 4 chiffres clés, courbe des mois complets avec la prévision et sa zone d'incertitude,
+ * carte des catégories (tendance × régularité, taille = habitude), matrice colorée
+ * catégories × indicateurs, puis 4 indicateurs complémentaires.
+ * Calculs : src/shared/utils/analyticsKpis.ts.
+ */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type DimensionValue,
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, type DimensionValue } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, {
-  Circle,
-  Defs,
-  Line,
-  LinearGradient,
-  Path,
-  Polyline,
-  Stop,
-  Text as SvgText,
-} from "react-native-svg";
+import Svg, { Circle, Line, Polygon, Polyline, Text as SvgText } from "react-native-svg";
 
 import { analytics as analyticsApi } from "../src/shared/api/analytics";
 import { useAppStore } from "../src/shared/store";
-import type { CategoryAnalytics, SavingsGoalSummary } from "../src/shared/types";
+import type { CategoryAnalytics, MonthlyTotal } from "../src/shared/types";
+import {
+  CONFIDENCE_LABEL,
+  STABILITY_LABEL,
+  SWING_FACTOR,
+  anomalyTone,
+  categoryInsights,
+  computeKpis,
+  confidenceLevel,
+  expectedForMonth,
+  MIN_TREND_MONTHS,
+  stabilityOf,
+  trendTone,
+  type CategoryInsight,
+  type Kpis,
+  type Tone,
+} from "../src/shared/utils/analyticsKpis";
 import { formatMoney } from "../src/shared/utils/money";
-import { ProgressBar, ScreenHeader } from "../src/ui/components";
+import { ScreenHeader } from "../src/ui/components";
 import { colors, interFonts } from "../src/ui/theme";
 
-// ═══════════════════════════════════════════════════════════
-//  TYPES
-// ═══════════════════════════════════════════════════════════
-
-type Period = "1M" | "3M" | "6M" | "1A";
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-
-const PERIODS: { key: Period; label: string; months: number }[] = [
-  { key: "1M", label: "1M", months: 1 },
-  { key: "3M", label: "3M", months: 3 },
-  { key: "6M", label: "6M", months: 6 },
-  { key: "1A", label: "1A", months: 12 },
+const MONTH_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+const MONTH_LONG = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ];
 
-const MONTH_SHORT = [
-  "Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
-  "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc",
-];
-
-const PALETTE = [
-  colors.primary, "#6D43B7", colors.accent, "#E91E63",
-  colors.success, colors.warning, "#0EA5E9", "#865DD2",
-];
-
-const ICON_RULES: readonly { match: RegExp; icon: IconName }[] = [
-  { match: /alimentation|nourriture|courses|supermarch|restaurant|restauration/i, icon: "silverware-fork-knife" },
-  { match: /transport|carburant|taxi|uber|bus|train|avion/i, icon: "car" },
-  { match: /loisir|divertissement|vacance|abonnement|streaming|jeu/i, icon: "gamepad-variant" },
-  { match: /sant|medical|pharmacie|soin/i, icon: "medical-bag" },
-  { match: /maison|logement|loyer|electricite|eau|entretien/i, icon: "home" },
-  { match: /v[eê]tement|shopping|habit|chaussure/i, icon: "shopping" },
-  { match: /facture|energie|electricit|internet|telephone/i, icon: "receipt" },
-  { match: /epargne|invest/i, icon: "piggy-bank-outline" },
-];
-
-function iconFor(label: string): IconName {
-  for (const rule of ICON_RULES) {
-    if (rule.match.test(label)) return rule.icon;
-  }
-  return "shape-outline";
-}
-
-type MonthPoint = {
-  key: string;
-  label: string;
-  income: number;
-  expenses: number;
-  savings: number;
+/** Fonds et textes des cases de la matrice (contraste ≥ 4,5:1). */
+const TONE: Record<Tone, { bg: string; fg: string }> = {
+  good: { bg: "#DDF3E8", fg: "#14613F" },
+  warn: { bg: "#FCEBD0", fg: "#8A4B00" },
+  bad: { bg: "#F9DEDB", fg: "#8E1F19" },
+  info: { bg: "#EFF0F5", fg: "#4B4A57" },
+};
+const TONE_STROKE: Record<Tone, string> = {
+  good: colors.success,
+  warn: "#C77D12",
+  bad: colors.danger,
+  info: colors.primary,
 };
 
-type CategorySlice = {
-  categoryId: string;
-  name: string;
-  amount: number;
-  pct: number;
-  color: string;
-  icon: IconName;
-};
+const num = (x: number, digits = 0) => x.toFixed(digits).replace(".", ",");
+const pct = (x: number, digits = 0) => `${num(x * 100, digits)} %`;
+const signedPct = (x: number, digits = 0) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${pct(Math.abs(x), digits)}`;
+/** 152 300 → « 152 k » pour les cases étroites. */
+const compact = (x: number) => (x >= 10000 ? `${num(x / 1000)} k` : num(x));
 
-type Profile = {
-  trend: number;
-  volatility: number;
-  drift: number;
-  anomaly: number;
-  seasonality: number;
-  seasonalityReliable: boolean;
-  confidence: number;
-  changePoints: string[];
-  forecastMethod: string;
-  forecastValue: number;
-  forecastMae: number | null;
-};
-
-type Insight = { icon: IconName; text: string; tone: "success" | "warning" };
-
-// ═══════════════════════════════════════════════════════════
-//  DÉRIVÉS DE L'API
-// ═══════════════════════════════════════════════════════════
-
-/** Les N derniers mois (inclus) jusqu'au mois courant de l'API. */
-function monthWindow(period: string, months: number): string[] {
+function isCurrentMonth(period: string, today: Date): boolean {
   const [y, m] = period.split("-").map(Number);
-  const base = new Date(y || 1970, (m || 1) - 1, 1);
-  const out: string[] = [];
-  for (let i = months - 1; i >= 0; i -= 1) {
-    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
-    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return out;
+  return today.getFullYear() === y && today.getMonth() + 1 === m;
 }
 
-function sliceCategories(items: CategoryAnalytics[]): CategorySlice[] {
-  const total = items.reduce((acc, c) => acc + c.current_amount, 0);
-  return items
-    .filter((c) => c.current_amount > 0)
-    .sort((a, b) => b.current_amount - a.current_amount)
-    .map((c, i) => ({
-      categoryId: c.category_id,
-      name: c.name,
-      amount: c.current_amount,
-      pct: total > 0 ? Math.round((c.current_amount / total) * 100) : 0,
-      color: PALETTE[i % PALETTE.length],
-      icon: iconFor(c.name),
-    }));
-}
-
-function averageProfile(items: CategoryAnalytics[]): Profile {
-  const withHistory = items.filter((c) => c.baseline_amount > 0);
-  const pool = withHistory.length ? withHistory : items;
-  const n = pool.length || 1;
-  const mean = (pick: (c: CategoryAnalytics) => number) =>
-    pool.reduce((acc, c) => acc + (pick(c) || 0), 0) / n;
-
-  const changePoints = Array.from(
-    new Set(pool.flatMap((c) => c.profile.change_points.map((p) => p + 1))),
-  )
-    .sort((a, b) => a - b)
-    .slice(0, 4)
-    .map((m) => MONTH_SHORT[m - 1] ?? String(m));
-
-  return {
-    trend: mean((c) => c.profile.trend),
-    volatility: mean((c) => c.profile.volatility),
-    drift: mean((c) => c.profile.drift_score),
-    anomaly: mean((c) => c.profile.anomaly_score),
-    seasonality: mean((c) => c.profile.seasonality_strength),
-    seasonalityReliable: pool.some((c) => c.profile.seasonality_reliable),
-    confidence: mean((c) => c.profile.confidence),
-    changePoints,
-    forecastMethod: pool[0]?.profile.forecast.method ?? "n/a",
-    forecastValue: mean((c) => c.profile.forecast.value),
-    forecastMae: pool[0]?.profile.forecast.mae ?? null,
-  };
-}
-
-function buildInsights(
-  months: MonthPoint[],
-  items: CategoryAnalytics[],
-  goal: SavingsGoalSummary | null,
-): Insight[] {
-  const out: Insight[] = [];
-  const current = months[months.length - 1];
-  const previous = months[months.length - 2];
-
-  if (current && previous && previous.expenses > 0) {
-    const delta = ((current.expenses - previous.expenses) / previous.expenses) * 100;
-    out.push({
-      icon: delta <= 0 ? "trending-down" : "trending-up",
-      tone: delta <= 0 ? "success" : "warning",
-      text:
-        `Vos dépenses ${delta <= 0 ? "diminuent" : "augmentent"} de ${Math.abs(
-          Math.round(delta),
-        )}% sur un mois`,
-    });
-  }
-
-  for (const c of items) {
-    if (c.profile.drift_score >= 0.5) {
-      out.push({
-        icon: "alert-circle-outline",
-        tone: "warning",
-        text: `${c.name} en dérive (${Math.round(c.variation_percentage)}% vs normale, confiance ${Math.round(
-          c.profile.confidence * 100,
-        )}%)`,
-      });
-      break;
-    }
-  }
-
-  if (goal && goal.progress_percentage >= 90) {
-    out.push({
-      icon: "target",
-      tone: "success",
-      text: `Objectif « ${goal.name} » à ${Math.round(goal.progress_percentage)}%`,
-    });
-  }
-
-  const potential = items.reduce((acc, c) => acc + c.potential_saving, 0);
-  if (potential > 0) {
-    out.push({
-      icon: "piggy-bank-outline",
-      tone: "success",
-      text: `Potentiel d'économie identifié : ${formatMoney(potential)}`,
-    });
-  }
-
-  return out;
+function nextPeriod(period: string): string {
+  const [y, m] = period.split("-").map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
 }
 
 // ═══════════════════════════════════════════════════════════
-//  COMPOSANTS
-// ═══════════════════════════════════════════════════════════
-
-function PeriodTabs({ active, onChange }: { active: Period; onChange: (p: Period) => void }) {
-  return (
-    <View style={ptStyles.row}>
-      {PERIODS.map((p) => {
-        const isActive = active === p.key;
-        return (
-          <Pressable
-            key={p.key}
-            onPress={() => onChange(p.key)}
-            style={[ptStyles.chip, isActive && ptStyles.chipActive]}
-          >
-            <Text style={[ptStyles.text, isActive && ptStyles.textActive]}>{p.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-const ptStyles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 6 },
-  chip: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 },
-  chipActive: { backgroundColor: colors.text },
-  text: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
-  textActive: { color: "#FFFFFF" },
-});
-
-// ─────────────────────────────────────────────────────────
-//  HERO — Solde + Métriques clés fusionnés
-// ─────────────────────────────────────────────────────────
-
-function HeroCard({
-  balance,
-  avgExpenses,
-  avgSavings,
-  savingsRate,
-  variation,
-  goal,
-  burnRate,
-  currency,
-}: {
-  balance: number;
-  avgExpenses: number;
-  avgSavings: number;
-  savingsRate: number;
-  variation: number | null;
-  goal: SavingsGoalSummary | null;
-  burnRate: number;
-  currency: string;
-}) {
-  const days = 30;
-  return (
-    <View style={hStyles.card}>
-      <View style={hStyles.top}>
-        <Text style={hStyles.label}>{goal ? `Objectif : ${goal.name}` : "Solde du mois"}</Text>
-        <Text style={hStyles.amount}>{formatMoney(balance, currency)}</Text>
-        <View style={hStyles.trend}>
-          <MaterialCommunityIcons
-            color={variation != null && variation < 0 ? colors.success : colors.warning}
-            name={variation != null && variation < 0 ? "trending-down" : "trending-up"}
-            size={14}
-          />
-          <Text
-            style={[
-              hStyles.trendText,
-              { color: variation != null && variation < 0 ? colors.success : colors.warning },
-            ]}
-          >
-            {variation == null
-              ? "Pas de comparaison"
-              : `${variation > 0 ? "+" : ""}${Math.round(variation)}% vs mois précédent`}
-          </Text>
-        </View>
-      </View>
-
-      <View style={hStyles.divider} />
-
-      <View style={hStyles.grid}>
-        <HeroStat
-          label="Dépenses moy."
-          value={formatMoney(avgExpenses, currency)}
-          delta={`${goal ? `${Math.round(goal.progress_percentage)}%` : "n/a"} objectif`}
-          deltaUp
-          muted
-        />
-        <HeroStat
-          label="Épargne moy."
-          value={formatMoney(avgSavings, currency)}
-          delta={formatMoney(avgSavings, currency)}
-          deltaUp
-          muted
-        />
-        <HeroStat
-          label="Taux épargne"
-          value={`${Math.round(savingsRate * 100)}%`}
-          delta="net"
-          deltaUp
-          muted
-        />
-      </View>
-
-      <View style={hStyles.divider} />
-
-      <View style={hStyles.burn}>
-        <View style={hStyles.burnLeft}>
-          <MaterialCommunityIcons color={colors.primary} name="fire" size={14} />
-          <Text style={hStyles.burnLabel}>Burn rate</Text>
-        </View>
-        <Text style={hStyles.burnValue}>
-          {formatMoney(burnRate, currency)}/jour
-        </Text>
-      </View>
-      <ProgressBar
-        progress={avgExpenses > 0 ? Math.min((burnRate * days) / avgExpenses, 1) * 100 : 0}
-        height={4}
-        color={colors.primary}
-        trackColor="#F0F0F5"
-        style={{ marginTop: 6 }}
-      />
-    </View>
-  );
-}
-
-function HeroStat({
-  label,
-  value,
-  delta,
-  deltaUp,
-  muted,
-}: {
-  label: string;
-  value: string;
-  delta: string;
-  deltaUp?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <View style={hsStyles.col}>
-      <Text style={hsStyles.label}>{label}</Text>
-      <Text style={hsStyles.value} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
-      <Text
-        style={[
-          hsStyles.delta,
-          muted && hsStyles.deltaMuted,
-          !muted && deltaUp && hsStyles.deltaUp,
-          !muted && !deltaUp && hsStyles.deltaDown,
-        ]}
-      >
-        {delta}
-      </Text>
-    </View>
-  );
-}
-
-const hStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    gap: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-  },
-  top: { gap: 2 },
-  label: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.medium },
-  amount: { color: colors.text, fontSize: 31, fontFamily: interFonts.bold, letterSpacing: -1.5 },
-  trend: { alignItems: "center", flexDirection: "row", gap: 4, marginTop: 4 },
-  trendText: { color: colors.success, fontSize: 12, fontFamily: interFonts.semibold },
-  divider: { backgroundColor: "#F0F0F5", height: 1 },
-  grid: { flexDirection: "row", gap: 8 },
-  burn: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  burnLeft: { alignItems: "center", flexDirection: "row", gap: 6 },
-  burnLabel: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
-  burnValue: { color: colors.text, fontSize: 12, fontFamily: interFonts.bold },
-});
-
-const hsStyles = StyleSheet.create({
-  col: { flex: 1, gap: 2 },
-  label: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
-  value: { color: colors.text, fontSize: 14, fontFamily: interFonts.bold },
-  delta: { fontSize: 10, fontFamily: interFonts.semibold, marginTop: 2 },
-  deltaUp: { color: colors.success },
-  deltaDown: { color: "#E91E63" },
-  deltaMuted: { color: colors.textMuted },
-});
-
-// ─────────────────────────────────────────────────────────
-//  AREA CHART
-// ─────────────────────────────────────────────────────────
-
-function AreaChart({ months, currency }: { months: MonthPoint[]; currency: string }) {
-  const W = 340;
-  const H = 180;
-  const PAD_L = 46;
-  const PAD_B = 24;
-  const chartH = H - PAD_B;
-
-  const income = months.map((m) => m.income);
-  const expenses = months.map((m) => m.expenses);
-  const max = Math.max(1, ...income, ...expenses) * 1.1;
-  const stepX = months.length > 1 ? (W - PAD_L) / (months.length - 1) : 0;
-
-  const toY = (v: number) => chartH - (v / max) * chartH;
-  const toX = (i: number) => PAD_L + i * stepX;
-
-  const { incArea, expArea, incPoints, expPoints } = useMemo(() => {
-    const incPath = income.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}`).join(" ");
-    const expPath = expenses.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}`).join(" ");
-    return {
-      incArea: `${incPath} L${toX(income.length - 1)},${chartH} L${toX(0)},${chartH} Z`,
-      expArea: `${expPath} L${toX(expenses.length - 1)},${chartH} L${toX(0)},${chartH} Z`,
-      incPoints: income.map((v, i) => `${toX(i)},${toY(v)}`).join(" "),
-      expPoints: expenses.map((v, i) => `${toX(i)},${toY(v)}`).join(" "),
-    };
-  }, [months]);
-
-  return (
-    <View style={acStyles.wrap}>
-      <View style={acStyles.header}>
-        <Text style={acStyles.title}>Revenus vs Dépenses</Text>
-        <View style={acStyles.legend}>
-          <View style={acStyles.dotWrap}>
-            <View style={[acStyles.dot, { backgroundColor: colors.primary }]} />
-            <Text style={acStyles.dotLabel}>Revenus</Text>
-          </View>
-          <View style={acStyles.dotWrap}>
-            <View style={[acStyles.dot, { backgroundColor: "#E91E63" }]} />
-            <Text style={acStyles.dotLabel}>Dépenses</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <Svg width={W + 16} height={H + 8}>
-          <Defs>
-            <LinearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={colors.primary} stopOpacity="0.25" />
-              <Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
-            </LinearGradient>
-            <LinearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#E91E63" stopOpacity="0.18" />
-              <Stop offset="1" stopColor="#E91E63" stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-
-          {[0, 0.33, 0.66, 1].map((pct) => (
-            <Line
-              key={pct}
-              x1={PAD_L}
-              y1={chartH * (1 - pct)}
-              x2={W}
-              y2={chartH * (1 - pct)}
-              stroke="#F0F0F5"
-              strokeWidth={1}
-            />
-          ))}
-
-          {[0, 0.5, 1].map((pct) => (
-            <SvgText
-              key={pct}
-              x={PAD_L - 8}
-              y={chartH * (1 - pct) + 4}
-              fontSize={10}
-              fill={colors.textMuted}
-              textAnchor="end"
-            >
-              {formatMoney(max * pct, currency)}
-            </SvgText>
-          ))}
-
-          <Path d={incArea} fill="url(#incGrad)" />
-          <Path d={expArea} fill="url(#expGrad)" />
-
-          <Polyline points={incPoints} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-          <Polyline points={expPoints} fill="none" stroke="#E91E63" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-
-          {income.map((v, i) => (
-            <Circle key={`i${i}`} cx={toX(i)} cy={toY(v)} r={3.5} fill="#FFFFFF" stroke={colors.primary} strokeWidth={2} />
-          ))}
-          {expenses.map((v, i) => (
-            <Circle key={`e${i}`} cx={toX(i)} cy={toY(v)} r={3.5} fill="#FFFFFF" stroke="#E91E63" strokeWidth={2} />
-          ))}
-
-          {months.map((m, i) => (
-            <SvgText key={m.key} x={toX(i)} y={H} fontSize={11} fill={colors.textMuted} textAnchor="middle" fontWeight="600">
-              {m.label}
-            </SvgText>
-          ))}
-        </Svg>
-      </ScrollView>
-    </View>
-  );
-}
-
-const acStyles = StyleSheet.create({
-  wrap: { gap: 12 },
-  header: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },
-  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
-  legend: { flexDirection: "row", gap: 12 },
-  dotWrap: { alignItems: "center", flexDirection: "row", gap: 5 },
-  dot: { borderRadius: 99, height: 7, width: 7 },
-  dotLabel: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
-});
-
-// ─────────────────────────────────────────────────────────
-//  PROFIL STATISTIQUE
-// ─────────────────────────────────────────────────────────
-
-function ProfileCard({ profile }: { profile: Profile }) {
-  const pct = (v: number) => `${Math.round(Math.min(Math.max(v, 0), 1) * 100)}%`;
-  return (
-    <View style={pfStyles.card}>
-      <Text style={pfStyles.title}>Profil statistique</Text>
-
-      <View style={pfStyles.metrics}>
-        <ProfileMetric icon="trending-up" color={colors.success} label="Tendance" value={profile.trend.toFixed(2)} />
-        <ProfileMetric icon="waveform" color={colors.accent} label="Volatilité" value={profile.volatility.toFixed(2)} />
-        <ProfileMetric icon="chart-bubble" color={colors.warning} label="Drift" value={profile.drift.toFixed(2)} />
-        <ProfileMetric icon="alert-circle" color={colors.danger} label="Anomalies" value={profile.anomaly.toFixed(2)} />
-      </View>
-
-      <View style={pfStyles.bars}>
-        <ProfileBar
-          icon="calendar-sync"
-          color={colors.primary}
-          label="Saisonnalité"
-          value={pct(profile.seasonality)}
-          width={pct(profile.seasonality) as DimensionValue}
-        />
-        <ProfileBar
-          icon="shield-check"
-          color={colors.accent}
-          label="Confiance"
-          value={pct(profile.confidence)}
-          width={pct(profile.confidence) as DimensionValue}
-        />
-      </View>
-
-      <View style={pfStyles.footer}>
-        <MaterialCommunityIcons color={colors.textMuted} name="flag-outline" size={14} />
-        <Text style={pfStyles.footerText}>
-          {profile.seasonalityReliable ? "Saisonnalité fiable · " : ""}Changements détectés :
-        </Text>
-        <View style={pfStyles.chips}>
-          {profile.changePoints.length === 0 ? (
-            <Text style={pfStyles.chip}>Aucun</Text>
-          ) : (
-            profile.changePoints.map((m) => (
-              <Text key={m} style={pfStyles.chip}>{m}</Text>
-            ))
-          )}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function ProfileMetric({ icon, color, label, value }: { icon: IconName; color: string; label: string; value: string }) {
-  return (
-    <View style={pmStyles.col}>
-      <View style={[pmStyles.icon, { backgroundColor: `${color}12` }]}>
-        <MaterialCommunityIcons color={color} name={icon} size={16} />
-      </View>
-      <Text style={pmStyles.value}>{value}</Text>
-      <Text style={pmStyles.label}>{label}</Text>
-    </View>
-  );
-}
-
-function ProfileBar({ icon, color, label, value, width }: { icon: IconName; color: string; label: string; value: string; width: DimensionValue }) {
-  return (
-    <View style={pbStyles.row}>
-      <View style={pbStyles.left}>
-        <MaterialCommunityIcons color={color} name={icon} size={14} />
-        <Text style={pbStyles.label}>{label}</Text>
-      </View>
-      <View style={pbStyles.right}>
-        <View style={pbStyles.track}>
-          <View style={[pbStyles.fill, { width, backgroundColor: color }]} />
-        </View>
-        <Text style={pbStyles.value}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-const pfStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    gap: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-  },
-  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
-  metrics: { flexDirection: "row", justifyContent: "space-between" },
-  bars: { gap: 12 },
-  footer: { alignItems: "center", flexDirection: "row", gap: 8 },
-  footerText: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
-  chips: { flexDirection: "row", gap: 6 },
-  chip: {
-    backgroundColor: `${colors.danger}10`,
-    borderRadius: 6,
-    color: colors.danger,
-    fontSize: 10,
-    fontFamily: interFonts.semibold,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-});
-
-const pmStyles = StyleSheet.create({
-  col: { alignItems: "center", gap: 6 },
-  icon: { alignItems: "center", borderRadius: 10, height: 32, justifyContent: "center", width: 32 },
-  value: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
-  label: { color: colors.textMuted, fontSize: 10, fontFamily: interFonts.medium },
-});
-
-const pbStyles = StyleSheet.create({
-  row: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  left: { alignItems: "center", flexDirection: "row", gap: 8 },
-  label: { color: colors.text, fontSize: 12, fontFamily: interFonts.medium },
-  right: { alignItems: "center", flexDirection: "row", gap: 10 },
-  track: { backgroundColor: "#F0F0F5", borderRadius: 99, height: 5, width: 80 },
-  fill: { borderRadius: 99, height: 5 },
-  value: { color: colors.text, fontSize: 12, fontFamily: interFonts.bold, minWidth: 32, textAlign: "right" },
-});
-
-// ─────────────────────────────────────────────────────────
-//  PRÉVISION
-// ─────────────────────────────────────────────────────────
-
-function ForecastCard({
-  profile,
-  nextLabel,
-  currency,
-}: {
-  profile: Profile;
-  nextLabel: string;
-  currency: string;
-}) {
-  const maePct =
-    profile.forecastValue > 0 && profile.forecastMae != null
-      ? Math.abs(profile.forecastMae / profile.forecastValue) * 100
-      : null;
-  return (
-    <View style={fcStyles.card}>
-      <View style={fcStyles.header}>
-        <View style={fcStyles.icon}>
-          <MaterialCommunityIcons color={colors.primary} name="crystal-ball" size={20} />
-        </View>
-        <View>
-          <Text style={fcStyles.title}>Prévision {nextLabel}</Text>
-          <Text style={fcStyles.sub}>
-            Méthode {profile.forecastMethod}
-            {maePct != null ? ` — erreur ${maePct.toFixed(1)}%` : ""}
-          </Text>
-        </View>
-      </View>
-
-      <View style={fcStyles.body}>
-        <View style={fcStyles.col}>
-          <Text style={fcStyles.label}>Dépense prédite</Text>
-          <Text style={fcStyles.amount}>{formatMoney(profile.forecastValue, currency)}</Text>
-          <Text style={fcStyles.delta}>Moyenne des catégories</Text>
-        </View>
-        <View style={fcStyles.sep} />
-        <View style={fcStyles.col}>
-          <Text style={fcStyles.label}>Marge d'erreur</Text>
-          <Text style={[fcStyles.amount, { color: colors.accent }]}>
-            {profile.forecastMae == null ? "—" : `± ${formatMoney(profile.forecastMae, currency)}`}
-          </Text>
-          <Text style={fcStyles.delta}>MAE du modèle</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const fcStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "#F8F9FF",
-    borderColor: "#E4E6F0",
-    borderRadius: 24,
-    borderWidth: 1,
-    gap: 16,
-    padding: 20,
-  },
-  header: { alignItems: "center", flexDirection: "row", gap: 12 },
-  icon: {
-    alignItems: "center",
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 12,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  title: { color: colors.text, fontSize: 15, fontFamily: interFonts.bold },
-  sub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium, marginTop: 2 },
-  body: { flexDirection: "row", gap: 16 },
-  col: { flex: 1, gap: 4 },
-  label: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium },
-  amount: { color: colors.text, fontSize: 18, fontFamily: interFonts.bold },
-  delta: { color: colors.success, fontSize: 11, fontFamily: interFonts.semibold },
-  sep: { backgroundColor: "#E4E6F0", width: 1 },
-});
-
-// ─────────────────────────────────────────────────────────
-//  DONUT
-// ─────────────────────────────────────────────────────────
-
-function DonutChart({
-  categories,
-  total,
-  periodLabel,
-  currency,
-}: {
-  categories: CategorySlice[];
-  total: number;
-  periodLabel: string;
-  currency: string;
-}) {
-  const size = 130;
-  const stroke = 14;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-
-  const segments = useMemo(() => {
-    let acc = 0;
-    return categories.map((cat) => {
-      const dash = (cat.pct / 100) * circ;
-      const offset = -(acc / 100) * circ;
-      acc += cat.pct;
-      return { ...cat, dash, offset };
-    });
-  }, [categories]);
-
-  return (
-    <View style={dnStyles.card}>
-      <View style={dnStyles.header}>
-        <Text style={dnStyles.title}>Répartition</Text>
-        <Text style={dnStyles.sub}>{periodLabel}</Text>
-      </View>
-
-      <View style={dnStyles.body}>
-        <View style={dnStyles.wrap}>
-          <Svg width={size} height={size}>
-            {segments.map((seg) => (
-              <Circle
-                key={seg.categoryId}
-                cx={size / 2}
-                cy={size / 2}
-                r={r}
-                fill="none"
-                stroke={seg.color}
-                strokeWidth={stroke}
-                strokeDasharray={`${Math.max(seg.dash - 2, 0)} ${circ - seg.dash + 2}`}
-                strokeDashoffset={seg.offset}
-                strokeLinecap="round"
-              />
-            ))}
-          </Svg>
-          <View style={dnStyles.center}>
-            <Text style={dnStyles.total} numberOfLines={1} adjustsFontSizeToFit>
-              {formatMoney(total, currency)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={dnStyles.legend}>
-          {categories.map((cat) => (
-            <View key={cat.categoryId} style={dnStyles.row}>
-              <View style={[dnStyles.dot, { backgroundColor: cat.color }]} />
-              <Text style={dnStyles.name}>{cat.name}</Text>
-              <Text style={dnStyles.pct}>{cat.pct}%</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const dnStyles = StyleSheet.create({
-  card: { gap: 16 },
-  header: { paddingHorizontal: 4 },
-  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold },
-  sub: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.medium, marginTop: 2 },
-  body: { alignItems: "center", flexDirection: "row", gap: 24 },
-  wrap: { alignItems: "center", justifyContent: "center" },
-  center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
-  total: { color: colors.text, fontSize: 17, fontFamily: interFonts.bold },
-  legend: { flex: 1, gap: 10 },
-  row: { alignItems: "center", flexDirection: "row", gap: 8 },
-  dot: { borderRadius: 99, height: 8, width: 8 },
-  name: { color: colors.text, flex: 1, fontSize: 12, fontFamily: interFonts.medium },
-  pct: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.semibold },
-});
-
-// ─────────────────────────────────────────────────────────
-//  CATÉGORIES
-// ─────────────────────────────────────────────────────────
-
-function CategoryBars({
-  categories,
-  currency,
-}: {
-  categories: CategorySlice[];
-  currency: string;
-}) {
-  const maxAmt = Math.max(1, ...categories.map((c) => c.amount));
-
-  return (
-    <View style={cbStyles.wrap}>
-      <Text style={cbStyles.title}>Détail par catégorie</Text>
-      {categories.length === 0 ? (
-        <Text style={cbStyles.empty}>Aucune dépense enregistrée sur la période.</Text>
-      ) : (
-        categories.map((cat) => (
-          <View key={cat.categoryId} style={cbStyles.row}>
-            <View style={cbStyles.top}>
-              <View style={cbStyles.left}>
-                <View style={[cbStyles.icon, { backgroundColor: `${cat.color}12` }]}>
-                  <MaterialCommunityIcons color={cat.color} name={cat.icon} size={15} />
-                </View>
-                <Text style={cbStyles.name}>{cat.name}</Text>
-              </View>
-              <Text style={cbStyles.amount}>{formatMoney(cat.amount, currency)}</Text>
-            </View>
-            <View style={cbStyles.track}>
-              <View
-                style={[
-                  cbStyles.fill,
-                  { width: `${(cat.amount / maxAmt) * 100}%`, backgroundColor: cat.color },
-                ]}
-              />
-            </View>
-          </View>
-        ))
-      )}
-    </View>
-  );
-}
-
-const cbStyles = StyleSheet.create({
-  wrap: { gap: 14 },
-  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold, paddingHorizontal: 4 },
-  empty: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular, fontStyle: "italic", paddingHorizontal: 4 },
-  row: { gap: 8 },
-  top: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  left: { alignItems: "center", flexDirection: "row", gap: 10 },
-  icon: { alignItems: "center", borderRadius: 8, height: 28, justifyContent: "center", width: 28 },
-  name: { color: colors.text, fontSize: 13, fontFamily: interFonts.medium },
-  amount: { color: colors.text, fontSize: 13, fontFamily: interFonts.bold },
-  track: { backgroundColor: "#F0F0F5", borderRadius: 99, height: 8, overflow: "hidden" },
-  fill: { borderRadius: 99, height: "100%" },
-});
-
-// ─────────────────────────────────────────────────────────
-//  INSIGHTS
-// ─────────────────────────────────────────────────────────
-
-function InsightAlerts({ insights }: { insights: Insight[] }) {
-  if (insights.length === 0) return null;
-  return (
-    <View style={inStyles.wrap}>
-      <Text style={inStyles.title}>Alertes</Text>
-      {insights.map((ins, i) => (
-        <View
-          key={i}
-          style={[
-            inStyles.row,
-            { borderLeftColor: ins.tone === "success" ? colors.success : colors.warning },
-          ]}
-        >
-          <MaterialCommunityIcons
-            color={ins.tone === "success" ? colors.success : colors.warning}
-            name={ins.icon}
-            size={18}
-          />
-          <Text style={inStyles.text}>{ins.text}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-const inStyles = StyleSheet.create({
-  wrap: { gap: 10 },
-  title: { color: colors.text, fontSize: 16, fontFamily: interFonts.bold, paddingHorizontal: 4 },
-  row: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderLeftWidth: 3,
-    borderRadius: 12,
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-  },
-  text: { color: colors.text, flex: 1, fontSize: 12, fontFamily: interFonts.medium, lineHeight: 17 },
-});
-
-// ═══════════════════════════════════════════════════════════
-//  ÉCRAN PRINCIPAL
+//  ÉCRAN
 // ═══════════════════════════════════════════════════════════
 
 export default function StatsDetail() {
@@ -944,13 +78,8 @@ export default function StatsDetail() {
   const period = useAppStore((s) => s.currentPeriod);
   const currency = useAppStore((s) => s.currency);
 
-  const [range, setRange] = useState<Period>("3M");
-  const [months, setMonths] = useState<MonthPoint[]>([]);
   const [items, setItems] = useState<CategoryAnalytics[]>([]);
-  const [goal, setGoal] = useState<SavingsGoalSummary | null>(null);
-  const [balance, setBalance] = useState(0);
-  const [savingsRate, setSavingsRate] = useState(0);
-  const [variation, setVariation] = useState<number | null>(null);
+  const [months, setMonths] = useState<MonthlyTotal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -960,113 +89,402 @@ export default function StatsDetail() {
       return;
     }
     setError(null);
-    const window = monthWindow(period, PERIODS.find((p) => p.key === range)!.months);
     try {
-      // Totaux de toute la fenêtre en une requête ; le dashboard seulement pour le mois
-      // affiché (taux d'épargne, objectif), au lieu d'un dashboard par mois.
-      const [totals, current, catItems] = await Promise.all([
-        analyticsApi.monthly(userId, period, window.length).catch(() => null),
-        analyticsApi.dashboard(userId, period).catch(() => null),
-        analyticsApi.categories(userId, period).catch(() => [] as CategoryAnalytics[]),
+      const [cats, monthly] = await Promise.all([
+        analyticsApi.categories(userId, period),
+        analyticsApi.monthly(userId, period, 12).catch(() => [] as MonthlyTotal[]),
       ]);
-      const byPeriod = new Map((totals ?? []).map((t) => [t.period, t]));
-
-      setMonths(
-        window.map((key) => {
-          const [, m] = key.split("-").map(Number);
-          const t = byPeriod.get(key);
-          return {
-            key,
-            label: MONTH_SHORT[m - 1] ?? key,
-            income: t?.income ?? 0,
-            expenses: t?.total ?? 0,
-            savings: t?.savings ?? 0,
-          };
-        }),
-      );
-      setItems(catItems);
-
-      setBalance(current?.savings ?? 0);
-      setSavingsRate(current?.savings_rate ?? 0);
-      setGoal(current?.savings_goal ?? null);
-      const previous = window.length > 1 ? byPeriod.get(window[window.length - 2]) : undefined;
-      setVariation(
-        current && previous && previous.total > 0
-          ? ((current.expenses - previous.total) / previous.total) * 100
-          : (current?.monthly_variation ?? null),
-      );
+      setItems(cats);
+      setMonths(monthly);
     } catch {
       setError("Statistiques indisponibles. Vérifiez la connexion au serveur.");
     } finally {
       setLoading(false);
     }
-  }, [userId, period, range]);
+  }, [userId, period]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const slices = useMemo(() => sliceCategories(items), [items]);
-  const profile = useMemo(() => averageProfile(items), [items]);
-  const insights = useMemo(() => buildInsights(months, items, goal), [months, items, goal]);
-
-  const totalExpenses = slices.reduce((acc, c) => acc + c.amount, 0);
-  const avgExpenses =
-    months.length > 0 ? months.reduce((acc, m) => acc + m.expenses, 0) / months.length : 0;
-  const avgSavings =
-    months.length > 0 ? months.reduce((acc, m) => acc + m.savings, 0) / months.length : 0;
-  const burnRate = avgExpenses / 30;
-
-  const nextMonth = (() => {
-    const [y, m] = period.split("-").map(Number);
-    const d = new Date(y || 1970, (m || 1), 1);
-    return MONTH_SHORT[d.getMonth()] ?? "mois suivant";
-  })();
+  const current = isCurrentMonth(period, new Date());
+  const kpis = useMemo(() => computeKpis(items, months, current ? period : null), [items, months, current, period]);
+  const insights = useMemo(() => categoryInsights(items), [items]);
+  // Carte tendance × régularité : tendance publiée à partir de 6 mois seulement.
+  const analysed = insights.filter((c) => c.historyMonths == null || c.historyMonths >= MIN_TREND_MONTHS);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safe}>
       <ScreenHeader title="Statistiques" />
-
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        refreshControl={undefined}
-      >
-        <PeriodTabs active={range} onChange={setRange} />
-
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.error}>{error}</Text>
+        ) : insights.length === 0 ? (
+          <Text style={styles.empty}>Ajoutez des dépenses sur plusieurs mois pour obtenir des statistiques.</Text>
         ) : (
           <>
-            <HeroCard
-              balance={balance}
-              avgExpenses={avgExpenses}
-              avgSavings={avgSavings}
-              savingsRate={savingsRate}
-              variation={variation}
-              goal={goal}
-              burnRate={burnRate}
-              currency={currency}
-            />
-            <AreaChart months={months} currency={currency} />
-            <ProfileCard profile={profile} />
-            <ForecastCard profile={profile} nextLabel={nextMonth} currency={currency} />
-            <DonutChart
-              categories={slices}
-              total={totalExpenses}
-              periodLabel={period}
-              currency={currency}
-            />
-            <CategoryBars categories={slices} currency={currency} />
-            <InsightAlerts insights={insights} />
+            <Text style={styles.intro}>
+              {[
+                kpis.historyMonths > 0 ? `${kpis.historyMonths} mois analysés` : null,
+                `${insights.length} catégories`,
+                kpis.confidence != null ? `fiabilité ${CONFIDENCE_LABEL[confidenceLevel(kpis.confidence)]}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </Text>
+            <TopKpis kpis={kpis} />
+            <ForecastCard months={months} kpis={kpis} period={period} current={current} currency={currency} />
+            {analysed.length > 0 ? <CategoryMap insights={analysed} /> : null}
+            <Matrix insights={insights} running={current} />
+            <BottomKpis kpis={kpis} currency={currency} running={current} />
           </>
         )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHIFFRES CLÉS
+// ═══════════════════════════════════════════════════════════
+
+function Tile({ label, value, hint, hintColor }: { label: string; value: string; hint?: string; hintColor?: string }) {
+  return (
+    <View accessible accessibilityLabel={`${label} : ${value}${hint ? `, ${hint}` : ""}`} style={styles.tile}>
+      <Text style={styles.tileLabel}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.tileValue}>
+        {value}
+      </Text>
+      {hint ? <Text style={[styles.tileHint, hintColor ? { color: hintColor } : null]}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+function TopKpis({ kpis: k }: { kpis: Kpis }) {
+  const stability = k.volatility == null ? null : stabilityOf(k.volatility);
+  return (
+    <View style={styles.grid}>
+      <Tile
+        label="Tendance"
+        value={k.trend == null ? "—" : signedPct(k.trend, 1)}
+        hint="par mois"
+        hintColor={k.trend == null ? undefined : TONE[trendTone(k.trend)].fg}
+      />
+      <Tile
+        label="Régularité"
+        value={k.volatility == null ? "—" : `± ${pct(SWING_FACTOR * k.volatility)}`}
+        hint={stability ? `Dépenses ${STABILITY_LABEL[stability].toLowerCase()}s` : undefined}
+      />
+      <Tile
+        label="Taux d'épargne"
+        value={k.savingsRate == null ? "—" : pct(k.savingsRate)}
+        hint={k.fullMonths > 0 ? `sur ${k.fullMonths} mois complets` : "aucun mois complet"}
+      />
+      <Tile
+        label="Fiabilité"
+        value={k.confidence == null ? "—" : num(k.confidence, 2)}
+        hint={k.confidence == null ? undefined : `${CONFIDENCE_LABEL[confidenceLevel(k.confidence)]} · indice sur 1`}
+      />
+    </View>
+  );
+}
+
+function BottomKpis({ kpis: k, currency, running }: { kpis: Kpis; currency: string; running: boolean }) {
+  return (
+    <View style={styles.grid}>
+      <Tile
+        label="Concentration"
+        value={k.concentration ? `${k.concentration.count} / ${k.concentration.of}` : "—"}
+        hint="catégories font 80 %"
+      />
+      <Tile label="Variabilité" value={k.monthlyCv == null ? "—" : `± ${pct(k.monthlyCv)}`} hint="du total mensuel" />
+      <Tile
+        label="Économie possible"
+        value={formatMoney(k.potentialSaving, currency)}
+        hint={running ? "ce mois-ci" : "sur le mois"}
+      />
+      <Tile
+        label="Essentielles"
+        value={k.essentialShare == null ? "—" : pct(k.essentialShare)}
+        hint="des dépenses habituelles"
+      />
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PRÉVISION (courbe + zone d'incertitude)
+// ═══════════════════════════════════════════════════════════
+
+const CW = 330;
+const CH = 150;
+const PAD_X = 14;
+const PLOT_TOP = 14;
+const PLOT_BOTTOM = 126;
+
+function ForecastCard({
+  months,
+  kpis,
+  period,
+  current,
+  currency,
+}: {
+  months: MonthlyTotal[];
+  kpis: Kpis;
+  period: string;
+  current: boolean;
+  currency: string;
+}) {
+  // Mois complets avec dépenses (6 derniers au plus), puis le point prévu.
+  const full = months.filter((m) => m.total > 0 && !(current && m.period === period)).slice(-6);
+  const forecast = kpis.forecast;
+  if (full.length === 0 && !forecast) return null;
+
+  const fcValue = forecast?.total ?? null;
+  const band = forecast?.low != null && forecast?.high != null ? { low: forecast.low, high: forecast.high } : null;
+  const values = [
+    ...full.map((m) => m.total),
+    ...(fcValue != null ? [fcValue] : []),
+    ...(band ? [band.low, band.high] : []),
+  ];
+  const max = Math.max(...values) * 1.05;
+  const min = Math.min(...values) * 0.85;
+  const y = (v: number) => PLOT_BOTTOM - ((v - min) / Math.max(max - min, 1)) * (PLOT_BOTTOM - PLOT_TOP);
+  const slots = full.length + (fcValue != null ? 1 : 0);
+  const x = (i: number) => PAD_X + (i * (CW - 2 * PAD_X)) / Math.max(slots - 1, 1);
+
+  const pts = full.map((m, i) => ({ x: x(i), y: y(m.total), label: MONTH_SHORT[Number(m.period.slice(5, 7)) - 1] }));
+  const fx = x(slots - 1);
+  const last = pts[pts.length - 1];
+  const target = current ? period : nextPeriod(period);
+  const targetMonth = Number(target.slice(5, 7)) - 1;
+
+  return (
+    <View style={styles.card}>
+      <View pointerEvents="none" style={styles.orb} />
+      <Text style={styles.cardLabel}>
+        {current ? `Prévision fin ${MONTH_LONG[targetMonth]}` : `Prévision ${MONTH_LONG[targetMonth]}`}
+      </Text>
+      <View style={styles.forecastRow}>
+        <Text style={styles.forecastValue}>{fcValue != null ? formatMoney(fcValue, currency) : "—"}</Text>
+        {band ? (
+          // Pas de probabilité chiffrée : la couverture de la projection du mois et du total
+          // (catégories combinées) n'est pas mesurée ; seule celle par catégorie l'est.
+          <Text style={styles.forecastErr}>
+            estimation probable entre {formatMoney(band.low, currency)} et {formatMoney(band.high, currency)}
+          </Text>
+        ) : (
+          <Text style={styles.forecastErr}>fourchette dès 12 mois d'historique</Text>
+        )}
+      </View>
+      <Svg
+        accessible
+        accessibilityLabel={`Dépenses des ${full.length} derniers mois complets. Prévision ${
+          fcValue != null ? formatMoney(fcValue, currency) : "indisponible"
+        }${band ? `, estimation probable entre ${formatMoney(band.low, currency)} et ${formatMoney(band.high, currency)}` : ""}`}
+        height={CH + 14}
+        viewBox={`0 0 ${CW} ${CH + 14}`}
+        width="100%"
+      >
+        <Line stroke="#E3E6EE" x1={0} x2={CW} y1={PLOT_BOTTOM + 6} y2={PLOT_BOTTOM + 6} />
+        {fcValue != null && last && band ? (
+          <Polygon
+            fill={colors.primary}
+            opacity={0.12}
+            points={`${last.x},${last.y} ${fx},${y(band.high)} ${fx},${y(band.low)}`}
+          />
+        ) : null}
+        {pts.length > 1 ? (
+          <Polyline
+            fill="none"
+            points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
+            stroke={colors.text}
+            strokeLinejoin="round"
+            strokeWidth={2.2}
+          />
+        ) : null}
+        {fcValue != null && last ? (
+          <Polyline
+            fill="none"
+            points={`${last.x},${last.y} ${fx},${y(fcValue)}`}
+            stroke={colors.primary}
+            strokeDasharray="5 4"
+            strokeWidth={2.2}
+          />
+        ) : null}
+        {pts.map((p) => (
+          <Circle cx={p.x} cy={p.y} fill={colors.text} key={`p${p.x}`} r={3} />
+        ))}
+        {fcValue != null ? (
+          <Circle cx={fx} cy={y(fcValue)} fill="#FFFFFF" r={4.5} stroke={colors.primary} strokeWidth={2.5} />
+        ) : null}
+        {pts.map((p) => (
+          <SvgText fill={colors.textMuted} fontSize={9.5} key={`l${p.x}`} textAnchor="middle" x={p.x} y={CH + 8}>
+            {p.label}
+          </SvgText>
+        ))}
+        {fcValue != null ? (
+          <SvgText fill={colors.primary} fontSize={9.5} fontWeight="bold" textAnchor="middle" x={fx} y={CH + 8}>
+            {MONTH_SHORT[targetMonth]}
+          </SvgText>
+        ) : null}
+      </Svg>
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CARTE DES CATÉGORIES (tendance × régularité)
+// ═══════════════════════════════════════════════════════════
+
+const MAP_H = 240;
+
+function CategoryMap({ insights }: { insights: CategoryInsight[] }) {
+  const xMax = Math.max(0.6, ...insights.map((c) => SWING_FACTOR * c.volatility));
+  const yAbs = Math.max(0.1, ...insights.map((c) => Math.abs(c.trend)));
+  const habitMax = Math.max(...insights.map((c) => c.habit));
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardTitle}>Carte des catégories</Text>
+        <Text style={styles.cardNote}>taille = habitude</Text>
+      </View>
+      <View
+        accessibilityLabel={insights
+          .map((c) => `${c.name} : tendance ${signedPct(c.trend)}, ${STABILITY_LABEL[c.stability].toLowerCase()}`)
+          .join(". ")}
+        accessible
+        style={styles.mapWrap}
+      >
+        <Text style={[styles.axis, { top: -2 }]}>{signedPct(yAbs)}</Text>
+        <Text style={[styles.axis, { top: MAP_H / 2 - 7 }]}>0</Text>
+        <Text style={[styles.axis, { top: MAP_H - 12 }]}>{signedPct(-yAbs)}</Text>
+        <View style={styles.map}>
+          <View style={styles.zero} />
+          <Text style={[styles.quad, { left: 6, top: 4 }]}>hausse régulière</Text>
+          <Text style={[styles.quad, { right: 6, top: 4 }]}>hausse imprévisible</Text>
+          <Text style={[styles.quad, { bottom: 4, left: 6 }]}>baisse régulière</Text>
+          {insights.map((c) => {
+            const size = 14 + 30 * Math.sqrt(c.habit / habitMax);
+            // Ramenée entre 6 % et 94 % : une bulle aux extrêmes ne déborde pas du cadre.
+            const left = 6 + (Math.min(SWING_FACTOR * c.volatility, xMax) / xMax) * 88;
+            const top = 50 - (Math.max(-yAbs, Math.min(yAbs, c.trend)) / yAbs) * 44;
+            // Couleur = sens de la dépense : baisse ou stable en vert, hausse en ambre ou rouge.
+            const tone = trendTone(c.trend);
+            return (
+              <View
+                key={c.id}
+                style={[
+                  styles.bubble,
+                  {
+                    backgroundColor: `${TONE_STROKE[tone]}26`,
+                    borderColor: TONE_STROKE[tone],
+                    height: size,
+                    left: `${left}%` as DimensionValue,
+                    marginLeft: -size / 2,
+                    marginTop: -size / 2,
+                    top: `${top}%` as DimensionValue,
+                    width: size,
+                  },
+                ]}
+              >
+                <Text numberOfLines={1} style={[styles.bubbleLabel, { top: size + 1 }]}>
+                  {c.name}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+        <View style={styles.xAxis}>
+          <Text style={styles.axisX}>régulière</Text>
+          <Text style={styles.axisX}>irrégulière</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MATRICE CATÉGORIES × INDICATEURS
+// ═══════════════════════════════════════════════════════════
+
+function Cell({ tone, text, wide }: { tone: Tone; text: string; wide?: boolean }) {
+  return (
+    <View style={[styles.cell, wide && styles.cellWide, { backgroundColor: TONE[tone].bg }]}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        numberOfLines={1}
+        style={[styles.cellText, { color: TONE[tone].fg }]}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+const LEGEND: [Tone, string][] = [
+  ["good", "baisse ou stable"],
+  ["warn", "hausse à surveiller"],
+  ["bad", "forte hausse"],
+  ["info", "information"],
+];
+
+function Matrix({ insights, running }: { insights: CategoryInsight[]; running: boolean }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Santé de chaque catégorie</Text>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.mRow}>
+        <View style={styles.mNameBox} />
+        {["Tend.", "Régul.", "Fiab.", "Anom."].map((h) => (
+          <Text key={h} style={[styles.mHead, styles.mCol]}>{h}</Text>
+        ))}
+        <Text style={[styles.mHead, styles.mCol, styles.cellWide]}>Prévu</Text>
+      </View>
+      {insights.map((c) => {
+        const young = c.historyMonths != null && c.historyMonths < 3;
+        const noTrend = c.historyMonths != null && c.historyMonths < MIN_TREND_MONTHS;
+        const expected = expectedForMonth(c.forecast, c.current, running);
+        return (
+          <View
+            accessibilityLabel={
+              young
+                ? `${c.name} : historique trop court, prévision ${compact(expected)}`
+                : `${c.name} : tendance ${signedPct(c.trend)} par mois, ${STABILITY_LABEL[
+                    c.stability
+                  ].toLowerCase()}, fiabilité ${CONFIDENCE_LABEL[confidenceLevel(c.confidence)]}, dernier mois ${num(
+                    c.anomaly,
+                    1,
+                  )} sigma, prévu ${compact(expected)}`
+            }
+            accessible
+            key={c.id}
+            style={styles.mRow}
+          >
+            <View style={styles.mNameBox}>
+              <Text numberOfLines={1} style={styles.mName}>{c.name}</Text>
+            </View>
+            <Cell tone={noTrend ? "info" : trendTone(c.trend)} text={noTrend ? "—" : signedPct(c.trend)} />
+            {/* Régularité et fiabilité décrivent les données : neutres (dépenser rarement n'est pas un défaut). */}
+            <Cell tone="info" text={young ? "—" : pct(SWING_FACTOR * c.volatility)} />
+            <Cell tone="info" text={num(c.confidence, 2)} />
+            <Cell tone={young ? "info" : anomalyTone(c.anomaly)} text={young ? "—" : `${num(c.anomaly, 1)}σ`} />
+            <Cell tone="info" text={compact(expected)} wide />
+          </View>
+        );
+      })}
+      <View style={styles.legend}>
+        {LEGEND.map(([t, l]) => (
+          <View key={t} style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: TONE[t].bg }]} />
+            <Text style={styles.legendText}>{l}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -1075,12 +493,117 @@ export default function StatsDetail() {
 // ═══════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: colors.background, flex: 1 },
-  scroll: { gap: 24, padding: 16, paddingBottom: 32 },
-  errorText: {
-    color: colors.danger,
-    fontSize: 13, fontFamily: interFonts.regular,
-    paddingVertical: 24,
-    textAlign: "center",
+  safe: { backgroundColor: colors.background, flex: 1 },
+  scroll: { gap: 16, paddingBottom: 48, paddingHorizontal: 18, paddingTop: 2 },
+  loader: { marginTop: 40 },
+  error: { color: colors.danger, fontFamily: interFonts.medium, fontSize: 13, textAlign: "center" },
+  empty: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 13, marginTop: 30, textAlign: "center" },
+  intro: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 12, paddingHorizontal: 2 },
+
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: {
+    backgroundColor: colors.surface,
+    borderColor: "#ECEEF4",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexBasis: "47%",
+    flexGrow: 1,
+    gap: 4,
+    padding: 14,
   },
+  tileLabel: {
+    color: colors.textMuted,
+    fontFamily: interFonts.semibold,
+    fontSize: 10.5,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  tileValue: { color: colors.text, fontFamily: interFonts.bold, fontSize: 21 },
+  tileHint: { color: colors.textMuted, fontFamily: interFonts.semibold, fontSize: 11.5 },
+
+  card: {
+    backgroundColor: colors.surface,
+    borderColor: "#ECEEF4",
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 10,
+    overflow: "hidden",
+    padding: 16,
+    position: "relative",
+  },
+  orb: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 170,
+    opacity: 0.06,
+    position: "absolute",
+    right: -60,
+    top: -80,
+    width: 170,
+  },
+  cardLabel: {
+    color: colors.textMuted,
+    fontFamily: interFonts.semibold,
+    fontSize: 10.5,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  cardHead: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between" },
+  cardTitle: { color: colors.text, fontFamily: interFonts.bold, fontSize: 14 },
+  cardNote: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 11 },
+  forecastRow: { alignItems: "baseline", flexDirection: "row", gap: 8 },
+  forecastValue: { color: colors.text, fontFamily: interFonts.bold, fontSize: 22 },
+  forecastErr: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 12 },
+
+  mapWrap: { paddingBottom: 4, paddingLeft: 36, paddingRight: 8, position: "relative" },
+  map: {
+    borderBottomColor: "#D9DCE6",
+    borderBottomWidth: 1,
+    borderLeftColor: "#D9DCE6",
+    borderLeftWidth: 1,
+    height: MAP_H,
+    position: "relative",
+  },
+  zero: {
+    borderColor: "#C9CDD8",
+    borderStyle: "dashed",
+    borderTopWidth: 1,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: "50%",
+  },
+  axis: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 9.5, left: 0, position: "absolute" },
+  xAxis: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
+  axisX: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 9.5 },
+  quad: { color: "#8D8C99", fontFamily: interFonts.semibold, fontSize: 9.5, position: "absolute" },
+  bubble: { alignItems: "center", borderRadius: 999, borderWidth: 2, position: "absolute" },
+  bubbleLabel: {
+    color: colors.text,
+    fontFamily: interFonts.semibold,
+    fontSize: 10,
+    position: "absolute",
+    textAlign: "center",
+    width: 90,
+  },
+
+  mRow: { alignItems: "center", flexDirection: "row", gap: 4 },
+  mNameBox: { flex: 1.5 },
+  mName: { color: colors.text, fontFamily: interFonts.semibold, fontSize: 12 },
+  mHead: {
+    color: colors.textMuted,
+    fontFamily: interFonts.semibold,
+    fontSize: 9.5,
+    letterSpacing: 0.3,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  mCol: { flex: 1 },
+  cell: { alignItems: "center", borderRadius: 8, flex: 1, paddingHorizontal: 2, paddingVertical: 8 },
+  cellWide: { flex: 1.15 },
+  cellText: { fontFamily: interFonts.bold, fontSize: 11 },
+  legend: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 },
+  legendItem: { alignItems: "center", flexDirection: "row", gap: 5 },
+  legendSwatch: { borderRadius: 3, height: 10, width: 10 },
+  legendText: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 10.5 },
 });

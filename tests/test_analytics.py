@@ -366,3 +366,30 @@ def test_snapshot_to_category_read_missing_profile():
     read = _snapshot_to_category_read(row)
     assert read.profile.drift_score == 0.0
     assert read.profile.forecast.method == "ewma"
+
+
+def test_spending_drop_is_neither_drift_nor_anomaly():
+    """Objectif : dépenser moins. Une baisse durable ou un mois très bas n'est pas un problème."""
+    falling = [100.0, 105.0, 98.0, 102.0, 40.0, 42.0, 38.0, 41.0]
+    assert drift_score(falling) == 0.0
+    assert residual_anomaly_score([100.0, 102.0, 98.0, 101.0, 99.0, 10.0]) == 0.0
+
+
+def test_spending_rise_is_drift_and_anomaly():
+    rising = [40.0, 42.0, 38.0, 41.0, 100.0, 105.0, 98.0, 102.0]
+    assert drift_score(rising) > 0.5
+    assert residual_anomaly_score([100.0, 102.0, 98.0, 101.0, 99.0, 300.0]) > 3.5
+
+
+
+def test_near_constant_history_gives_no_false_anomaly():
+    """Historique quasi constant : un écart minime n'est pas « hors norme » (plancher de MAD)."""
+    steady = [50000.0, 50000.0, 50000.0, 50000.0, 50000.0, 50000.0, 50250.0]
+    assert residual_anomaly_score(steady) < 2
+    # Un vrai saut reste détecté.
+    assert residual_anomaly_score([50000.0] * 6 + [80000.0]) > 3.5
+
+
+def test_robust_z_floor():
+    assert robust_z(10.000001, [10.0, 10.0, 10.0, 10.0]) == 0.0  # MAD nul, pas de plancher
+    assert abs(robust_z(11.0, [10.0, 10.0, 10.0, 10.0], min_scale=1.0) - 0.6745) < 1e-9

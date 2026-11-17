@@ -57,6 +57,11 @@ def _to_domain_category(c: Category) -> DomainCategory:
     )
 
 
+_FORECAST_EXTRA = (
+    "low", "high", "usage_rate", "projection", "projection_low", "projection_high",
+)
+
+
 def _profile_to_dict(profile) -> dict:
     return {
         "level": profile.level,
@@ -74,6 +79,10 @@ def _profile_to_dict(profile) -> dict:
             "method": profile.forecast.method,
             "value": profile.forecast.value,
             "mae": profile.forecast.mae,
+            **{
+                key: getattr(profile.forecast, key, None)
+                for key in _FORECAST_EXTRA
+            },
         },
     }
 
@@ -305,7 +314,7 @@ async def _dashboard_extra(
 
 # Version de la sémantique des écarts stockée dans le cache : une ligne d'une autre
 # version est recalculée à la lecture (pas de migration de données).
-ANALYTICS_SEMANTICS = 2
+ANALYTICS_SEMANTICS = 5  # 3 : hausses seulement ; 4 : plancher ; 5 : prévision calendaire
 
 
 def _utc_today() -> date:
@@ -670,7 +679,10 @@ def _snapshot_to_category_read(
             method=forecast.get("method", "ewma"),
             value=forecast.get("value", 0.0),
             mae=forecast.get("mae"),
+            **{key: forecast.get(key) for key in _FORECAST_EXTRA},
         ),
+        history_months=p.get("history_months"),
+        last_change=p.get("last_change"),
     )
     return CategoryAnalyticsRead(
         category_id=row.category_id,

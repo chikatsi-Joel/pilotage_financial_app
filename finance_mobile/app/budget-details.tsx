@@ -12,7 +12,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { describeTrend } from "../src/shared/utils/trend";
+import { categoryRationale, describeTrend } from "../src/shared/utils/trend";
 import Svg, {
   Circle,
   Defs,
@@ -442,15 +442,11 @@ export default function BudgetDetail() {
   const { label: trendLabel, sub: trendSub } = describeTrend(cat?.profile ?? null);
   const driftScore = cat?.profile.drift_score ?? 0;
   const driftSince = cat ? "ce mois-ci" : "";
-  const projection = cat?.profile.forecast.value ?? 0;
+  // Mois en cours : projection du moteur (déjà dépensé + reste au rythme habituel).
+  const projection = cat?.profile.forecast.projection ?? cat?.profile.forecast.value ?? 0;
   const potential = cat?.potential_saving ?? 0;
   const rationale = cat
-    ? `Vos dépenses "${cat.name}" affichent une variation de ${formatPct(
-        cat.variation_percentage
-      )} par rapport à votre niveau habituel. Réduire cette dérive libérerait environ ${formatMoney(
-        cat.potential_saving,
-        currency
-      )} par mois.`
+    ? categoryRationale(cat.name, cat.variation_percentage, cat.potential_saving, (v) => formatMoney(v, currency))
     : "Analyse indisponible pour cette catégorie.";
 
   const onRefresh = useCallback(() => {

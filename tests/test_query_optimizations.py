@@ -236,10 +236,9 @@ async def test_category_analytics_without_expenses_is_not_recomputed_each_call(
 
 # ── Analytics : mêmes valeurs qu'avant le refactor ──────────────────────────
 
-# Champs calculés sur des résidus STL quasi nuls (robust_z avec un MAD proche de 1e-12) : leur
-# valeur est du bruit d'arrondi flottant. L'ancien code les faisait déjà varier selon l'ordre,
-# non spécifié, des lignes renvoyées par la base. Ils sont comparés exactement dans
-# test_sql_aggregation_matches_python_grouping_exactly, pas ici.
+# Champs calculés sur des résidus STL. Avant le plancher de dispersion (robust_z sur un MAD
+# proche de 1e-12) ils n'étaient que du bruit d'arrondi ; ils sont désormais stables et
+# comparés avec une tolérance de 1e-6.
 _FLOAT_NOISE_FIELDS = {
     "opportunity_score",
     "profile.anomaly_score",
@@ -274,10 +273,11 @@ async def test_analytics_match_pre_refactor_output(env) -> None:
                 for amount in _AMOUNTS:
                     assert money(got[amount]) == money(fields[amount]), (period, name, amount)
                 for key, value in fields.items():
-                    if key in _FLOAT_NOISE_FIELDS:
-                        continue
                     if isinstance(value, float):
-                        assert math.isclose(got[key], value, rel_tol=1e-9, abs_tol=1e-9), (
+                        # Champs issus de résidus STL : stables depuis le plancher de
+                        # dispersion, comparés avec une tolérance d'arrondi flottant.
+                        tol = 1e-6 if key in _FLOAT_NOISE_FIELDS else 1e-9
+                        assert math.isclose(got[key], value, rel_tol=tol, abs_tol=tol), (
                             period, name, key,
                         )
                     else:
@@ -520,8 +520,11 @@ async def test_ai_analysis_is_reused_until_data_changes(env) -> None:
         changed = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
         assert provider.calls == 2 and changed["summary"] == "analyse 2"
 
-        # Relance explicite.
-        await ai_analysis_service.analyze(user.id, "2026-11", db, provider, force=True)
+        # Relance explicite, une fois le délai entre deux relances écoulé.
+        from datetime import UTC, datetime, timedelta
+
+        later = datetime.now(UTC) + ai_analysis_service.FORCE_COOLDOWN + timedelta(minutes=1)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider, force=True, now=later)
         assert provider.calls == 3
         rows = (await db.execute(select(func.count()).select_from(AIAnalysis))).scalar_one()
     assert rows == 1
@@ -575,3 +578,64 @@ async def test_ai_reused_analysis_keeps_number_warnings(env) -> None:
         again = await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
     assert provider.calls == 1 and first.get("number_warnings")
     assert again["cached"] is True and again.get("number_warnings") == first["number_warnings"]
+
+
+async def test_cached_analytics_expose_history_and_last_change(env) -> None:
+    """Le cache renvoie le même profil que le calcul complet, history_months et last_change compris."""
+    _, maker, _ = env
+    async with maker() as db:
+        user, _, _ = await _seed_user(db, 3)
+        live = await analytics_service.compute_category_analytics(user.id, "2026-11", db)
+        cached = await analytics_service.get_category_analytics_snapshot(user.id, "2026-11", db)
+    by_id = {a.category_id: a.profile for a in live}
+    assert cached and all(c.profile.history_months is not None for c in cached)
+    for c in cached:
+        assert c.profile.history_months == by_id[c.category_id].history_months
+        assert c.profile.last_change == by_id[c.category_id].last_change
+
+
+
+async def test_forced_ai_refresh_is_rate_limited(env) -> None:
+    """Relance forcée : une par mois et par FORCE_COOLDOWN ; ensuite l'analyse est resservie."""
+    from datetime import UTC, datetime, timedelta
+
+    _, maker, _ = env
+    provider = _FakeProvider()
+    async with maker() as db:
+        user, _, _ = await _seed_user(db, 2)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        stored_at = (await db.execute(select(AIAnalysis.created_at))).scalar_one()
+        if stored_at.tzinfo is None:
+            stored_at = stored_at.replace(tzinfo=UTC)
+
+        soon = stored_at + timedelta(minutes=2)
+        blocked = await ai_analysis_service.analyze(user.id, "2026-11", db, provider, force=True, now=soon)
+        assert provider.calls == 1
+        assert blocked["cached"] is True and 470 <= blocked["retry_after"] <= 480
+
+        later = stored_at + ai_analysis_service.FORCE_COOLDOWN + timedelta(seconds=1)
+        fresh = await ai_analysis_service.analyze(user.id, "2026-11", db, provider, force=True, now=later)
+    assert provider.calls == 2 and "retry_after" not in fresh
+
+
+async def test_forced_refresh_after_new_expense_calls_the_model(env) -> None:
+    """Données changées : la relance forcée recalcule, même dans le délai de 10 minutes."""
+    from datetime import UTC, timedelta
+
+    _, maker, _ = env
+    provider = _FakeProvider()
+    async with maker() as db:
+        user, cats, _ = await _seed_user(db, 2)
+        await ai_analysis_service.analyze(user.id, "2026-11", db, provider)
+        stored_at = (await db.execute(select(AIAnalysis.created_at))).scalar_one()
+        if stored_at.tzinfo is None:
+            stored_at = stored_at.replace(tzinfo=UTC)
+        await expense_service.create(
+            user.id,
+            ExpenseCreate(amount=Decimal("777"), category_id=cats[0].id, expense_date=date(2026, 11, 4)),
+            db,
+        )
+        result = await ai_analysis_service.analyze(
+            user.id, "2026-11", db, provider, force=True, now=stored_at + timedelta(minutes=2)
+        )
+    assert provider.calls == 2 and "retry_after" not in result

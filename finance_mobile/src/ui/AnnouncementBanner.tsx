@@ -23,9 +23,6 @@ export function AnnouncementBanner() {
       .catch(() => setDismissed(null));
   }, []);
 
-  if (__DEV__) {
-    console.log("[Annonce] texte:", JSON.stringify(announcement?.text ?? null), "fermée:", JSON.stringify(dismissed));
-  }
   if (!announcement || dismissed === undefined || dismissed === announcement.text) return null;
 
   const close = () => {

@@ -793,8 +793,11 @@ export default function Dashboard() {
     ? data.remaining_balance ?? data.income - data.expenses
     : 0;
 
+  // Hausses durables (dérive) encore au-dessus de l'habitude ce mois-ci : une catégorie
+  // revenue sous son habitude n'est plus « à surveiller ».
+  const rising = data?.top_drift_categories.filter((c) => c.variation_percentage > 0) ?? [];
   const alerts: AlertItem[] =
-    data?.top_drift_categories.slice(0, 4).map(
+    rising.slice(0, 4).map(
       (c: CategoryAnalytics): AlertItem => ({
         icon: categoryIcon(c.name),
         iconBg: c.essential ? "#E8EFFC" : "#FDECEA",
@@ -1035,7 +1038,7 @@ export default function Dashboard() {
               <Text style={styles.sectionTitle}>Vigilance Budgétaire</Text>
               {data && data.potential_savings > 0 ? (
                 <Text style={styles.vigilanceSub}>
-                  {data.categories_in_drift} catégorie{data.categories_in_drift > 1 ? "s" : ""} en hausse ·{" "}
+                  {rising.length} catégorie{rising.length > 1 ? "s" : ""} en hausse ·{" "}
                   {formatMoney(data.potential_savings, currency)} d'économies possibles
                 </Text>
               ) : null}

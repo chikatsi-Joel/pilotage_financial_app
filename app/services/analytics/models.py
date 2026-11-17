@@ -35,9 +35,23 @@ class Category:
 
 @dataclass(frozen=True)
 class Forecast:
+    """Prévision mensuelle (voir analytics/forecast.py).
+
+    `value` : espérance du mois prévu (mois en cours s'il est en cours, sinon le suivant),
+    probabilité d'utilisation incluse ; `mae`, `low`/`high` : erreur et fourchette à 80 %
+    hors échantillon ; `usage_rate` : part des mois utilisés ; `projection` (+ bornes) : mois
+    en cours seulement, déjà dépensé + reste attendu au rythme habituel.
+    """
+
     method: str
     value: float
     mae: float | None
+    low: float | None = None
+    high: float | None = None
+    usage_rate: float = 1.0
+    projection: float | None = None
+    projection_low: float | None = None
+    projection_high: float | None = None
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
@@ -59,6 +61,10 @@ async def build_context(user_id: UUID, period: str, db: AsyncSession) -> dict[st
                 "forecast_method": a.profile.forecast.method,
                 "forecast_value": a.profile.forecast.value,
                 "forecast_mae": a.profile.forecast.mae,
+                "forecast_low": a.profile.forecast.low,
+                "forecast_high": a.profile.forecast.high,
+                "usage_rate": a.profile.forecast.usage_rate,
+                "month_projection": a.profile.forecast.projection,
             }
             for a in analytics
         ],
@@ -104,14 +110,35 @@ async def _model_name(provider: Any) -> str:
         return ""
 
 
+# Relance forcée (« tirer pour rafraîchir ») : au plus une par mois analysé et par utilisateur
+# dans cet intervalle. Chaque relance est un appel payant au modèle.
+FORCE_COOLDOWN = timedelta(minutes=10)
+
+
+def _cooldown_left(created_at: datetime | None, now: datetime) -> int:
+    """Secondes avant la prochaine relance forcée possible (0 : autorisée)."""
+    if created_at is None:
+        return 0
+    if created_at.tzinfo is None:  # SQLite (tests) : horodatage naïf en UTC
+        created_at = created_at.replace(tzinfo=UTC)
+    return max(0, math.ceil((created_at + FORCE_COOLDOWN - now).total_seconds()))
+
+
 async def analyze(
-    user_id: UUID, period: str, db: AsyncSession, provider: Any, *, force: bool = False
+    user_id: UUID,
+    period: str,
+    db: AsyncSession,
+    provider: Any,
+    *,
+    force: bool = False,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Analyse IA du mois, resservie depuis la base tant que les données n'ont pas changé.
 
     Le modèle (lent et payant) n'est appelé que si l'empreinte du contexte (analytics,
     totaux, objectifs, modèle configuré) diffère de celle de la dernière analyse enregistrée,
-    ou sur demande explicite (`force`). Une réponse de secours (`fallback`, modèle
+    ou sur demande explicite (`force`, limitée à une par FORCE_COOLDOWN : au-delà, l'analyse
+    enregistrée est resservie avec `retry_after` en secondes). Une réponse de secours (`fallback`, modèle
     injoignable) ou illisible (`parse_error`) n'est pas enregistrée : la visite suivante
     réessaie. Une analyse resservie repasse la vérification des chiffres (déterministe : même
     empreinte, donc même contexte) pour garder ses `number_warnings`.
@@ -130,6 +157,12 @@ async def analyze(
     await db.commit()
     if stored is not None and not force and stored.context_hash == digest:
         return validate_llm_output(_stored_result(stored), context)
+    # Limite seulement une relance sur des données INCHANGÉES : si une dépense a été ajoutée,
+    # l'empreinte diffère et le modèle est rappelé, comme pour un affichage normal.
+    if stored is not None and force and stored.context_hash == digest:
+        wait = _cooldown_left(stored.created_at, now or datetime.now(UTC))
+        if wait > 0:
+            return validate_llm_output(_stored_result(stored), context) | {"retry_after": wait}
 
     result = await provider.analyze(context)
     if not result.get("fallback") and not result.get("parse_error"):

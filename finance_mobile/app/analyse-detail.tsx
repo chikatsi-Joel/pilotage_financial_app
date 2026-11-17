@@ -497,6 +497,12 @@ export default function AnalyseDetail() {
             {analysis?.fallback ? (
               <Text style={styles.fallbackBadge}>Analyse locale — IA indisponible</Text>
             ) : null}
+            {analysis?.retry_after ? (
+              <Text style={styles.fallbackBadge}>
+                Analyse récente conservée · nouvelle analyse possible dans{" "}
+                {Math.max(1, Math.ceil(analysis.retry_after / 60))} min
+              </Text>
+            ) : null}
             {analysis?.number_warnings?.length ? (
               <Text style={styles.warningBadge}>
                 {analysis.number_warnings.length} chiffre(s) non vérifié(s) par le moteur

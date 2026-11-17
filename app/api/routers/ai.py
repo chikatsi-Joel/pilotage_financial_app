@@ -33,6 +33,8 @@ class AIAnalysisResponse(BaseModel):
     fallback: bool = False
     # True : analyse enregistrée resservie (données inchangées depuis), sans appel au modèle.
     cached: bool = False
+    # Relance forcée refusée (trop rapprochée) : secondes avant la prochaine possible.
+    retry_after: int | None = None
     parse_error: str | None = None
     number_warnings: list[str] | None = None
 
@@ -75,6 +77,7 @@ async def analyze_period(
         ),
         fallback=result.get("fallback", False),
         cached=result.get("cached", False),
+        retry_after=result.get("retry_after"),
         parse_error=result.get("parse_error"),
         number_warnings=result.get("number_warnings"),
     )

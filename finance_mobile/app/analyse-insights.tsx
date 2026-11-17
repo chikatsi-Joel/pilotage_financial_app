@@ -799,7 +799,8 @@ export default function Insights() {
           ]);
 
           if (cancelled) return;
-          setDriftCats(catsRes.filter((c) => Math.abs(c.variation_percentage) > 5));
+          // Seules les hausses sont à surveiller : dépenser moins est l'objectif.
+          setDriftCats(catsRes.filter((c) => c.variation_percentage > 5));
           setSeason(monthly ? summarizeSeason(monthly, period, new Date()) : null);
           setAllCats(catsRes);
           /* À décider d'abord, puis par économie décroissante. */

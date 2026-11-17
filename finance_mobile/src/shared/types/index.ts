@@ -178,8 +178,19 @@ export interface SavingsGoalContributeRead {
 
 export interface Forecast {
   method: string;
+  /** Espérance du mois prévu (probabilité d'utilisation incluse). */
   value: number;
+  /** Erreur absolue moyenne hors échantillon. */
   mae: number | null;
+  /** Fourchette à 80 % (bornes conformes), absente sous ~12 mois d'historique. */
+  low?: number | null;
+  high?: number | null;
+  /** Part des mois où la catégorie est utilisée. */
+  usage_rate?: number | null;
+  /** Mois en cours : déjà dépensé + reste attendu au rythme habituel (+ bornes). */
+  projection?: number | null;
+  projection_low?: number | null;
+  projection_high?: number | null;
 }
 
 export interface TimeSeriesProfile {
@@ -345,6 +356,10 @@ export interface AIAnalysis {
   recommendations: Record<string, unknown>[];
   projected_impact: Record<string, unknown>;
   fallback: boolean;
+  /** Analyse enregistrée resservie (données inchangées). */
+  cached?: boolean;
+  /** Relance forcée trop rapprochée : secondes avant la prochaine possible. */
+  retry_after?: number | null;
   parse_error: string | null;
   number_warnings: string[] | null;
 }

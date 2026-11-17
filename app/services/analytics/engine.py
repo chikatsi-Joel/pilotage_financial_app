@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import calendar as _calendar
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.core.config import settings
-from app.services.analytics.forecast import forecast
+from app.services.analytics.forecast import forecast_calendar
 from app.services.analytics.models import (
     Category,
     CategoryAnalysis,
@@ -15,6 +16,7 @@ from app.services.analytics.models import (
 )
 from app.services.analytics.statistics import (
     confidence,
+    forecast_confidence,
     mad,
     relative_gap,
     robust_baseline,
@@ -41,6 +43,52 @@ def money(value: Decimal | float | int) -> Decimal:
 YearMonth = tuple[int, int]
 # Total mensuel par catégorie : {category_id: {(année, mois): total}}
 MonthlyTotals = Mapping[str, Mapping[YearMonth, float]]
+
+# En dessous, la pente (Theil-Sen) est du bruit : elle n'est ni affichée ni utilisée.
+MIN_TREND_MONTHS = 6
+# Mois d'utilisation nécessaires pour se fier au seul rythme observé dans le mois.
+PACE_MIN_MONTHS = 4
+
+
+def _months_between(first: YearMonth, last: YearMonth) -> list[YearMonth]:
+    """Mois consécutifs de `first` à `last` inclus (vide si first > last)."""
+    out: list[YearMonth] = []
+    y, m = first
+    while (y, m) <= last:
+        out.append((y, m))
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
+def _previous(period: YearMonth) -> YearMonth:
+    y, m = period
+    return (y - 1, 12) if m == 1 else (y, m - 1)
+
+
+def _pace_share(
+    history: list[YearMonth],
+    monthly: Mapping[YearMonth, float],
+    monthly_to_date: Mapping[YearMonth, float],
+    period: YearMonth,
+    as_of_day: int,
+) -> float:
+    """Part habituelle de la dépense du mois déjà passée au jour `as_of_day`.
+
+    Rapport des sommes (à date / mois entier) sur les mois d'utilisation passés : un loyer payé
+    le 1er donne 1, une dépense étalée ~jour/longueur du mois. Sans historique : rythme
+    linéaire du calendrier.
+    """
+    days = _calendar.monthrange(*period)[1]
+    linear = min(1.0, max(0.0, as_of_day / days))
+    used = [k for k in history if monthly.get(k, 0) > 0]
+    full = sum(monthly[k] for k in used)
+    if full <= 0:
+        return linear
+    observed = min(1.0, max(0.0, sum(monthly_to_date.get(k, 0) for k in used) / full))
+    # Petit échantillon (< PACE_MIN_MONTHS mois d'utilisation) : le rythme observé, tiré de
+    # quelques achats, est mélangé au rythme du calendrier au prorata des mois manquants.
+    weight = min(len(used), PACE_MIN_MONTHS) / PACE_MIN_MONTHS
+    return weight * observed + (1 - weight) * linear
 
 
 class FinancialAnalyticsEngine:
@@ -137,7 +185,7 @@ class FinancialAnalyticsEngine:
         if not values:
             values = [current]
 
-        trend = theil_sen_trend(values)
+        trend = theil_sen_trend(values) if len(values) >= MIN_TREND_MONTHS else 0.0
         variation = relative_gap(current, expected)
         fit = stl(values)  # un seul ajustement STL pour l'anomalie et la saisonnalité
         anomaly = residual_anomaly_score(values, fit=fit)
@@ -182,7 +230,29 @@ class FinancialAnalyticsEngine:
             1,
         )
 
-        method, value, mae = forecast(values)
+        # Prévision sur la série CALENDAIRE (mois sans dépense = 0), de la première dépense
+        # au dernier mois clôturé : catégories ponctuelles comprises.
+        running = as_of_day is not None
+        last_closed = _previous(period) if running else period
+        calendar_keys = _months_between(min(monthly), last_closed)
+        calendar = [float(monthly.get(k, 0)) for k in calendar_keys]
+        fc = forecast_calendar(calendar)
+
+        projection = projection_low = projection_high = None
+        if running:
+            # Mois en cours : déjà dépensé + reste attendu au rythme habituel du mois. Limite
+            # connue : le reste n'est pas conditionné au fait qu'une dépense unique du mois ait
+            # déjà eu lieu ; pour ces catégories la part à date est proche de 1, l'effet est
+            # faible. Bornes : prorata du reste, couverture non mesurée (pas de probabilité
+            # affichée côté écran).
+            remaining = 1.0 - _pace_share(
+                history, monthly, monthly_to_date or {}, period, as_of_day or 0
+            )
+            projection = current + remaining * fc.value
+            if fc.low is not None and fc.high is not None:
+                projection_low = current + remaining * fc.low
+                projection_high = current + remaining * fc.high
+
         profile = TimeSeriesProfile(
             level=baseline,
             trend=trend,
@@ -192,8 +262,22 @@ class FinancialAnalyticsEngine:
             anomaly_score=anomaly,
             change_points=changes,
             drift_score=drift,
-            confidence=confidence(values),
-            forecast=Forecast(method, value, mae),
+            confidence=(
+                forecast_confidence(len(calendar), fc.mae, calendar)
+                if fc.mae is not None
+                else confidence(values)
+            ),
+            forecast=Forecast(
+                fc.method,
+                fc.value,
+                fc.mae,
+                fc.low,
+                fc.high,
+                fc.usage_rate,
+                projection,
+                projection_low,
+                projection_high,
+            ),
             history_months=len(values),
             last_change=(
                 (values[-1] - values[-2]) / abs(values[-2])
