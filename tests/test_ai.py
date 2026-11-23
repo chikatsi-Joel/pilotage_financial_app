@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.services.ai import (
+    SYSTEM_PROMPT,
     OllamaProvider,
     _build_prompt,
     _fallback_analysis,
@@ -101,21 +103,20 @@ def test_build_prompt_contains_key_data():
     prompt = _build_prompt(SAMPLE_CONTEXT)
     assert "2026-08" in prompt
     assert "800000" in prompt
-    assert "Restaurants" in prompt
-    assert "Alimentation" in prompt
-    assert "expected=" in prompt
-    assert "opportunity_score=" in prompt
-    assert "confidence=" in prompt
-    assert "potential_saving=" in prompt
-    assert "variation=" in prompt
-    assert "anomaly=" in prompt
-    assert "forecast=" in prompt
-    assert "drift=" in prompt
-    assert "level=" in prompt
-    assert "volatility=" in prompt
-    assert "Fonds voiture" in prompt
-    assert "Épargne destinée à l'achat d'une voiture" in prompt
-    assert "total_monthly_contributions" in prompt
+    assert "Restaurants" in prompt and "Alimentation" in prompt
+    for key in ("actuel=", "habitude=", "variation=", "confiance=", "prévision=", "potentiel="):
+        assert key in prompt, key
+    assert "Fonds voiture" in prompt and "requis_par_mois=327273" in prompt
+
+
+def test_build_prompt_is_compact():
+    """Chaque jeton est facturé : pas d'identifiants, pas de décimales inutiles, pas de nuls."""
+    prompt = _build_prompt(SAMPLE_CONTEXT)
+    for cat in SAMPLE_CONTEXT["categories"]:
+        assert str(cat["category_id"]) not in prompt
+    assert "None" not in prompt and "N/A" not in prompt
+    assert not re.search(r"\d\.\d{3,}", prompt)  # au plus 2 décimales
+    assert len(prompt) + len(SYSTEM_PROMPT) < 4000
 
 
 def test_parse_response_valid_json():
@@ -217,3 +218,34 @@ async def test_ollama_provider_success():
         assert result["summary"] == "Analyse OK"
         assert len(result["alerts"]) == 1
         assert result.get("fallback") is not True
+
+
+def test_build_prompt_keeps_meaningful_zeros():
+    """« Rien dépensé » et « aucun revenu » ne doivent pas devenir des données manquantes."""
+    ctx = json.loads(json.dumps(SAMPLE_CONTEXT, default=str))
+    ctx["dashboard"]["income"] = "0"
+    ctx["categories"][0]["current_amount"] = 0
+    ctx["categories"][0]["drift_score"] = 0
+    prompt = _build_prompt(ctx)
+    assert "revenu=0" in prompt
+    name = ctx["categories"][0]["name"]
+    first = next(line for line in prompt.splitlines() if line.startswith(f"- {name}"))
+    assert "actuel=0" in first and "dérive=" not in first
+
+
+def test_system_prompt_names_match_prompt_fields():
+    """Les règles du prompt système citent les champs sous le nom réellement envoyé."""
+    prompt = _build_prompt(SAMPLE_CONTEXT)
+    for key in ("anomalie", "dérive", "confiance", "prévision", "potentiel", "actuel",
+                "requis_par_mois", "progression_%", "dernier_mois", "moyenne_6_mois"):
+        assert key in SYSTEM_PROMPT, key
+        assert f"{key}=" in prompt or key in ("anomalie", "dérive"), key
+    # potential_saving reste une clé du JSON de sortie, pas un champ des données.
+    for old in ("anomaly", "drift", "confidence", "forecast", "required_monthly_contribution"):
+        assert old not in SYSTEM_PROMPT, old
+
+
+def test_small_amounts_keep_cents():
+    from app.services.ai import _num
+
+    assert _num(2.6) == "2.6" and _num(12345.6) == "12346" and _num(0) == "0"

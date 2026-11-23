@@ -362,6 +362,26 @@ export interface AIAnalysis {
   retry_after?: number | null;
   parse_error: string | null;
   number_warnings: string[] | null;
+  /** Freemium : quota du mois épuisé pour une nouvelle analyse (dernière resservie, ou vide). */
+  quota_exceeded?: boolean;
+  /** Même analyse déjà en préparation (autre écran) : rien n'est consommé. */
+  pending?: boolean;
+  /** Dernière analyse resservie alors que les données ont changé depuis (compte gratuit). */
+  stale?: boolean;
+  /** Date de l'analyse resservie (ISO). */
+  analyzed_at?: string | null;
+  quota?: AIQuota | null;
+}
+
+/** Quota d'analyses IA du mois. `limit`/`remaining` null : illimité (freemium coupé, premium). */
+export interface AIQuota {
+  enabled: boolean;
+  premium: boolean;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+  /** Début du mois suivant (ISO), quand le quota revient. */
+  resets_at: string;
 }
 
 export interface AIAnalysisStored {

@@ -19,8 +19,10 @@ import { router } from "expo-router";
 import { ai as aiApi } from "../src/shared/api/ai";
 import { budget as budgetApi } from "../src/shared/api/budget";
 import { system as systemApi } from "../src/shared/api/system";
+import { requestPremium } from "../src/shared/config/legal";
 import { useAppStore } from "../src/shared/store";
-import type { AIAnalysis, AIHealth, Recommendation } from "../src/shared/types";
+import type { AIAnalysis, AIHealth, AIQuota, Recommendation } from "../src/shared/types";
+import { analysisStatusNote, canUpdate, freeAnalyses, resetLabel } from "../src/shared/utils/aiQuota";
 import { formatMoney } from "../src/shared/utils/money";
 import { colors, interFonts } from "../src/ui/theme";
 
@@ -358,6 +360,40 @@ const AdviceItem = ({
 };
 
 /* ------------------------------------------------------------------ */
+//  Freemium
+/* ------------------------------------------------------------------ */
+
+/** Quota gratuit du mois atteint : ce qui reste possible et comment passer en Premium. */
+function PremiumCard({ quota, hasAnalysis }: { quota: AIQuota; hasAnalysis: boolean }) {
+  return (
+    <View style={styles.premiumCard}>
+      <View pointerEvents="none" style={styles.premiumOrb} />
+      <View style={styles.premiumHeader}>
+        <MaterialCommunityIcons color={colors.primary} name="crown-outline" size={22} />
+        <Text accessibilityRole="header" style={styles.premiumTitle}>
+          Analyses gratuites du mois utilisées
+        </Text>
+      </View>
+      <Text style={styles.premiumText}>
+        {quota.limit
+          ? `Vos ${freeAnalyses(quota.limit)} du mois sont utilisées. `
+          : "Les analyses IA sont réservées à Premium. "}
+        {hasAnalysis ? "Votre dernière analyse reste consultable ci-dessous. " : ""}
+        {quota.limit ? `Nouvelles analyses gratuites ${resetLabel(quota.resets_at)}.` : ""}
+      </Text>
+      <Text style={styles.premiumText}>Avec Premium, les analyses IA sont illimitées.</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={requestPremium}
+        style={({ pressed }) => [styles.premiumBtn, pressed && { opacity: 0.85 }]}
+      >
+        <Text style={styles.premiumBtnText}>Demander Premium</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 //  Page principale
 /* ------------------------------------------------------------------ */
 
@@ -405,7 +441,14 @@ export default function AnalyseDetail() {
     void load();
   }, [load]);
 
+  // Tirer pour rafraîchir : recharge sans forcer (ne consomme jamais d'analyse gratuite).
   const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    void load(false);
+  }, [load]);
+
+  // « Mettre à jour l'analyse » : seule demande explicite qui relance le modèle.
+  const onUpdate = useCallback(() => {
     setRefreshing(true);
     void load(true);
   }, [load]);
@@ -430,6 +473,15 @@ export default function AnalyseDetail() {
   };
 
   const allApplied = actions.length > 0 && appliedActions.size === actions.length;
+
+  const quota = analysis?.quota ?? null;
+  const blocked = Boolean(analysis?.quota_exceeded && quota);
+  const hasSummary = Boolean(analysis?.summary);
+  const statusNote = analysis && !blocked ? analysisStatusNote(analysis) : null;
+  // Analyse périmée (compte gratuit) : la mettre à jour consomme une analyse du quota.
+  const offerUpdate = Boolean(analysis?.stale && !blocked && canUpdate(quota));
+  const remainingLabel =
+    quota?.remaining != null ? `${freeAnalyses(quota.remaining)} restante${quota.remaining > 1 ? "s" : ""}` : null;
 
   const applyAll = useCallback(() => {
     if (allApplied) return;
@@ -467,6 +519,12 @@ export default function AnalyseDetail() {
           />
         }
       >
+        {blocked && quota ? (
+          <FadeIn delay={0}>
+            <PremiumCard hasAnalysis={hasSummary} quota={quota} />
+          </FadeIn>
+        ) : null}
+
         {/* ── Executive Summary ── */}
         <FadeIn delay={0}>
           <View style={styles.summaryCard}>
@@ -491,7 +549,7 @@ export default function AnalyseDetail() {
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={styles.summaryText}>
-                {analysis?.summary ?? error ?? "Aucune analyse disponible pour cette période."}
+                {analysis?.summary || error || "Aucune analyse disponible pour cette période."}
               </Text>
             )}
             {analysis?.fallback ? (
@@ -502,6 +560,27 @@ export default function AnalyseDetail() {
                 Analyse récente conservée · nouvelle analyse possible dans{" "}
                 {Math.max(1, Math.ceil(analysis.retry_after / 60))} min
               </Text>
+            ) : null}
+            {statusNote ? <Text style={styles.quotaHint}>{statusNote}</Text> : null}
+            {offerUpdate ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ busy: refreshing, disabled: refreshing }}
+                disabled={refreshing}
+                onPress={onUpdate}
+                style={({ pressed }) => [styles.updateBtn, (pressed || refreshing) && { opacity: 0.7 }]}
+              >
+                {refreshing ? (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                ) : (
+                  <MaterialCommunityIcons color={colors.primary} name="refresh" size={16} />
+                )}
+                <Text style={styles.updateBtnText}>
+                  {remainingLabel ? `Mettre à jour l'analyse · ${remainingLabel}` : "Mettre à jour l'analyse"}
+                </Text>
+              </Pressable>
+            ) : !blocked && remainingLabel ? (
+              <Text style={styles.quotaHint}>{`${remainingLabel} ce mois-ci`}</Text>
             ) : null}
             {analysis?.number_warnings?.length ? (
               <Text style={styles.warningBadge}>
@@ -688,6 +767,57 @@ const styles = StyleSheet.create({
     fontFamily: interFonts.bold,
     textTransform: "uppercase",
   },
+  quotaHint: {
+    color: colors.textMuted,
+    fontFamily: interFonts.medium,
+    fontSize: 12,
+  },
+  updateBtn: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: colors.surface,
+    borderColor: "#E4E0FA",
+    borderRadius: 99,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  updateBtnText: { color: colors.primary, fontFamily: interFonts.semibold, fontSize: 12.5 },
+  premiumCard: {
+    backgroundColor: colors.surface,
+    borderColor: "#E4E0FA",
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    marginTop: 16,
+    overflow: "hidden",
+    padding: 16,
+    position: "relative",
+  },
+  premiumOrb: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 140,
+    opacity: 0.07,
+    position: "absolute",
+    right: -45,
+    top: -60,
+    width: 140,
+  },
+  premiumHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
+  premiumTitle: { color: colors.text, flex: 1, fontFamily: interFonts.bold, fontSize: 15.5 },
+  premiumText: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 13.5, lineHeight: 20 },
+  premiumBtn: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    justifyContent: "center",
+    marginTop: 4,
+    minHeight: 46,
+  },
+  premiumBtnText: { color: "#FFFFFF", fontFamily: interFonts.bold, fontSize: 14 },
   warningBadge: {
     color: colors.danger,
     fontSize: 11,

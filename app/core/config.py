@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     push_enabled: bool = True
     expo_push_url: str = "https://exp.host/--/api/v2/push/send"
     expo_access_token: str = ""
+    # Freemium IA (surchargés depuis le backoffice, table app_settings).
+    ai_freemium_enabled: bool = False
+    ai_free_quota: int = 3
     push_timeout: float = 10.0
     # Stickers des notifications (static/push/*.png). Vide = sans image (choix actuel : Android
     # affiche l'image en grand quand on déplie la notification). Pour les réactiver :

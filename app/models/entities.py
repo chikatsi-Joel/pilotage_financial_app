@@ -68,6 +68,9 @@ class User(Base):
     email_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_code_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_code_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Premium (analyses IA sans quota) jusqu'à cette date ; None = offre gratuite. Activé à la
+    # main depuis le backoffice en attendant le paiement intégré.
+    premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     incomes: Mapped[list["Income"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -315,6 +318,21 @@ class AIAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "period", name="uq_ai_analysis_user_period"),)
+
+
+class AIUsage(Base):
+    """Un appel compté au modèle d'analyse (freemium actif, compte gratuit) : base du quota
+    mensuel. Ligne réservée avant l'appel, supprimée s'il échoue ; (period, context_hash)
+    évite de compter deux fois la même analyse demandée simultanément."""
+
+    __tablename__ = "ai_usage"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    period: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    context_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("ix_ai_usage_user_created", "user_id", "created_at"),)
 
 
 # ── Backoffice ───────────────────────────────────────────────────────────

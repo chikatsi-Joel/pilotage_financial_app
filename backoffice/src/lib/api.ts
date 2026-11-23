@@ -44,6 +44,22 @@ export const api = {
 
 // ── Types des réponses ──────────────────────────────────────────────────
 
+export interface PremiumUser {
+  id: string;
+  email: string | null;
+  name: string;
+  created_at: string;
+  premium_until: string | null;
+  premium: boolean;
+  ai_used_this_month: number;
+}
+
+export interface PremiumSearch {
+  freemium_enabled: boolean;
+  free_quota: number;
+  users: PremiumUser[];
+}
+
 export interface Overview {
   generated_at: string;
   users_total: number;

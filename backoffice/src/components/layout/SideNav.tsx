@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { NavLink } from "react-router-dom";
-import { Bell, Database, Flag, LayoutGrid, LogOut, SlidersHorizontal } from "lucide-react";
+import { Bell, Crown, Database, Flag, LayoutGrid, LogOut, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<{ className?: string; width?: number; height?: number; strokeWidth?: number }>;
@@ -16,6 +16,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Vue d'ensemble", icon: LayoutGrid },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/flags", label: "Flags", icon: Flag, hint: "Remote Config" },
+  { to: "/premium", label: "Premium", icon: Crown, hint: "Freemium IA" },
   { to: "/sql", label: "Requêtes SQL", icon: Database },
   { to: "/settings", label: "Configuration", icon: SlidersHorizontal },
 ];

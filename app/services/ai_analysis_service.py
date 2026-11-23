@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import math
@@ -15,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.upsert import upsert
 from app.models import AIAnalysis
-from app.services import analytics_service, savings_service
+from app.services import ai_quota, analytics_service, savings_service
 from app.services.ai import PROMPT_VERSION, SYSTEM_PROMPT, validate_llm_output
 
 
@@ -92,6 +93,27 @@ def fingerprint(context: dict[str, Any], model: str) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+_EMPTY: dict[str, Any] = {
+    "summary": "",
+    "alerts": [],
+    "recommendations": [],
+    "projected_impact": {},
+    "fallback": False,
+}
+
+
+def _stale_result(row: AIAnalysis) -> dict[str, Any]:
+    """Dernière analyse enregistrée, resservie alors que ses données ont changé : datée, sans
+    vérification des chiffres (son contexte d'origine n'est pas conservé)."""
+    created = row.created_at
+    if created is not None and created.tzinfo is None:  # SQLite (tests)
+        created = created.replace(tzinfo=UTC)
+    return _stored_result(row) | {
+        "stale": True,
+        "analyzed_at": created.isoformat() if created else None,
+    }
+
+
 def _stored_result(row: AIAnalysis) -> dict[str, Any]:
     return {
         "summary": row.summary,
@@ -131,6 +153,7 @@ async def analyze(
     provider: Any,
     *,
     force: bool = False,
+    background: bool = False,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Analyse IA du mois, resservie depuis la base tant que les données n'ont pas changé.
@@ -138,13 +161,25 @@ async def analyze(
     Le modèle (lent et payant) n'est appelé que si l'empreinte du contexte (analytics,
     totaux, objectifs, modèle configuré) diffère de celle de la dernière analyse enregistrée,
     ou sur demande explicite (`force`, limitée à une par FORCE_COOLDOWN : au-delà, l'analyse
-    enregistrée est resservie avec `retry_after` en secondes). Une réponse de secours (`fallback`, modèle
-    injoignable) ou illisible (`parse_error`) n'est pas enregistrée : la visite suivante
-    réessaie. Une analyse resservie repasse la vérification des chiffres (déterministe : même
-    empreinte, donc même contexte) pour garder ses `number_warnings`.
+    enregistrée est resservie avec `retry_after` en secondes). Une réponse de secours
+    (`fallback`, modèle injoignable) ou illisible (`parse_error`) n'est pas enregistrée : la
+    visite suivante réessaie. Une analyse à jour resservie repasse la vérification des
+    chiffres (déterministe : même empreinte, donc même contexte) pour garder ses
+    `number_warnings`.
 
     La transaction de lecture est terminée avant l'appel au modèle (plusieurs secondes) : la
     connexion retourne au pool au lieu d'être monopolisée pendant l'attente réseau.
+
+    Freemium, compte gratuit (`ai_quota`, `metered`) : le modèle n'est appelé que sur demande
+    explicite et chaque appel consomme une unité du quota mensuel.
+    - Première analyse du mois (rien d'enregistré) ou `force` sur des données changées :
+      appel compté. Quota épuisé : `quota_exceeded` ; même analyse déjà en cours : `pending`.
+    - Simple affichage avec des données changées (nouvelle dépense, nouveau modèle ou prompt) :
+      la dernière analyse est resservie telle quelle, `stale`, datée (`analyzed_at`), SANS
+      revérifier ses chiffres contre le contexte actuel (ils dataient de son contexte).
+    - `force` sur des données inchangées : resservie, rien n'est consommé.
+    - `background` (tâche planifiée) : jamais d'appel compté ; seule une analyse à jour est
+      rendue, sinon `skipped`.
     """
     context = await build_context(user_id, period, db)
     model = await _model_name(provider)
@@ -154,18 +189,44 @@ async def analyze(
             select(AIAnalysis).where(AIAnalysis.user_id == user_id, AIAnalysis.period == period)
         )
     ).scalar_one_or_none()
+    now = now or datetime.now(UTC)
+    quota = await ai_quota.status(user_id, db, now)
     await db.commit()
-    if stored is not None and not force and stored.context_hash == digest:
+    fresh = stored is not None and stored.context_hash == digest
+    if fresh and (not force or quota.metered):
         return validate_llm_output(_stored_result(stored), context)
-    # Limite seulement une relance sur des données INCHANGÉES : si une dépense a été ajoutée,
-    # l'empreinte diffère et le modèle est rappelé, comme pour un affichage normal.
-    if stored is not None and force and stored.context_hash == digest:
-        wait = _cooldown_left(stored.created_at, now or datetime.now(UTC))
+
+    usage_id = None
+    if quota.metered:
+        if background:
+            return {**_EMPTY, "skipped": True}
+        if stored is not None and not force:
+            return _stale_result(stored)
+        reservation = await ai_quota.reserve(user_id, period, digest, db, now)
+        if reservation is ai_quota.Reservation.EXCEEDED:
+            return (_stale_result(stored) if stored else dict(_EMPTY)) | {"quota_exceeded": True}
+        if reservation is ai_quota.Reservation.IN_FLIGHT:
+            return (_stale_result(stored) if stored else dict(_EMPTY)) | {"pending": True}
+        usage_id = reservation
+    elif fresh:
+        # Relance forcée, non comptée (freemium coupé ou premium) : limitée dans le temps.
+        wait = _cooldown_left(stored.created_at, now)
         if wait > 0:
             return validate_llm_output(_stored_result(stored), context) | {"retry_after": wait}
 
-    result = await provider.analyze(context)
-    if not result.get("fallback") and not result.get("parse_error"):
+    try:
+        result = await provider.analyze(context)
+    except BaseException:
+        # Rendre la réservation sans masquer l'erreur d'origine (annulation comprise).
+        if usage_id is not None:
+            with contextlib.suppress(Exception):
+                await ai_quota.release(usage_id, db)
+        raise
+    if result.get("fallback") or result.get("parse_error"):
+        # Appel sans résultat exploitable : il ne compte pas dans le quota.
+        if usage_id is not None:
+            await ai_quota.release(usage_id, db)
+    else:
         await upsert(
             db,
             AIAnalysis,

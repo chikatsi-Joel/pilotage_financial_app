@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
 from app.schemas.common import PaginatedResponse
-from app.services import ai_analysis_service
+from app.services import ai_analysis_service, ai_quota
 from app.services.ai import OllamaProvider, get_provider
 from app.services.pagination import paginate
 from app.services.periods import parse_period
@@ -22,6 +22,17 @@ router = APIRouter(
 
 def get_ai_provider() -> OllamaProvider | None:
     return get_provider()
+
+
+class QuotaRead(BaseModel):
+    """Quota d'analyses IA du mois. `limit`/`remaining` None : illimité."""
+
+    enabled: bool
+    premium: bool
+    limit: int | None
+    used: int
+    remaining: int | None
+    resets_at: str
 
 
 class AIAnalysisResponse(BaseModel):
@@ -37,6 +48,15 @@ class AIAnalysisResponse(BaseModel):
     retry_after: int | None = None
     parse_error: str | None = None
     number_warnings: list[str] | None = None
+    # Freemium (compte gratuit) : quota du mois épuisé pour une nouvelle analyse demandée
+    # (dernière analyse resservie, ou résumé vide s'il n'y en a pas).
+    quota_exceeded: bool = False
+    # Même analyse déjà en cours (autre écran) : rien n'est consommé, réessayer dans un instant.
+    pending: bool = False
+    # Dernière analyse resservie alors que les données ont changé depuis ; `analyzed_at` : sa date.
+    stale: bool = False
+    analyzed_at: str | None = None
+    quota: QuotaRead | None = None
 
 
 class AIAnalysisStoredRead(BaseModel):
@@ -59,7 +79,8 @@ async def analyze_period(
 ):
     """Analyse du mois, resservie depuis la base si ses données n'ont pas changé.
 
-    `force=true` relance le modèle même si une analyse à jour existe.
+    `force=true` relance le modèle même si une analyse à jour existe (compte gratuit sous
+    freemium : met à jour une analyse périmée, en consommant une analyse du quota).
     """
     parse_period(period)
 
@@ -80,7 +101,18 @@ async def analyze_period(
         retry_after=result.get("retry_after"),
         parse_error=result.get("parse_error"),
         number_warnings=result.get("number_warnings"),
+        quota_exceeded=result.get("quota_exceeded", False),
+        pending=result.get("pending", False),
+        stale=result.get("stale", False),
+        analyzed_at=result.get("analyzed_at"),
+        quota=QuotaRead(**(await ai_quota.status(user.id, db)).as_dict()),
     )
+
+
+@router.get("/quota", response_model=QuotaRead)
+async def quota(user: UserDep, db: DbSession):
+    """Analyses IA restantes ce mois-ci (freemium)."""
+    return QuotaRead(**(await ai_quota.status(user.id, db)).as_dict())
 
 
 @router.get(

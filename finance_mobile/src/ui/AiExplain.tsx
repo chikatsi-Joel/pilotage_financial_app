@@ -3,9 +3,11 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ai as aiApi } from "../shared/api/ai";
+import { requestPremium } from "../shared/config/legal";
 import { useAppStore } from "../shared/store";
 import type { AIAnalysis } from "../shared/types";
 import { pickRelevantPoints } from "../shared/utils/aiPoints";
+import { analysisStatusNote } from "../shared/utils/aiQuota";
 import { colors } from "./theme";
 import { interFonts } from "./theme";
 
@@ -32,6 +34,7 @@ export function AiExplain({ period, focus }: { period: string; focus?: string })
   }, [userId, period, status]);
 
   const points = analysis ? pickRelevantPoints(analysis, focus) : [];
+  const note = analysis ? analysisStatusNote(analysis) : null;
 
   return (
     <View style={styles.wrap}>
@@ -52,7 +55,7 @@ export function AiExplain({ period, focus }: { period: string; focus?: string })
           {status === "loading"
             ? "Analyse en cours…"
             : status === "done"
-              ? "Relancer l'analyse"
+              ? "Revoir l'analyse"
               : status === "error"
                 ? "Réessayer"
                 : "Comprendre avec l'IA"}
@@ -76,6 +79,12 @@ export function AiExplain({ period, focus }: { period: string; focus?: string })
               IA indisponible : analyse simplifiée générée localement.
             </Text>
           )}
+          {note ? <Text style={styles.warn}>{note}</Text> : null}
+          {analysis.quota_exceeded ? (
+            <Pressable accessibilityRole="link" hitSlop={6} onPress={requestPremium}>
+              <Text style={styles.link}>Passer à Premium : analyses illimitées</Text>
+            </Pressable>
+          ) : null}
           {!!analysis.summary && <Text style={styles.summary}>{analysis.summary}</Text>}
           {points.map((point, i) => (
             <View key={i} style={styles.point}>
@@ -106,6 +115,7 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
   result: { gap: 6 },
   warn: { color: colors.warning, fontSize: 11, fontFamily: interFonts.semibold },
+  link: { color: colors.primary, fontSize: 12, fontFamily: interFonts.semibold, textDecorationLine: "underline" },
   summary: { color: colors.text, fontSize: 13, fontFamily: interFonts.regular, lineHeight: 19 },
   point: { alignItems: "flex-start", flexDirection: "row", gap: 2 },
   pointText: { color: colors.text, flex: 1, fontSize: 12, fontFamily: interFonts.regular, lineHeight: 17 },

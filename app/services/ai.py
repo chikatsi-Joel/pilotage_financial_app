@@ -124,64 +124,111 @@ class AIAnalysisProvider(Protocol):
 
 # À incrémenter quand SYSTEM_PROMPT ou _build_prompt change de façon significative : les
 # analyses enregistrées avec l'ancienne version sont alors régénérées (empreinte différente).
-PROMPT_VERSION = 4
+PROMPT_VERSION = 5
+# Plafond de la réponse du modèle (≈ 3 alertes + 3 recommandations + résumé).
+MAX_OUTPUT_TOKENS = 900
+
+
+def _num(value: Any, digits: int = 0) -> str | None:
+    """Nombre arrondi pour le prompt (jetons facturés) ; None si absent ou illisible."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        x = float(value)
+    except (TypeError, ValueError):
+        return None
+    if digits == 0:
+        # Petits montants (devises à centimes) : 2 décimales, sinon l'arrondi sortirait de la
+        # tolérance de 5 % du validateur (2,6 → 3).
+        if abs(x) >= 100 or x == round(x):
+            return str(round(x))
+        digits = 2
+    text = f"{x:.{digits}f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+# Montants dont le zéro a un sens (« rien dépensé », « aucun revenu ») : toujours envoyés.
+# Les autres indicateurs à 0 (variation, dérive…) sont omis : absent = 0 dans le prompt.
+_KEEP_ZERO = frozenset({"revenu", "dépenses", "épargne", "actuel", "acquis"})
+
+
+def _fields(pairs: list[tuple[str, str | None]]) -> str:
+    """« k=v » des valeurs connues ; zéros omis sauf pour les montants de _KEEP_ZERO."""
+    return ", ".join(
+        f"{k}={v}"
+        for k, v in pairs
+        if v not in (None, "") and (v != "0" or k in _KEEP_ZERO)
+    )
 
 
 def _build_prompt(context: dict[str, Any]) -> str:
-    period = context.get("period", "N/A")
-    dashboard = context.get("dashboard", {})
-    categories = context.get("categories", [])
-    savings = context.get("savings", {})
-    savings_goals = context.get("savings_goals", [])
+    """Contexte compact : nombres arrondis, champs nuls ou absents omis, sans identifiants.
 
+    Chaque jeton est facturé : seules les valeurs utiles à l'analyse sont envoyées. Les
+    arrondis restent dans la tolérance de `validate_llm_output` (5 %).
+    """
+    d = context.get("dashboard", {})
+    savings = context.get("savings", {})
     lines = [
-        f"Période analysée : {period}",
-        f"Revenu mensuel : {dashboard.get('income', 0)}",
-        f"Dépenses totales : {dashboard.get('expenses', 0)}",
-        f"Épargne actuelle : {dashboard.get('savings', 0)}",
-        f"Taux d'épargne : {dashboard.get('savings_rate', 0)}",
-        f"Catégories en dérive : {dashboard.get('categories_in_drift', 0)}",
-        f"Économies potentielles : {dashboard.get('potential_savings', 0)}",
+        f"Mois : {context.get('period', '?')}",
+        _fields([
+            ("revenu", _num(d.get("income"))),
+            ("dépenses", _num(d.get("expenses"))),
+            ("épargne", _num(d.get("savings"))),
+            ("taux_épargne", _num(d.get("savings_rate"), 2)),
+            ("économies_potentielles", _num(d.get("potential_savings"))),
+            ("contributions_objectifs", _num(savings.get("total_monthly_contributions"))),
+            ("épargne_non_affectée", _num(savings.get("unallocated_monthly_savings"))),
+        ]),
         "",
-        "Détail par catégorie :",
+        "Catégories (actuel, habitude, variation % vs habitude à date, tendance, volatilité,"
+        " anomalie, dérive, confiance, prévision [fourchette], usage, projection, potentiel) :",
     ]
-    for cat in categories:
+    for c in context.get("categories", []):
+        low, high = _num(c.get("forecast_low")), _num(c.get("forecast_high"))
+        forecast = _num(c.get("forecast_value"))
+        if forecast and low and high:
+            forecast = f"{forecast} [{low}-{high}]"
+        usage = c.get("usage_rate")
+        tags = ["essentielle" if c.get("essential") else "non essentielle"]
+        if c.get("seasonality_reliable"):
+            tags.append(f"saisonnalité={_num(c.get('seasonality_strength'), 2)}")
         lines.append(
-            f"- {cat.get('name', '?')} "
-            f"(id={cat.get('category_id', '?')}) : "
-            f"current={cat.get('current_amount', 0)}, "
-            f"baseline={cat.get('baseline_amount', 'N/A')}, "
-            f"expected={cat.get('expected_amount', 'N/A')}, "
-            f"variation={cat.get('variation_percentage', 0)}% (vs habitude à la même date), "
-            f"level={cat.get('level', 0)}, "
-            f"trend={cat.get('trend', 0)}, "
-            f"seasonality={cat.get('seasonality_strength', 0)} "
-            f"(fiable={cat.get('seasonality_reliable', False)}), "
-            f"volatility={cat.get('volatility', 0)}, "
-            f"anomaly={cat.get('anomaly_score', 0)}, "
-            f"change_points={cat.get('change_points', [])}, "
-            f"drift={cat.get('drift_score', 0)}, "
-            f"confidence={cat.get('confidence', 0)}, "
-            f"forecast={cat.get('forecast_method', 'N/A')} "
-            f"-> {cat.get('forecast_value', 0)} "
-            f"(mae={cat.get('forecast_mae', 'N/A')}, "
-            f"fourchette={cat.get('forecast_low', 'N/A')}..{cat.get('forecast_high', 'N/A')}, "
-            f"usage={cat.get('usage_rate', 'N/A')}, "
-            f"projection_mois={cat.get('month_projection', 'N/A')}), "
-            f"essential={cat.get('essential', False)}, "
-            f"potential_saving={cat.get('potential_saving', 0)}, "
-            f"opportunity_score={cat.get('opportunity_score', 0)}"
+            f"- {c.get('name', '?')} ({', '.join(tags)}) : "
+            + _fields([
+                ("actuel", _num(c.get("current_amount"))),
+                ("habitude", _num(c.get("baseline_amount"))),
+                ("variation", _num(c.get("variation_percentage"), 1)),
+                ("tendance", _num(c.get("trend"), 2)),
+                ("volatilité", _num(c.get("volatility"), 2)),
+                ("anomalie", _num(c.get("anomaly_score"), 1)),
+                ("dérive", _num(c.get("drift_score"), 2)),
+                ("confiance", _num(c.get("confidence"), 2)),
+                ("prévision", forecast),
+                ("usage", _num(usage, 2) if usage is not None and usage < 1 else None),
+                ("projection", _num(c.get("month_projection"))),
+                ("potentiel", _num(c.get("potential_saving"))),
+            ])
         )
 
-    lines.extend([
-        "",
-        "Contexte global d'épargne :",
-        json.dumps(savings, ensure_ascii=False),
-        "",
-        "Objectifs d'épargne (indicateurs agrégés, sans contributions unitaires) :",
-        json.dumps(savings_goals, ensure_ascii=False),
-    ])
-
+    goals = context.get("savings_goals", [])
+    if goals:
+        lines.extend(["", "Objectifs d'épargne :"])
+        for g in goals:
+            lines.append(
+                f"- {g.get('name', '?')} : "
+                + _fields([
+                    ("cible", _num(g.get("target_amount"))),
+                    ("échéance", g.get("target_date")),
+                    ("acquis", _num(g.get("current_amount"))),
+                    ("progression_%", _num(g.get("progress_percentage"), 1)),
+                    ("moyenne_6_mois", _num(g.get("average_monthly_contribution"))),
+                    ("dernier_mois", _num(g.get("recent_monthly_contribution"))),
+                    ("rythme", g.get("contribution_trend")),
+                    ("régularité", _num(g.get("contribution_regularity"), 2)),
+                    ("requis_par_mois", _num(g.get("required_monthly_contribution"))),
+                ])
+            )
     return "\n".join(lines)
 
 
@@ -238,7 +285,9 @@ class OllamaProvider:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
-                options={"temperature": 0.3},
+                # Réponse courte et en JSON : chaque jeton généré est facturé.
+                format="json",
+                options={"temperature": 0.3, "num_predict": MAX_OUTPUT_TOKENS},
             )
             raw = response["message"]["content"]
             result = _parse_response(raw)

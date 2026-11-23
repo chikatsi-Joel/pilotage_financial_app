@@ -390,9 +390,13 @@ async def send_ai_insight(
     iso = local_today.isocalendar()
     if not await _claim(db, user_id, f"ai:{iso.year}-W{iso.week:02d}"):
         return
-    result = await ai_analysis_service.analyze(user_id, period_of(local_today), db, provider)
+    # `background` : jamais d'analyse comptée dans le quota freemium d'un compte gratuit.
+    result = await ai_analysis_service.analyze(
+        user_id, period_of(local_today), db, provider, background=True
+    )
     summary = (result.get("summary") or "").strip()
-    if result.get("fallback") or not summary:
+    # Pas de conseil périmé (déjà envoyé) ni de repli local.
+    if result.get("fallback") or result.get("skipped") or result.get("stale") or not summary:
         return
     body = summary if len(summary) <= AI_BODY_MAX else summary[: AI_BODY_MAX - 1].rstrip() + "…"
     # Pas de nouvel essai : chaque essai relancerait l'analyse IA, qui est payante.

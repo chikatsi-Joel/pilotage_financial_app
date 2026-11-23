@@ -10,6 +10,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   "/": { title: "Vue d'ensemble", subtitle: "Utilisateurs et activité des 30 derniers jours" },
   "/notifications": { title: "Notifications", subtitle: "Envois push, historique et diffusion" },
   "/flags": { title: "Flags", subtitle: "Firebase Remote Config de l'app mobile" },
+  "/premium": { title: "Premium", subtitle: "Freemium de l'analyse IA et comptes premium" },
   "/sql": { title: "Requêtes SQL", subtitle: "Coût des requêtes PostgreSQL (pg_stat_statements)" },
   "/settings": { title: "Configuration", subtitle: "Clés et réglages généraux du serveur" },
 };

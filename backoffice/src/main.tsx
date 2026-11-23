@@ -10,6 +10,7 @@ import { Flags } from "@/pages/Flags";
 import { Login } from "@/pages/Login";
 import { Notifications } from "@/pages/Notifications";
 import { Overview } from "@/pages/Overview";
+import { Premium } from "@/pages/Premium";
 import { Settings } from "@/pages/Settings";
 import { SqlStats } from "@/pages/SqlStats";
 
@@ -23,6 +24,7 @@ function App() {
         <Route index element={<Overview />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="flags" element={<Flags />} />
+        <Route path="premium" element={<Premium />} />
         <Route path="sql" element={<SqlStats />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />

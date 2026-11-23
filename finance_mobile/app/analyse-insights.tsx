@@ -13,6 +13,7 @@ import { ai as aiApi } from "../src/shared/api/ai";
 import { useAppStore } from "../src/shared/store";
 import type { AIAnalysisStored, CategoryAnalytics, Recommendation, WhatIfResult } from "../src/shared/types";
 import { formatMoney } from "../src/shared/utils/money";
+import { analysisStatusNote } from "../src/shared/utils/aiQuota";
 import { colors, interFonts } from "../src/ui/theme";
 import { EffortSlider } from "../src/ui/scenarioCharts";
 import { capitalize } from "../src/shared/utils/format";
@@ -51,9 +52,11 @@ const toneFromScore = (score: number) =>
 
 interface AiCardProps {
   summary: string;
+  /** État freemium (analyse datée, quota atteint), sous le résumé. */
+  note?: string | null;
 }
 
-function AiSummaryCard({ summary }: AiCardProps) {
+function AiSummaryCard({ summary, note }: AiCardProps) {
   return (
     <Card style={aiStyles.card}>
       <View style={aiStyles.header}>
@@ -67,6 +70,7 @@ function AiSummaryCard({ summary }: AiCardProps) {
       </View>
 
       <Text style={aiStyles.summary}>{summary}</Text>
+      {note ? <Text style={aiStyles.note}>{note}</Text> : null}
 
       <Pressable
         style={aiStyles.button}
@@ -91,6 +95,7 @@ const aiStyles = StyleSheet.create({
     marginTop: 24,
   },
   header: { alignItems: "center", flexDirection: "row", gap: 12 },
+  note: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 12 },
   icon: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -759,6 +764,7 @@ export default function Insights() {
   const [aiSummary, setAiSummary] = useState<string>(
     "Analyse IA en cours de chargement…"
   );
+  const [aiNote, setAiNote] = useState<string | null>(null);
   const [history, setHistory] = useState<AIAnalysisStored[]>([]);
   // Le mois affiché a sa propre carte : l'historique ne liste que les autres mois.
   const pastAnalyses = history.filter((h) => h.period !== period);
@@ -826,8 +832,13 @@ export default function Insights() {
           await Promise.allSettled([
             (async () => {
               try {
+                // Simple affichage : ne consomme le quota gratuit que pour la première analyse
+                // du mois ; sinon la dernière analyse est resservie (datée si elle a vieilli).
                 const aiRes = await aiApi.analyze(userId, period);
-                if (!cancelled && aiRes?.summary) setAiSummary(aiRes.summary);
+                if (cancelled) return;
+                setAiNote(analysisStatusNote(aiRes));
+                if (aiRes.summary) setAiSummary(aiRes.summary);
+                else if (aiRes.quota_exceeded) setAiSummary("Pas encore d'analyse IA ce mois-ci.");
               } catch {
                 if (!cancelled)
                   setAiSummary("Analyse IA indisponible pour ce mois-ci.");
@@ -905,7 +916,7 @@ export default function Insights() {
         </View>
 
         {/* ── Analyse IA ── */}
-        <AiSummaryCard summary={aiSummary} />
+        <AiSummaryCard note={aiNote} summary={aiSummary} />
 
         {/* ── Historique des analyses ── */}
         {pastAnalyses.length > 0 && (

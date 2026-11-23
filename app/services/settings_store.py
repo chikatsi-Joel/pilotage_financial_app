@@ -60,6 +60,18 @@ CATALOG: tuple[SettingSpec, ...] = (
         True,
         multiline=True,
     ),
+    SettingSpec(
+        "ai_freemium_enabled",
+        "Freemium IA",
+        "true : quota mensuel d'analyses IA pour les comptes gratuits ; false : IA illimitée.",
+        False,
+    ),
+    SettingSpec(
+        "ai_free_quota",
+        "Analyses IA gratuites / mois",
+        "Nombre d'analyses IA par mois calendaire pour un compte gratuit (freemium actif).",
+        False,
+    ),
 )
 SPECS = {s.key: s for s in CATALOG}
 
@@ -207,6 +219,13 @@ async def set_value(
         from app.services.admin import remote_config
 
         remote_config.parse_service_account(value)  # refuse un JSON invalide tout de suite
+    if key == "ai_freemium_enabled" and value.lower() not in ("true", "false"):
+        raise SettingsError("Valeur attendue : true ou false")
+    if key == "ai_free_quota":
+        from app.services import ai_quota
+
+        if ai_quota.parse_quota(value) is None:
+            raise SettingsError("Nombre entier attendu, entre 0 et 1000")
     if key == "ollama_base_url":
         _check_base_url(value)
         # La clé API part en Bearer vers cette adresse : changement tracé dans les logs.

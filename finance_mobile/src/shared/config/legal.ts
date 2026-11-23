@@ -16,6 +16,15 @@ function legalBase(): string {
 export const privacyUrl = () => `${legalBase()}/confidentialite`;
 export const accountDeletionUrl = () => `${legalBase()}/suppression-compte`;
 
+/** Contact (responsable du traitement, demandes Premium tant que le paiement n'est pas intégré). */
+export const SUPPORT_EMAIL = "kappachikatsi@gmail.com";
+
+/** Demande Premium par e-mail (en attendant le paiement intégré). */
+export function requestPremium(): void {
+  const subject = encodeURIComponent("Lucia — demande Premium");
+  void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}`).catch(() => undefined);
+}
+
 export function openPrivacyPolicy(): void {
   void Linking.openURL(privacyUrl()).catch(() => undefined);
 }

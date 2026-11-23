@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.models import AdminUser
 from app.services import settings_store
 from app.services.admin import auth as admin_auth
-from app.services.admin import kpi, remote_config, sql_stats
+from app.services.admin import kpi, premium, remote_config, sql_stats
 from app.services.admin import notifications as admin_notifications
 
 router = APIRouter(prefix="/admin/api", tags=["admin"])
@@ -186,6 +186,28 @@ async def set_flag(
     _: Admin,
 ) -> dict[str, Any]:
     return await remote_config.set_flag(key, body.value, body.value_type, body.description)
+
+
+# ── Premium (freemium IA) ────────────────────────────────────────────────
+
+
+class PremiumBody(BaseModel):
+    # Mois de premium à ajouter ; 0 = retirer le premium.
+    months: int = Field(ge=0, le=36)
+
+
+@router.get("/premium/users")
+async def premium_users(
+    _: Admin, db: DbSession, q: Annotated[str, Query(max_length=254)] = ""
+) -> dict[str, Any]:
+    return await premium.search(db, q)
+
+
+@router.put("/premium/users/{user_id}")
+async def set_user_premium(
+    user_id: UUID, body: PremiumBody, admin: Admin, db: DbSession
+) -> dict[str, Any]:
+    return await premium.set_premium(db, user_id, body.months, admin.email)
 
 
 # ── Configuration générale ───────────────────────────────────────────────
