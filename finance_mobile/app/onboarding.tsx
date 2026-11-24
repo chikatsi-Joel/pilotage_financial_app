@@ -43,6 +43,8 @@ import {
 import { useAppStore } from "../src/shared/store";
 import type { AuthResponse, FirebaseSignInPayload, PendingVerification } from "../src/shared/types";
 import { colors, interFonts } from "../src/ui/theme";
+import { currencyInfo, deviceCurrency } from "../src/shared/config/currencies";
+import { CurrencyList } from "../src/ui/CurrencyList";
 
 type Mode = "login" | "register" | "verify";
 /** Le code email confirme soit un compte Firebase, soit un compte de l'ancienne connexion. */
@@ -58,6 +60,10 @@ export default function Onboarding() {
   const setAuth = useAppStore((s) => s.setAuth);
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
+  // Devise du compte créé : celle de la région du téléphone, modifiable (et plus tard dans
+  // Paramètres).
+  const [currency, setCurrency] = useState(deviceCurrency);
+  const [pickingCurrency, setPickingCurrency] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -185,7 +191,7 @@ export default function Onboarding() {
       /** Ancienne connexion : build sans Firebase, ou Firebase pas encore configuré côté console. */
       const legacy = async () => {
         if (isRegister) {
-          await auth.register({ name: name.trim(), email: mail, password, currency: "XAF" });
+          await auth.register({ name: name.trim(), email: mail, password, currency });
           setFlow("legacy");
           goVerify("Saisissez le code à 6 chiffres reçu par email.");
           setBusy(false);
@@ -211,7 +217,7 @@ export default function Onboarding() {
         }
         throw e;
       }
-      await exchange(idToken, isRegister ? { name: name.trim(), currency: "XAF" } : {});
+      await exchange(idToken, isRegister ? { name: name.trim(), currency } : {});
     } catch (e) {
       const status = (e as { response?: { status?: number } })?.response?.status;
       if (!isRegister && status === 403) {
@@ -234,7 +240,8 @@ export default function Onboarding() {
         setBusy(false);
         return;
       }
-      await exchange(idToken);
+      // Devise utilisée seulement si le compte Lucia est créé à cette connexion.
+      await exchange(idToken, { currency });
     } catch (e) {
       setError(e instanceof FirebaseAuthError ? firebaseErrorMessage(e.code) : authErrorMessage(e));
       setBusy(false);
@@ -403,6 +410,44 @@ export default function Onboarding() {
                     submitBehavior="submit"
                     value={name}
                   />
+                )}
+                {isRegister && (
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Devise</Text>
+                    <Pressable
+                      accessibilityHint="Choisir la devise de vos montants"
+                      accessibilityLabel={`Devise : ${currencyInfo(currency).label}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: pickingCurrency }}
+                      onPress={() => setPickingCurrency((v) => !v)}
+                      style={[styles.inputRow, pickingCurrency && styles.inputRowFocused]}
+                    >
+                      <MaterialCommunityIcons
+                        color={pickingCurrency ? colors.primary : colors.textMuted}
+                        name="currency-usd"
+                        size={20}
+                      />
+                      <Text style={[styles.input, styles.currencyValue]}>
+                        {currencyInfo(currency).label} · {currencyInfo(currency).symbol}
+                      </Text>
+                      <MaterialCommunityIcons
+                        color={colors.textMuted}
+                        name={pickingCurrency ? "chevron-up" : "chevron-down"}
+                        size={20}
+                      />
+                    </Pressable>
+                    {pickingCurrency ? (
+                      <View style={styles.currencyList}>
+                        <CurrencyList
+                          onSelect={(code) => {
+                            setCurrency(code);
+                            setPickingCurrency(false);
+                          }}
+                          value={currency}
+                        />
+                      </View>
+                    ) : null}
+                  </View>
                 )}
                 <Field
                   ref={emailRef}
@@ -678,6 +723,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputRowFocused: { backgroundColor: colors.surface, borderColor: colors.primary },
+  currencyValue: { paddingVertical: 13 },
+  currencyList: {
+    backgroundColor: colors.surface,
+    borderColor: "#ECEEF4",
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
   input: { color: colors.text, flex: 1, fontSize: 15, fontFamily: interFonts.regular, paddingVertical: 13 },
 
   errorBox: {

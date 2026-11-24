@@ -6,13 +6,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.services.ai import (
-    SYSTEM_PROMPT,
-    OllamaProvider,
-    _build_prompt,
-    _fallback_analysis,
-    _parse_response,
-)
+from app.services.ai import SYSTEM_PROMPT, OllamaProvider
+from app.services.ai.prompts import build_prompt, format_number
+from app.services.ai.validation import fallback_analysis, parse_response
 
 SAMPLE_CONTEXT = {
     "period": "2026-08",
@@ -100,7 +96,7 @@ SAMPLE_CONTEXT = {
 
 
 def test_build_prompt_contains_key_data():
-    prompt = _build_prompt(SAMPLE_CONTEXT)
+    prompt = build_prompt(SAMPLE_CONTEXT)
     assert "2026-08" in prompt
     assert "800000" in prompt
     assert "Restaurants" in prompt and "Alimentation" in prompt
@@ -111,7 +107,7 @@ def test_build_prompt_contains_key_data():
 
 def test_build_prompt_is_compact():
     """Chaque jeton est facturé : pas d'identifiants, pas de décimales inutiles, pas de nuls."""
-    prompt = _build_prompt(SAMPLE_CONTEXT)
+    prompt = build_prompt(SAMPLE_CONTEXT)
     for cat in SAMPLE_CONTEXT["categories"]:
         assert str(cat["category_id"]) not in prompt
     assert "None" not in prompt and "N/A" not in prompt
@@ -126,7 +122,7 @@ def test_parse_response_valid_json():
         "recommendations": [],
         "projected_impact": {},
     })
-    result = _parse_response(raw)
+    result = parse_response(raw)
     assert result["summary"] == "Situation stable"
     assert "parse_error" not in result
 
@@ -136,18 +132,18 @@ def test_parse_response_markdown_wrapped():
         '```json\n{"summary": "test", "alerts": [], '
         '"recommendations": [], "projected_impact": {}}\n```'
     )
-    result = _parse_response(raw)
+    result = parse_response(raw)
     assert result["summary"] == "test"
 
 
 def test_parse_response_invalid_json():
-    result = _parse_response("ce n'est pas du JSON")
+    result = parse_response("ce n'est pas du JSON")
     assert result["summary"] == "ce n'est pas du JSON"
     assert result["parse_error"] is not None
 
 
 def test_fallback_analysis_detects_drifts():
-    result = _fallback_analysis(SAMPLE_CONTEXT, "timeout")
+    result = fallback_analysis(SAMPLE_CONTEXT, "timeout")
     assert result["fallback"] is True
     assert len(result["alerts"]) == 1
     assert result["alerts"][0]["category"] == "Restaurants"
@@ -163,7 +159,7 @@ def test_fallback_analysis_no_drifts():
             "essential": True,
         }]
     }
-    result = _fallback_analysis(ctx, "err")
+    result = fallback_analysis(ctx, "err")
     assert result["alerts"] == []
     assert result["recommendations"] == []
 
@@ -185,7 +181,7 @@ async def test_ollama_provider_fallback_on_connection_error():
         assert result["fallback"] is True
         summary = result["summary"]
         assert (
-            "Ollama indisponible" in summary
+            "service IA indisponible" in summary
             or "connection refused" in summary
         )
 
@@ -226,7 +222,7 @@ def test_build_prompt_keeps_meaningful_zeros():
     ctx["dashboard"]["income"] = "0"
     ctx["categories"][0]["current_amount"] = 0
     ctx["categories"][0]["drift_score"] = 0
-    prompt = _build_prompt(ctx)
+    prompt = build_prompt(ctx)
     assert "revenu=0" in prompt
     name = ctx["categories"][0]["name"]
     first = next(line for line in prompt.splitlines() if line.startswith(f"- {name}"))
@@ -235,7 +231,7 @@ def test_build_prompt_keeps_meaningful_zeros():
 
 def test_system_prompt_names_match_prompt_fields():
     """Les règles du prompt système citent les champs sous le nom réellement envoyé."""
-    prompt = _build_prompt(SAMPLE_CONTEXT)
+    prompt = build_prompt(SAMPLE_CONTEXT)
     for key in ("anomalie", "dérive", "confiance", "prévision", "potentiel", "actuel",
                 "requis_par_mois", "progression_%", "dernier_mois", "moyenne_6_mois"):
         assert key in SYSTEM_PROMPT, key
@@ -246,6 +242,7 @@ def test_system_prompt_names_match_prompt_fields():
 
 
 def test_small_amounts_keep_cents():
-    from app.services.ai import _num
 
-    assert _num(2.6) == "2.6" and _num(12345.6) == "12346" and _num(0) == "0"
+    assert format_number(2.6) == "2.6"
+    assert format_number(12345.6) == "12346"
+    assert format_number(0) == "0"

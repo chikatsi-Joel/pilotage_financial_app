@@ -12,6 +12,7 @@ from app.api.routers import (
     admin,
     ai,
     analytics,
+    billing,
     auth,
     budget,
     expenses,
@@ -65,6 +66,7 @@ app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(budget.router, prefix="/api/v1")
 app.include_router(what_if.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
 app.include_router(receipts.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(admin.router)

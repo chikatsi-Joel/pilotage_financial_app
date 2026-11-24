@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     weight_persistent: float = 0.35
     weight_anomaly: float = 0.20
 
+    # Fournisseur IA (analyse et lecture des tickets) : "ollama" ou "gemini" (Google AI Studio).
+    ai_provider: str = "ollama"
+    gemini_api_key: str = ""
+    # Petit modèle rapide et peu coûteux ; l'alias « -latest » n'est pas servi par l'API v1.
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_vision_model: str = ""
+
     ollama_base_url: str = "https://api.ollama.com"
     ollama_model: str = "gemma4:31b"
     ollama_vision_model: str = ""
@@ -59,6 +66,10 @@ class Settings(BaseSettings):
     # Freemium IA (surchargés depuis le backoffice, table app_settings).
     ai_freemium_enabled: bool = False
     ai_free_quota: int = 3
+    # Abonnement Premium Google Play : application vérifiée et compte de service autorisé dans
+    # la Play Console (vide = compte de service Firebase).
+    google_play_package: str = "com.pilotagefinances.app"
+    google_play_service_account: str = ""
     push_timeout: float = 10.0
     # Stickers des notifications (static/push/*.png). Vide = sans image (choix actuel : Android
     # affiche l'image en grand quand on déplie la notification). Pour les réactiver :

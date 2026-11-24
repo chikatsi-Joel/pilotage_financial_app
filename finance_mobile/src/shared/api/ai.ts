@@ -3,6 +3,7 @@ import type {
   AIAnalysis,
   AIAnalysisStored,
   AIHealth,
+  CategoryExplanation,
   PaginatedResponse,
 } from "../types";
 
@@ -18,6 +19,15 @@ export const ai = {
       .post<AIAnalysis>(`${path(userId)}/analyze`, null, {
         params: force ? { period, force } : { period },
         // Le modèle cloud peut mettre jusqu'à ~60 s (timeout serveur) : on laisse de la marge.
+        timeout: 90000,
+      })
+      .then((r) => r.data),
+  /** « Comprendre avec l'IA » sur une catégorie : explication propre à la catégorie pour le
+   *  mois (resservie tant que ses dépenses ne changent pas). */
+  explainCategory: (userId: string, period: string, categoryId: string) =>
+    api
+      .post<CategoryExplanation>(`${path(userId)}/explain/category`, null, {
+        params: { period, category_id: categoryId },
         timeout: 90000,
       })
       .then((r) => r.data),

@@ -48,6 +48,9 @@ class SettingSpec:
 
 # Clés connues : affichées même si elles ne sont pas encore en base (valeur d'environnement).
 CATALOG: tuple[SettingSpec, ...] = (
+    SettingSpec("gemini_api_key", "Clé API Gemini", "Google AI Studio (AI_PROVIDER=gemini).", True),
+    SettingSpec("gemini_model", "Modèle Gemini", "Analyse financière avec Gemini.", False),
+    SettingSpec("gemini_vision_model", "Modèle vision Gemini", "Lecture des tickets ; vide = modèle Gemini.", False),
     SettingSpec("ollama_api_key", "Clé API Ollama", "Analyse IA et lecture des tickets.", True),
     SettingSpec("ollama_base_url", "URL Ollama", "Serveur Ollama (ollama.com ou auto-hébergé).", False),
     SettingSpec("ollama_model", "Modèle IA", "Modèle utilisé pour l'analyse financière.", False),
@@ -70,6 +73,20 @@ CATALOG: tuple[SettingSpec, ...] = (
         "ai_free_quota",
         "Analyses IA gratuites / mois",
         "Nombre d'analyses IA par mois calendaire pour un compte gratuit (freemium actif).",
+        False,
+    ),
+    SettingSpec(
+        "google_play_service_account",
+        "Compte de service Google Play",
+        "JSON du compte de service invité dans la Play Console (droit « Afficher les données "
+        "financières »), pour vérifier les abonnements Premium. Vide = compte de service Firebase.",
+        True,
+        multiline=True,
+    ),
+    SettingSpec(
+        "google_play_package",
+        "Application Google Play",
+        "Identifiant de l'app Android dont les abonnements sont vérifiés.",
         False,
     ),
 )
@@ -215,7 +232,7 @@ async def set_value(
     value = value.strip()
     if not value:
         raise SettingsError("Valeur vide : supprimez la clé pour revenir à la valeur par défaut")
-    if key == "firebase_service_account":
+    if key in ("firebase_service_account", "google_play_service_account"):
         from app.services.admin import remote_config
 
         remote_config.parse_service_account(value)  # refuse un JSON invalide tout de suite
@@ -252,7 +269,7 @@ async def set_value(
 
 
 def _on_change(key: str) -> None:
-    if key == "firebase_service_account":
+    if key in ("firebase_service_account", "google_play_service_account"):
         from app.services.admin import remote_config
 
         remote_config.forget_token()

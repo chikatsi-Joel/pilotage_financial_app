@@ -8,6 +8,7 @@ interface AppState {
   currency: string;
   currentPeriod: string;
   setAuth: (userId: string, name: string, currency: string) => void;
+  setCurrency: (currency: string) => void;
   clearAuth: () => void;
   setPeriod: (period: string) => void;
 }
@@ -29,6 +30,8 @@ export const useAppStore = create<AppState>()(
 
       setAuth: (userId, name, currency) =>
         set({ userId, userName: name, currency }),
+
+      setCurrency: (currency) => set({ currency }),
 
       clearAuth: () =>
         set({ userId: null, userName: null, currency: "XAF" }),

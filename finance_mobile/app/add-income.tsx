@@ -24,6 +24,7 @@ import { formatMoney } from "../src/shared/utils/money";
 import { Numpad } from "../src/ui/Numpad";
 import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
 import { formatDisplayDate, parseISODate, toISODate } from "../src/shared/utils/date";
+import { currencySymbol } from "../src/shared/config/currencies";
 
 /* ------------------------------------------------------------------ */
 /*  Types & constantes                                                 */
@@ -197,7 +198,7 @@ export default function AddIncome() {
           <View style={styles.amountRow}>
             <Text style={styles.amountValue}>{amount}</Text>
             <Text style={styles.amountCurrency}>
-              {currency === "XAF" ? "FCFA" : currency}
+              {currencySymbol(currency)}
             </Text>
           </View>
         </View>

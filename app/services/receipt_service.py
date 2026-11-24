@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import category_service
-from app.services.ai import OllamaProvider, get_provider
+from app.services.ai import AIProvider, get_provider
 from app.services.errors import InvalidImage
 
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ async def scan_receipt(
     image_bytes: bytes,
     content_type: str | None,
     db: AsyncSession,
-    provider: OllamaProvider | None = None,
+    provider: AIProvider | None = None,
 ) -> dict[str, object]:
     """Analyse un ticket de caisse et renvoie les champs pré-remplissables."""
     if not image_bytes:

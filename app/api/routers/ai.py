@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
@@ -10,8 +11,8 @@ from sqlalchemy import select
 from app.api.deps import DbSession, UserDep
 from app.models import AIAnalysis
 from app.schemas.common import PaginatedResponse
-from app.services import ai_analysis_service, ai_quota
-from app.services.ai import OllamaProvider, get_provider
+from app.services import ai_analysis_service, ai_explain_service, ai_quota
+from app.services.ai import AIProvider, get_provider
 from app.services.pagination import paginate
 from app.services.periods import parse_period
 
@@ -20,7 +21,7 @@ router = APIRouter(
 )
 
 
-def get_ai_provider() -> OllamaProvider | None:
+def get_ai_provider() -> AIProvider | None:
     return get_provider()
 
 
@@ -57,6 +58,26 @@ class AIAnalysisResponse(BaseModel):
     stale: bool = False
     analyzed_at: str | None = None
     quota: QuotaRead | None = None
+
+
+class CategoryExplanationResponse(BaseModel):
+    """« Comprendre avec l'IA » sur une catégorie de dépenses."""
+
+    period: str
+    category_id: UUID
+    summary: str
+    points: list[str]
+    # Explication enregistrée resservie (données inchangées) : rien n'est consommé.
+    cached: bool = False
+    # Modèle injoignable : explication chiffrée sans IA ; `error` en donne la raison.
+    fallback: bool = False
+    error: str | None = None
+    quota_exceeded: bool = False
+    pending: bool = False
+    stale: bool = False
+    analyzed_at: str | None = None
+    number_warnings: list[str] | None = None
+    quota: QuotaRead
 
 
 class AIAnalysisStoredRead(BaseModel):
@@ -106,6 +127,21 @@ async def analyze_period(
         stale=result.get("stale", False),
         analyzed_at=result.get("analyzed_at"),
         quota=QuotaRead(**(await ai_quota.status(user.id, db)).as_dict()),
+    )
+
+
+@router.post("/explain/category", response_model=CategoryExplanationResponse)
+async def explain_category(period: str, category_id: UUID, user: UserDep, db: DbSession):
+    """Explication ciblée d'une catégorie de dépenses pour le mois (voir ai_explain_service)."""
+    parse_period(period)
+    result = await ai_explain_service.explain_category(
+        user.id, period, category_id, db, get_ai_provider()
+    )
+    return CategoryExplanationResponse(
+        period=period,
+        category_id=category_id,
+        quota=QuotaRead(**(await ai_quota.status(user.id, db)).as_dict()),
+        **result,
     )
 
 
@@ -159,6 +195,7 @@ async def ai_health():
     provider = get_ai_provider()
     return {
         "status": "ok",
+        "provider": provider.name,
         "ollama_url": await provider.base_url(),
         "configured_model": await provider.model(),
     }

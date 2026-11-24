@@ -29,6 +29,13 @@ class UserRead(ORMModel):
     email: str | None = None
 
 
+class UserUpdate(BaseModel):
+    """Préférences modifiables. Changer de devise ne convertit pas les montants enregistrés :
+    seule l'unité affichée change."""
+
+    currency: str | None = Field(default=None, pattern=r"^[A-Za-z]{3}$")
+
+
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 

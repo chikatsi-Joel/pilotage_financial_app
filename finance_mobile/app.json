@@ -51,6 +51,7 @@
       ],
       "expo-status-bar",
       "expo-secure-store",
+      "expo-iap",
       [
         "expo-notifications",
         {

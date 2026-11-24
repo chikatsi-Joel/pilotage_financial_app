@@ -18,6 +18,7 @@ import { useAppStore } from "../src/shared/store";
 import { formatMoney } from "../src/shared/utils/money";
 import { Numpad } from "../src/ui/Numpad";
 import { type NumpadKey, parseAmount, updateAmountInput } from "../src/shared/utils/amountInput";
+import { currencySymbol } from "../src/shared/config/currencies";
 
 const MAX_AMOUNT_DIGITS = 9;
 const NUMPAD_STYLE = { marginTop: 4 } as const;
@@ -128,7 +129,7 @@ export default function AddContribution() {
           <View style={styles.amountRow}>
             <Text style={styles.amountValue}>{amount}</Text>
             <Text style={styles.amountCurrency}>
-              {currency === "XAF" ? "FCFA" : currency}
+              {currencySymbol(currency)}
             </Text>
           </View>
         </View>

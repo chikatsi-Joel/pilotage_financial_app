@@ -740,7 +740,7 @@ export default function BudgetDetail() {
               </View>
               <View style={styles.insightContent}>
                 <Text style={styles.insightText}>{rationale}</Text>
-                <AiExplain period={period} focus={category} />
+                <AiExplain categoryId={listCategoryId} focus={category} period={period} />
               </View>
             </View>
           </View>

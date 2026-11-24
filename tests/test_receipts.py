@@ -123,9 +123,9 @@ async def test_scan_receipt_falls_back_when_no_provider():
 
 
 def test_coerce_receipt_keeps_only_valid_items():
-    from app.services.ai import _coerce_receipt
+    from app.services.ai.receipts import coerce_receipt
 
-    out = _coerce_receipt({
+    out = coerce_receipt({
         "amount": 10,
         "items": [
             {"label": " Lait ", "amount": "1,5", "category": "Alimentation"},
@@ -144,10 +144,10 @@ def test_coerce_receipt_keeps_only_valid_items():
 
 
 def test_coerce_receipt_items_default_to_empty_list():
-    from app.services.ai import _coerce_receipt
+    from app.services.ai.receipts import coerce_receipt
 
-    assert _coerce_receipt({"amount": 5})["items"] == []
-    assert _coerce_receipt({"items": "n'importe quoi"})["items"] == []
+    assert coerce_receipt({"amount": 5})["items"] == []
+    assert coerce_receipt({"items": "n'importe quoi"})["items"] == []
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
+from app.services.ai import validate_llm_output
+from app.services.ai.validation import extract_known_numbers
 from app.services.analytics import (
     FinancialAnalyticsEngine,
     confidence,
@@ -21,10 +23,6 @@ from app.services.analytics.models import (
     CategoryType,
     Expense,
     OptimizationPotential,
-)
-from app.services.ai import (
-    _extract_known_numbers,
-    validate_llm_output,
 )
 
 
@@ -213,7 +211,7 @@ def test_extract_known_numbers():
             {"current_amount": 150000.0, "baseline_amount": 145000.0},
         ],
     }
-    numbers = _extract_known_numbers(context)
+    numbers = extract_known_numbers(context)
     assert 800000.0 in numbers
     assert 500000.0 in numbers
     assert 150000.0 in numbers

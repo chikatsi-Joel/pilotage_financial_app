@@ -384,6 +384,40 @@ export interface AIQuota {
   resets_at: string;
 }
 
+/** Explication IA d'une catégorie de dépenses pour un mois. */
+export interface CategoryExplanation {
+  period: string;
+  category_id: string;
+  summary: string;
+  points: string[];
+  cached: boolean;
+  /** Modèle injoignable : explication chiffrée sans IA. */
+  fallback: boolean;
+  error: string | null;
+  quota_exceeded: boolean;
+  pending: boolean;
+  stale: boolean;
+  analyzed_at: string | null;
+  number_warnings: string[] | null;
+  quota: AIQuota;
+}
+
+/** État Premium du compte (abonnement Google Play ou activation manuelle). */
+export interface BillingStatus {
+  premium: boolean;
+  premium_until: string | null;
+  /** À transmettre à Google Play (obfuscatedAccountId) au lancement d'un achat. */
+  account_tag: string;
+  product_id: string;
+  subscription: {
+    product_id: string;
+    base_plan_id: string | null;
+    state: string;
+    expires_at: string | null;
+    auto_renewing: boolean;
+  } | null;
+}
+
 export interface AIAnalysisStored {
   id: string;
   period: string;

@@ -18,6 +18,7 @@ from app.db.upsert import upsert
 from app.models import AIAnalysis
 from app.services import ai_quota, analytics_service, savings_service
 from app.services.ai import PROMPT_VERSION, SYSTEM_PROMPT, validate_llm_output
+from app.services.ai.base import model_name
 
 
 async def build_context(user_id: UUID, period: str, db: AsyncSession) -> dict[str, Any]:
@@ -125,13 +126,6 @@ def _stored_result(row: AIAnalysis) -> dict[str, Any]:
     }
 
 
-async def _model_name(provider: Any) -> str:
-    try:
-        return str(await provider.model())[:80]
-    except Exception:  # fournisseur sans modèle lisible : l'empreinte s'en passe
-        return ""
-
-
 # Relance forcée (« tirer pour rafraîchir ») : au plus une par mois analysé et par utilisateur
 # dans cet intervalle. Chaque relance est un appel payant au modèle.
 FORCE_COOLDOWN = timedelta(minutes=10)
@@ -182,7 +176,7 @@ async def analyze(
       rendue, sinon `skipped`.
     """
     context = await build_context(user_id, period, db)
-    model = await _model_name(provider)
+    model = await model_name(provider)
     digest = fingerprint(context, model)
     stored = (
         await db.execute(

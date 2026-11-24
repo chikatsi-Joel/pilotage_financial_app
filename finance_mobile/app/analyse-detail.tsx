@@ -19,11 +19,12 @@ import { router } from "expo-router";
 import { ai as aiApi } from "../src/shared/api/ai";
 import { budget as budgetApi } from "../src/shared/api/budget";
 import { system as systemApi } from "../src/shared/api/system";
-import { requestPremium } from "../src/shared/config/legal";
+import { usePremiumPurchase } from "../src/shared/billing/usePremiumPurchase";
 import { useAppStore } from "../src/shared/store";
 import type { AIAnalysis, AIHealth, AIQuota, Recommendation } from "../src/shared/types";
 import { analysisStatusNote, canUpdate, freeAnalyses, resetLabel } from "../src/shared/utils/aiQuota";
 import { formatMoney } from "../src/shared/utils/money";
+import { PremiumPlans } from "../src/ui/PremiumPlans";
 import { colors, interFonts } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
@@ -363,8 +364,20 @@ const AdviceItem = ({
 //  Freemium
 /* ------------------------------------------------------------------ */
 
-/** Quota gratuit du mois atteint : ce qui reste possible et comment passer en Premium. */
-function PremiumCard({ quota, hasAnalysis }: { quota: AIQuota; hasAnalysis: boolean }) {
+/** Quota gratuit du mois atteint : ce qui reste possible et l'abonnement Premium (Google Play
+ *  sur Android ; demande par e-mail si la boutique n'est pas disponible). */
+function PremiumCard({
+  quota,
+  hasAnalysis,
+  userId,
+  onPremium,
+}: {
+  quota: AIQuota;
+  hasAnalysis: boolean;
+  userId: string | null;
+  onPremium: () => void;
+}) {
+  const purchase = usePremiumPurchase(userId, onPremium);
   return (
     <View style={styles.premiumCard}>
       <View pointerEvents="none" style={styles.premiumOrb} />
@@ -382,13 +395,8 @@ function PremiumCard({ quota, hasAnalysis }: { quota: AIQuota; hasAnalysis: bool
         {quota.limit ? `Nouvelles analyses gratuites ${resetLabel(quota.resets_at)}.` : ""}
       </Text>
       <Text style={styles.premiumText}>Avec Premium, les analyses IA sont illimitées.</Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={requestPremium}
-        style={({ pressed }) => [styles.premiumBtn, pressed && { opacity: 0.85 }]}
-      >
-        <Text style={styles.premiumBtnText}>Demander Premium</Text>
-      </Pressable>
+
+      <PremiumPlans purchase={purchase} />
     </View>
   );
 }
@@ -521,7 +529,12 @@ export default function AnalyseDetail() {
       >
         {blocked && quota ? (
           <FadeIn delay={0}>
-            <PremiumCard hasAnalysis={hasSummary} quota={quota} />
+            <PremiumCard
+              hasAnalysis={hasSummary}
+              onPremium={() => void load(false)}
+              quota={quota}
+              userId={userId}
+            />
           </FadeIn>
         ) : null}
 
@@ -809,15 +822,6 @@ const styles = StyleSheet.create({
   premiumHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   premiumTitle: { color: colors.text, flex: 1, fontFamily: interFonts.bold, fontSize: 15.5 },
   premiumText: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 13.5, lineHeight: 20 },
-  premiumBtn: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    justifyContent: "center",
-    marginTop: 4,
-    minHeight: 46,
-  },
-  premiumBtnText: { color: "#FFFFFF", fontFamily: interFonts.bold, fontSize: 14 },
   warningBadge: {
     color: colors.danger,
     fontSize: 11,

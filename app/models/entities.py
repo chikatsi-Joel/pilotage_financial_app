@@ -68,8 +68,8 @@ class User(Base):
     email_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_code_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_code_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    # Premium (analyses IA sans quota) jusqu'à cette date ; None = offre gratuite. Activé à la
-    # main depuis le backoffice en attendant le paiement intégré.
+    # Premium (analyses IA sans quota) jusqu'à cette date ; None = offre gratuite. Prolongé par
+    # un abonnement Google Play vérifié (play_subscriptions) ou à la main depuis le backoffice.
     premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -320,6 +320,28 @@ class AIAnalysis(Base):
     __table_args__ = (UniqueConstraint("user_id", "period", name="uq_ai_analysis_user_period"),)
 
 
+class AIExplanation(Base):
+    """Explication IA d'une catégorie de dépenses pour un mois (« Comprendre avec l'IA »),
+    resservie tant que l'empreinte de son contexte (`context_hash`) ne change pas."""
+
+    __tablename__ = "ai_explanations"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("categories.id", ondelete="CASCADE"), nullable=False
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    model: Mapped[str] = mapped_column(String(80), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    points_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    context_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "category_id", "period", name="uq_ai_explanation_target"),
+    )
+
+
 class AIUsage(Base):
     """Un appel compté au modèle d'analyse (freemium actif, compte gratuit) : base du quota
     mensuel. Ligne réservée avant l'appel, supprimée s'il échoue ; (period, context_hash)
@@ -333,6 +355,26 @@ class AIUsage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (Index("ix_ai_usage_user_created", "user_id", "created_at"),)
+
+
+class PlaySubscription(Base):
+    """Abonnement Premium acheté sur Google Play, vérifié par le backend auprès de l'API
+    Google Play Developer. `token_hash` (sha256 du jeton d'achat) est unique : un même achat
+    ne peut pas être rattaché à deux comptes."""
+
+    __tablename__ = "play_subscriptions"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    base_plan_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    purchase_token: Mapped[str] = mapped_column(Text, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    state: Mapped[str] = mapped_column(String(60), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    auto_renewing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    test_purchase: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 # ── Backoffice ───────────────────────────────────────────────────────────
