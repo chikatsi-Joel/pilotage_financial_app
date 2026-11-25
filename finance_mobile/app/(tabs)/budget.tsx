@@ -18,6 +18,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Animation } from "../../src/ui/animations/Animation";
 import { colors, interFonts } from "../../src/ui/theme";
 import { useAutoTour, useTour } from "../../src/ui/tour/TourProvider";
 import { budget as budgetApi } from "../../src/shared/api/budget";
@@ -686,6 +687,7 @@ export default function Budget() {
           <FadeIn delay={80}>
             <View style={styles.emptyCard}>
               <View style={styles.emptyIconWrap}>
+                <Animation height={112} name="emptyPulse" style={StyleSheet.absoluteFill} />
                 <MaterialCommunityIcons
                   name="wallet-outline"
                   size={34}
@@ -1214,12 +1216,10 @@ const styles = StyleSheet.create({
   },
   emptyIconWrap: {
     alignItems: "center",
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 99,
-    height: 72,
+    height: 112,
     justifyContent: "center",
-    marginBottom: 14,
-    width: 72,
+    marginBottom: 6,
+    width: 112,
   },
   emptyTitle: {
     color: colors.text,

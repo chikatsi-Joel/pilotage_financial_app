@@ -22,6 +22,7 @@ import Svg, {
 } from "react-native-svg";
 
 import { BackButton } from "../src/ui/components";
+import { Animation } from "../src/ui/animations/Animation";
 import { AiExplain } from "../src/ui/AiExplain";
 import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
@@ -397,6 +398,9 @@ const TrajectoryChart = ({
         </View>
       ) : null}
 
+      {traj.reached ? (
+        <Animation height={180} loop={false} name="confetti" style={styles.confetti} />
+      ) : null}
       <View style={[styles.chartStatus, { backgroundColor: `${status.tone}12` }]}>
         <MaterialCommunityIcons
           color={status.tone}
@@ -733,6 +737,7 @@ export default function SavingsDetail() {
 /* ------------------------------------------------------------------ */
 
 const styles = StyleSheet.create({
+  confetti: { alignSelf: "center", bottom: 0, position: "absolute", zIndex: 2 },
   safeArea: { backgroundColor: colors.background, flex: 1 },
   content: { padding: 20, paddingBottom: 32 },
 

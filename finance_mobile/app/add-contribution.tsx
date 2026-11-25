@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { ScreenHeader } from "../src/ui/components";
+import { Animation } from "../src/ui/animations/Animation";
 import { colors, interFonts } from "../src/ui/theme";
 import { savings as savingsApi } from "../src/shared/api/savings";
 import { useAppStore } from "../src/shared/store";
@@ -35,6 +36,8 @@ function apiErrorDetail(err: unknown): string | null {
   return null;
 }
 
+const CELEBRATION_MAX_MS = 2200;
+
 export default function AddContribution() {
   const userId = useAppStore((s) => s.userId);
   const currency = useAppStore((s) => s.currency);
@@ -53,6 +56,8 @@ export default function AddContribution() {
 
   const [amount, setAmount] = useState("0");
   const [saving, setSaving] = useState(false);
+  // Versement enregistré : courte animation avant de revenir à l'objectif.
+  const [celebration, setCelebration] = useState<"coin" | "goal" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const amountNum = useMemo(() => parseAmount(amount), [amount]);
@@ -85,7 +90,7 @@ export default function AddContribution() {
         goalId,
         Math.round(amountNum * 100) / 100,
       );
-      router.back();
+      setCelebration(target > 0 && afterContribution >= target ? "goal" : "coin");
     } catch (err) {
       setError(
         apiErrorDetail(err) ??
@@ -93,7 +98,14 @@ export default function AddContribution() {
       );
       setSaving(false);
     }
-  }, [userId, goalId, isAmountValid, amountNum]);
+  }, [userId, goalId, isAmountValid, amountNum, target, afterContribution]);
+
+  // Retour garanti même si l'animation ne se termine pas (lecture désactivée, app sans Lottie).
+  useEffect(() => {
+    if (!celebration) return;
+    const timer = setTimeout(() => router.back(), CELEBRATION_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [celebration]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -183,11 +195,42 @@ export default function AddContribution() {
           )}
         </Pressable>
       </ScrollView>
+
+      {celebration ? (
+        <View accessibilityLiveRegion="polite" style={styles.celebration}>
+          <Animation
+            height={celebration === "goal" ? 200 : 150}
+            loop={false}
+            name={celebration === "goal" ? "confetti" : "coinDrop"}
+            onFinish={() => router.back()}
+          />
+          <Text style={styles.celebrationTitle}>
+            {celebration === "goal" ? "Objectif atteint, bravo !" : "Versement enregistré"}
+          </Text>
+          <Text style={styles.celebrationText}>
+            {formatMoney(afterContribution, currency)}
+            {target > 0 ? ` sur ${formatMoney(target, currency)}` : ""}
+          </Text>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  celebration: {
+    alignItems: "center",
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    gap: 6,
+    justifyContent: "center",
+  },
+  celebrationTitle: { color: colors.text, fontFamily: interFonts.bold, fontSize: 18 },
+  celebrationText: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 14 },
   safeArea: { backgroundColor: colors.background, flex: 1 },
   scroll: { gap: 16, padding: 16, paddingBottom: 32 },
 

@@ -11,6 +11,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
+import { Animation } from "./animations/Animation";
 import { colors } from "./theme";
 import { interFonts } from "./theme";
 
@@ -232,8 +233,9 @@ export function EmptyState({
 }) {
   return (
     <View style={[styles.emptyContainer, style]}>
-      <View style={styles.emptyIconCircle}>
-        <MaterialCommunityIcons color={colors.textMuted} name={icon} size={32} />
+      <View style={styles.emptyArt}>
+        <Animation height={112} name="emptyPulse" style={StyleSheet.absoluteFill} />
+        <MaterialCommunityIcons color={colors.primary} name={icon} size={30} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       {subtitle ? <Text style={styles.emptySubtitle}>{subtitle}</Text> : null}
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
   brandMarkSmall: { borderRadius: 15, height: 46, shadowRadius: 8, width: 46 },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 24, borderWidth: 1, padding: 18 },
   emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 32 },
-  emptyIconCircle: { alignItems: "center", backgroundColor: colors.surfaceMuted, borderRadius: 99, height: 64, justifyContent: "center", marginBottom: 12, width: 64 },
+  emptyArt: { alignItems: "center", height: 112, justifyContent: "center", marginBottom: 4, width: 112 },
   emptySubtitle: { color: colors.textMuted, fontSize: 12, fontFamily: interFonts.regular, marginTop: 4, textAlign: "center" },
   emptyTitle: { color: colors.text, fontSize: 15, fontFamily: interFonts.semibold, textAlign: "center" },
   filterBtn: { alignItems: "center", backgroundColor: colors.surfaceMuted, borderRadius: 10, height: 44, justifyContent: "center", width: 44 },

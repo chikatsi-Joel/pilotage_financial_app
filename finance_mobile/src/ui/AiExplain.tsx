@@ -8,6 +8,7 @@ import { useAppStore } from "../shared/store";
 import type { AIAnalysis, CategoryExplanation } from "../shared/types";
 import { pickRelevantPoints } from "../shared/utils/aiPoints";
 import { analysisStatusNote } from "../shared/utils/aiQuota";
+import { Animation } from "./animations/Animation";
 import { colors, interFonts } from "./theme";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -101,7 +102,12 @@ export function AiExplain({
         <Text style={styles.btnText}>{label}</Text>
       </Pressable>
 
-      {status === "loading" ? <Text style={styles.hint}>Cela peut prendre quelques secondes.</Text> : null}
+      {status === "loading" ? (
+        <View style={styles.thinking}>
+          <Animation height={22} name="aiThinking" />
+          <Text style={styles.hint}>Cela peut prendre quelques secondes.</Text>
+        </View>
+      ) : null}
 
       {status === "error" ? (
         <Text accessibilityLiveRegion="polite" style={styles.error}>
@@ -151,6 +157,7 @@ const styles = StyleSheet.create({
   },
   btnDim: { opacity: 0.75 },
   btnText: { color: "#FFFFFF", fontSize: 12, fontFamily: interFonts.bold },
+  thinking: { alignItems: "center", flexDirection: "row", gap: 8 },
   hint: { color: colors.textMuted, fontSize: 11, fontFamily: interFonts.regular },
   error: { color: colors.danger, fontSize: 12, fontFamily: interFonts.semibold },
   result: { gap: 6 },

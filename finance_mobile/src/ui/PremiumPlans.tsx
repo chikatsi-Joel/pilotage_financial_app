@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import type { PremiumPurchase } from "../shared/billing/usePremiumPurchase";
 import { requestPremium } from "../shared/config/legal";
+import { Animation } from "./animations/Animation";
 import { colors, interFonts } from "./theme";
 
 export function PremiumPlans({ purchase }: { purchase: PremiumPurchase }) {
@@ -44,7 +45,12 @@ export function PremiumPlans({ purchase }: { purchase: PremiumPurchase }) {
               </Text>
             </Pressable>
           ))}
-          {phase === "verifying" ? <Text style={styles.note}>Activation du Premium…</Text> : null}
+          {phase === "verifying" ? (
+            <View style={styles.verifying}>
+              <Animation height={22} name="aiThinking" />
+              <Text style={styles.note}>Activation du Premium…</Text>
+            </View>
+          ) : null}
           <Text style={styles.note}>
             Renouvellement automatique, résiliable à tout moment depuis Google Play.
           </Text>
@@ -72,6 +78,7 @@ const styles = StyleSheet.create({
   btnAlt: { backgroundColor: colors.surface, borderColor: colors.primary, borderWidth: 1.5 },
   btnAltText: { color: colors.primary },
   pressed: { opacity: 0.75 },
+  verifying: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "center" },
   note: { color: colors.textMuted, fontFamily: interFonts.regular, fontSize: 12, textAlign: "center" },
   link: { color: colors.primary, fontFamily: interFonts.semibold, fontSize: 13, textAlign: "center" },
   error: { color: colors.danger, fontFamily: interFonts.medium, fontSize: 13, textAlign: "center" },

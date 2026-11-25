@@ -31,6 +31,7 @@ import { useAppStore } from "../src/shared/store";
 import { initialsOf } from "../src/shared/utils/profile";
 import { CurrencyList } from "../src/ui/CurrencyList";
 import { PremiumPlans } from "../src/ui/PremiumPlans";
+import { Animation } from "../src/ui/animations/Animation";
 import { ScreenHeader } from "../src/ui/components";
 import { colors, interFonts } from "../src/ui/theme";
 import { useTour } from "../src/ui/tour/TourProvider";
@@ -72,7 +73,9 @@ export default function Settings() {
     },
     [userId, currency, setCurrency],
   );
-  const purchase = usePremiumPurchase(userId, () => undefined);
+  // Achat vérifié pendant la visite : courte célébration avant l'état « Premium actif ».
+  const [justActivated, setJustActivated] = useState(false);
+  const purchase = usePremiumPurchase(userId, () => setJustActivated(true));
   const premium = purchase.status?.premium === true;
   const premiumUntil = premiumUntilLabel(purchase.status?.premium_until);
   const tour = useTour();
@@ -165,7 +168,15 @@ export default function Settings() {
 
         {/* ── Premium ── */}
         <Section title="Premium">
-          {premium ? (
+          {premium && justActivated ? (
+            <View style={styles.activated}>
+              <Animation height={96} loop={false} name="success" />
+              <Text style={styles.premiumTitle}>Premium activé</Text>
+              <Text style={styles.premiumText}>
+                {premiumUntil ? `Analyses IA illimitées jusqu'au ${premiumUntil}.` : "Analyses IA illimitées."}
+              </Text>
+            </View>
+          ) : premium ? (
             <>
               <Row
                 icon="crown-outline"
@@ -396,6 +407,7 @@ const styles = StyleSheet.create({
   currencyError: { color: colors.danger, fontFamily: interFonts.medium, fontSize: 13, padding: 14 },
 
   premium: { gap: 14, padding: 16 },
+  activated: { alignItems: "center", gap: 4, padding: 16 },
   premiumHeader: { alignItems: "center", flexDirection: "row", gap: 12 },
   premiumHeaderText: { flex: 1, gap: 2 },
   premiumTitle: { color: colors.text, fontFamily: interFonts.bold, fontSize: 14.5 },

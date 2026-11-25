@@ -25,6 +25,7 @@ import type { AIAnalysis, AIHealth, AIQuota, Recommendation } from "../src/share
 import { analysisStatusNote, canUpdate, freeAnalyses, resetLabel } from "../src/shared/utils/aiQuota";
 import { formatMoney } from "../src/shared/utils/money";
 import { PremiumPlans } from "../src/ui/PremiumPlans";
+import { Animation } from "../src/ui/animations/Animation";
 import { colors, interFonts } from "../src/ui/theme";
 
 /* ------------------------------------------------------------------ */
@@ -559,7 +560,10 @@ export default function AnalyseDetail() {
               ) : null}
             </View>
             {loading ? (
-              <ActivityIndicator color={colors.primary} />
+              <View style={styles.thinking}>
+                <Animation height={32} name="aiThinking" />
+                <Text style={styles.thinkingText}>Lucia analyse votre mois…</Text>
+              </View>
             ) : (
               <Text style={styles.summaryText}>
                 {analysis?.summary || error || "Aucune analyse disponible pour cette période."}
@@ -798,6 +802,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   updateBtnText: { color: colors.primary, fontFamily: interFonts.semibold, fontSize: 12.5 },
+  thinking: { alignItems: "center", gap: 6, paddingVertical: 6 },
+  thinkingText: { color: colors.textMuted, fontFamily: interFonts.medium, fontSize: 13 },
   premiumCard: {
     backgroundColor: colors.surface,
     borderColor: "#E4E0FA",
