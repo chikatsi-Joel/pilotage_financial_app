@@ -1046,9 +1046,10 @@ export default function Dashboard() {
           weekly={data?.weekly ?? []}
         />
 
-        {/* ── Épargne Projetée ── */}
+        {/* ── Épargne : projetée du mois, puis réalisée sur l'objectif ── */}
         <View style={styles.projectedCard}>
           <View pointerEvents="none" style={styles.projectedDecor} />
+          <View pointerEvents="none" style={styles.projectedDecorBottom} />
           <View style={styles.projectedTop}>
             <Text style={styles.projectedLabel}>Épargne Projetée</Text>
             <Text style={styles.projectedDate}>{projectedDate}</Text>
@@ -1103,27 +1104,25 @@ export default function Dashboard() {
               {formatMoney(trackMax, currency)}
             </Text>
           </View>
-        </View>
 
-        {/* ── Épargne Réalisée ── */}
-        {goal && (
-          <View style={styles.savingsCard}>
-            <View pointerEvents="none" style={styles.savingsDecorTop} />
-            <View pointerEvents="none" style={styles.savingsDecorBottom} />
-            <View style={styles.savingsContent}>
-              <View style={styles.savingsLeft}>
-                <Text style={styles.savingsLabel}>Épargne Réalisée</Text>
-                <Text style={styles.savingsAmount}>
-                  {formatMoney(goal.current_amount, currency)}
-                </Text>
-                <Text style={styles.savingsGoal}>
-                  Objectif : {formatMoney(goal.target_amount, currency)}
-                </Text>
+          {goal && (
+            <>
+              <View style={styles.savingsDivider} />
+              <View style={styles.savingsContent}>
+                <View style={styles.savingsLeft}>
+                  <Text style={styles.savingsLabel}>Épargne Réalisée</Text>
+                  <Text style={styles.savingsAmount}>
+                    {formatMoney(goal.current_amount, currency)}
+                  </Text>
+                  <Text style={styles.savingsGoal}>
+                    Objectif : {formatMoney(goal.target_amount, currency)}
+                  </Text>
+                </View>
+                <DonutProgress pct={goal.progress_percentage} />
               </View>
-              <DonutProgress pct={goal.progress_percentage} />
-            </View>
-          </View>
-        )}
+            </>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -1383,35 +1382,22 @@ const styles = StyleSheet.create({
     minWidth: 28,
   },
 
-  /* ═══ Épargne Réalisée ═══ */
-  savingsCard: {
-    backgroundColor: "#F4EEFF",
-    borderRadius: 24,
-    overflow: "hidden",
-    padding: 20,
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-  },
-  savingsDecorTop: {
-    backgroundColor: "#FFFFFF26",
-    borderRadius: 999,
-    height: 160,
-    position: "absolute",
-    right: -48,
-    top: -48,
-    width: 160,
-  },
-  savingsDecorBottom: {
+  projectedDecorBottom: {
     backgroundColor: "#572BA00B",
     borderRadius: 999,
-    height: 96,
-    position: "absolute",
     bottom: -32,
+    height: 96,
     left: -24,
+    position: "absolute",
     width: 96,
+  },
+
+  /* ═══ Épargne Réalisée (bas de la carte épargne) ═══ */
+  savingsDivider: {
+    backgroundColor: `${colors.primary}1A`,
+    height: 1,
+    marginBottom: 4,
+    marginTop: 10,
   },
   savingsContent: {
     alignItems: "center",

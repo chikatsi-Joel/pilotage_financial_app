@@ -2,6 +2,7 @@ import { DefaultTheme, Stack, ThemeProvider, usePathname } from "expo-router";
 import { useEffect, useState } from "react";
 import { BackHandler, StyleSheet, View } from "react-native";
 import { useFonts } from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
 // Import par graisse : seules ces 4 polices sont embarquées dans l'app.
 import { Poppins_400Regular } from "@expo-google-fonts/poppins/400Regular";
 import { Poppins_500Medium } from "@expo-google-fonts/poppins/500Medium";
@@ -19,10 +20,14 @@ import { endLocalSession } from "../src/shared/auth/signOut";
 import { useNotificationRouting } from "../src/shared/notifications/useNotificationRouting";
 import { useAppStore } from "../src/shared/store";
 import { MaintenanceScreen } from "../src/ui/MaintenanceScreen";
+import { SplashIntro } from "../src/ui/splash/SplashIntro";
 import { TourProvider } from "../src/ui/tour/TourProvider";
 import { colors } from "../src/ui/theme";
 
 /** Thème de navigation clair fixe : évite le fond sombre derrière la barre d'onglets. */
+// Le splash natif reste affiché jusqu'à ce que l'intro animée, identique, prenne le relais.
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
 const navigationTheme = {
   ...DefaultTheme,
   colors: {
@@ -83,8 +88,25 @@ export default function RootLayout() {
     return () => setUnauthorizedHandler(null);
   }, []);
 
-  if ((!fontsLoaded && !fontError) || !configReady) return null;
+  const [introDone, setIntroDone] = useState(false);
+  const fontsReady = fontsLoaded || !!fontError;
+  const appReady = fontsReady && configReady;
 
+  // L'intro garde la même place dans l'arbre avant et après le chargement : elle ne redémarre
+  // pas quand l'app apparaît en dessous.
+  return (
+    <View style={styles.app}>
+      {appReady ? <AppTree /> : null}
+      {introDone ? null : (
+        <SplashIntro fontsReady={fontsReady} onDone={() => setIntroDone(true)} ready={appReady} />
+      )}
+    </View>
+  );
+}
+
+/** Navigation et écran de maintenance, montés une fois l'app prête. */
+function AppTree() {
+  const maintenance = useRemoteFlags((st) => st.maintenance);
   return (
     <ThemeProvider value={navigationTheme}>
         <TourProvider>

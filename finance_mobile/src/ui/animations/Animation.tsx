@@ -17,6 +17,8 @@ const SOURCES = {
   coinDrop: require("../../../assets/lottie/coin-drop.json"),
   /** Confettis violets et or : objectif atteint (une fois). */
   confetti: require("../../../assets/lottie/confetti.json"),
+  /** « L » de la marque au lancement (le point est animé à part) : respire, ondes (une fois). */
+  splashMarkL: require("../../../assets/lottie/splash-mark-l.json"),
 } as const;
 
 export type AnimationName = keyof typeof SOURCES;
@@ -28,6 +30,7 @@ const RATIO: Record<AnimationName, number> = {
   emptyPulse: 1,
   coinDrop: 1,
   confetti: 1,
+  splashMarkL: 1,
 };
 
 function useReduceMotion(): boolean {
